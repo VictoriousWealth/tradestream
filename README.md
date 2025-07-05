@@ -122,6 +122,4 @@ This project simulates financial system behavior for educational purposes only. 
 
 Inspired by architectural patterns and standards seen in organizations such as **JPMorgan Chase**, **AWS**, and **OWASP**.
 
-```
-
 ---
