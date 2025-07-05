@@ -1,0 +1,18 @@
+# Java
+/target/
+/*.iml
+*.class
+
+# Docker
+*.env
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+
