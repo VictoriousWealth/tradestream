@@ -1,18 +1,24 @@
-# Java
-/target/
-/*.iml
-*.class
+# Java build artifacts
+**/target/
+**/*.class
+
+# Maven/Gradle specific
+**/*.iml
+**/.idea/
 
 # Docker
 *.env
+.env
+.env.*
 
 # Logs
 *.log
 
-# OS
+# OS / Editor junk files
 .DS_Store
-
-# IDEs
-.idea/
 .vscode/
+.idea/
+
+# System specific
+Thumbs.db
 
