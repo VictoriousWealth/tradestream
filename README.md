@@ -187,7 +187,16 @@ TradeStream enables practical experience with:
 
 ## 📝 License
 
-Distributed under a license of your choice (e.g., MIT, Apache 2.0). See `LICENSE` for details.
+This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.
+
+You are free to:
+
+* Share and adapt the project
+* Use it for educational, personal, or research purposes
+
+**Commercial use is not permitted.**
+
+See the full license [here](https://creativecommons.org/licenses/by-nc/4.0/) for details.
 
 ---
 
