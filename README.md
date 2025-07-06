@@ -66,39 +66,39 @@ TradeStream is a backend portfolio project that demonstrates:
 <p align="center">
 
   <a href="https://www.java.com/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/java/java-original-wordmark.svg" title="Java" alt="Java" width="90px" />
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/java/java-original-wordmark.svg" title="Java" alt="Java" width="80px" />
   </a>
 
   <a href="https://spring.io/projects/spring-boot" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/spring/spring-original-wordmark.svg" title="Spring Boot" alt="Spring Boot" width="90px" />
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/spring/spring-original-wordmark.svg" title="Spring Boot" alt="Spring Boot" width="80px" />
   </a>
 
   <a href="https://www.docker.com/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/docker/docker-plain-wordmark.svg" title="Docker" alt="Docker" width="90px" />
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/docker/docker-plain-wordmark.svg" title="Docker" alt="Docker" width="80px" />
   </a>
 
   <a href="https://kubernetes.io/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/kubernetes/kubernetes-plain-wordmark.svg" title="Kubernetes" alt="Kubernetes" width="90px" />
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/kubernetes/kubernetes-plain-wordmark.svg" title="Kubernetes" alt="Kubernetes" width="80px" />
   </a>
 
   <a href="https://www.postgresql.org/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/postgresql/postgresql-plain-wordmark.svg" title="PostgreSQL" alt="PostgreSQL" width="90px" />
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/postgresql/postgresql-plain-wordmark.svg" title="PostgreSQL" alt="PostgreSQL" width="80px" />
   </a>
 
   <a href="https://redis.io/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/redis/redis-original-wordmark.svg" title="Redis" alt="Redis" width="90px" />
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/redis/redis-original-wordmark.svg" title="Redis" alt="Redis" width="80px" />
   </a>
 
   <a href="https://www.rabbitmq.com/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/rabbitmq/rabbitmq-original-wordmark.svg" title="RabbitMQ" alt="RabbitMQ" width="90px" />
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/rabbitmq/rabbitmq-original-wordmark.svg" title="RabbitMQ" alt="RabbitMQ" width="80px" />
   </a>
 
   <a href="https://aws.amazon.com/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/amazonwebservices/amazonwebservices-plain-wordmark.svg" title="AWS" alt="AWS" width="90px" />
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/amazonwebservices/amazonwebservices-plain-wordmark.svg" title="AWS" alt="AWS" width="80px" />
   </a>
 
   <a href="https://www.terraform.io/" target="_blank">
-    <img src="https://github.com/VictoriousWealth/VictoriousWealth/blob/main/terraform-icon-purple" title="Terraform" alt="Terraform" width="90px" />
+    <img src="https://github.com/VictoriousWealth/VictoriousWealth/blob/main/terraform-icon-purple" title="Terraform" alt="Terraform" width="80px" />
   </a>
 
 </p>
