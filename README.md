@@ -6,7 +6,6 @@
   <a href="#project-overview"><strong>Explore the Project Overview »</strong></a>
 </p>
 
-
 ---
 
 ## 📑 Table of Contents
@@ -27,7 +26,6 @@
 ---
 
 <a name="project-overview"></a>
-
 ## 🚀 Project Overview
 
 TradeStream is a backend portfolio project that demonstrates:
@@ -44,6 +42,7 @@ TradeStream is a backend portfolio project that demonstrates:
 
 ---
 
+<a name="technology-stack"></a>
 ## 🛠️ Technology Stack
 
 | Category             | Technology                         |
@@ -66,6 +65,7 @@ TradeStream is a backend portfolio project that demonstrates:
 
 ---
 
+<a name="system-architecture"></a>
 ## 🏗️ System Architecture
 
 > _See [`/docs/architecture-diagram.png`](docs/architecture-diagram.png) for the full system diagram._
@@ -81,6 +81,7 @@ TradeStream is a backend portfolio project that demonstrates:
 
 ---
 
+<a name="getting-started"></a>
 ## ⚙️ Getting Started
 
 ### Prerequisites
@@ -105,6 +106,8 @@ Access:
 
 ---
 
+<a name="usage"></a>
+
 ## 💡 Usage
 
 This project simulates real-time transaction processing using microservices and event-driven patterns. Intended for:
@@ -115,6 +118,8 @@ This project simulates real-time transaction processing using microservices and 
 * Practicing secure API development for financial-like systems
 
 ---
+
+<a name="roadmap"></a>
 
 ## 🛣️ Roadmap
 
@@ -137,6 +142,8 @@ This project simulates real-time transaction processing using microservices and 
 
 ---
 
+<a name="security-considerations"></a>
+
 ## 🔒 Security Considerations
 
 * Secure coding practices applied from Day 1
@@ -151,6 +158,8 @@ This project simulates real-time transaction processing using microservices and 
 
 ---
 
+<a name="documentation"></a>
+
 ## 📚 Documentation
 
 * [Project Requirements & Design (PRD)](docs/tradestream-prd.pdf)
@@ -159,6 +168,8 @@ This project simulates real-time transaction processing using microservices and 
 * [Planned Enhancements](docs/future-enhancements.md)
 
 ---
+
+<a name="learning-objectives"></a>
 
 ## 🎯 Learning Objectives
 
@@ -172,11 +183,15 @@ TradeStream enables practical experience with:
 
 ---
 
+<a name="license"></a>
+
 ## 📝 License
 
 Distributed under a license of your choice (e.g., MIT, Apache 2.0). See `LICENSE` for details.
 
 ---
+
+<a name="contact"></a>
 
 ## 📬 Contact
 
@@ -186,15 +201,12 @@ Distributed under a license of your choice (e.g., MIT, Apache 2.0). See `LICENSE
 
 ---
 
+<a name="acknowledgements"></a>
+
 ## 🙏 Acknowledgements
 
 * Architectural patterns inspired by real-world fintech systems such as JPMorgan
 * Security best practices influenced by **OWASP** guidelines
 * Deployment and infrastructure ideas from **AWS** resources
-
----
-
-✔ You may add a `LICENSE` file later  
-✔ You prefer clean, practical documentation links over flashy GitHub badges  
 
 ---
