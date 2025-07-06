@@ -1,5 +1,3 @@
----
-
 # **Section 1: Title & Document Control**
 
 ### **1\. Title & Document Control**
