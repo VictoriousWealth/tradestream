@@ -1,6 +1,24 @@
 <h1 align="center">TradeStream — Real-Time Financial Data Processor</h1>
 
 <p align="center">
+  <a href="https://github.com/VictoriousWealth/tradestream">
+    <img src="https://img.shields.io/github/repo-size/VictoriousWealth/tradestream" alt="Repo Size">
+  </a>
+  <a href="https://github.com/VictoriousWealth/tradestream/issues">
+    <img src="https://img.shields.io/github/issues/VictoriousWealth/tradestream" alt="Open Issues">
+  </a>
+  <a href="https://github.com/VictoriousWealth/tradestream/pulls">
+    <img src="https://img.shields.io/github/issues-pr/VictoriousWealth/tradestream" alt="Pull Requests">
+  </a>
+  <a href="https://github.com/VictoriousWealth/tradestream/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg" alt="License">
+  </a>
+  <a href="https://github.com/VictoriousWealth/tradestream/commits/main">
+    <img src="https://img.shields.io/github/last-commit/VictoriousWealth/tradestream" alt="Last Commit">
+  </a>
+</p>
+
+<p align="center">
   Scalable, secure microservice-based system simulating real-time financial transaction processing.<br>
   Inspired by architecture and engineering practices used in modern financial institutions like JPMorgan Chase.<br><br>
   <a href="#project-overview"><strong>Explore the Project Overview »</strong></a>
@@ -92,7 +110,7 @@ TradeStream is a backend portfolio project that demonstrates:
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/tradestream.git
+git clone https://github.com/VictoriousWealth/tradestream.git
 cd tradestream
 
 # Build and run containers
