@@ -192,6 +192,8 @@ The architecture separates concerns clearly between **external-facing components
 
 ### **5.2 High-Level System Diagram**
 
+<img src="https://github.com/VictoriousWealth/tradestream/blob/main/docs/architecture-diagram.png" alt="High-Level System Diagram">
+
 ---
 
 ### **5.3 Component Descriptions**
