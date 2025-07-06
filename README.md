@@ -1,10 +1,3 @@
-Here’s a **clean, recruiter-friendly, professional hybrid `README.md`** for your **TradeStream** project, blending the polished feel of popular GitHub templates with realistic backend portfolio expectations.
-
----
-
-# ✅ **Finalized README.md for TradeStream**
-
-````markdown
 <p align="center">
   <h1 align="center">TradeStream — Real-Time Financial Data Processor</h1>
   <p align="center">
