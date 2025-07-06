@@ -1,11 +1,11 @@
+<h1 align="center">TradeStream — Real-Time Financial Data Processor</h1>
+
 <p align="center">
-  <h1 align="center">TradeStream — Real-Time Financial Data Processor</h1>
-  <p align="center">
-    Scalable, secure microservice-based system simulating real-time financial transaction processing.<br>
-    Inspired by architecture and engineering practices used in modern financial institutions like JPMorgan Chase.<br><br>
-    <a href="#project-overview"><strong>Explore the Project Overview »</strong></a>
-  </p>
+  Scalable, secure microservice-based system simulating real-time financial transaction processing.<br>
+  Inspired by architecture and engineering practices used in modern financial institutions like JPMorgan Chase.<br><br>
+  <a href="#project-overview"><strong>Explore the Project Overview »</strong></a>
 </p>
+
 
 ---
 
