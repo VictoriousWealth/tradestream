@@ -26,6 +26,8 @@
 
 ---
 
+<a name="project-overview"></a>
+
 ## 🚀 Project Overview
 
 TradeStream is a backend portfolio project that demonstrates:
