@@ -11,7 +11,7 @@
     <img src="https://img.shields.io/github/issues-pr/VictoriousWealth/tradestream" alt="Pull Requests">
   </a>
   <a href="https://github.com/VictoriousWealth/tradestream/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/license-CC%20BY--NC%204.0-blue.svg" alt="License">
+    <img src="https://img.shields.io/badge/LICENSE-CC%20BY--NC%204.0-blue.svg" alt="License">
   </a>
   <a href="https://github.com/VictoriousWealth/tradestream/commits/main">
     <img src="https://img.shields.io/github/last-commit/VictoriousWealth/tradestream" alt="Last Commit">
@@ -62,6 +62,48 @@ TradeStream is a backend portfolio project that demonstrates:
 
 <a name="technology-stack"></a>
 ## 🛠️ Technology Stack
+
+<p align="center">
+
+  <a href="https://www.java.com/" target="_blank">
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/java/java-original-wordmark.svg" title="Java" alt="Java" width="90px" />
+  </a>
+
+  <a href="https://spring.io/projects/spring-boot" target="_blank">
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/spring/spring-original-wordmark.svg" title="Spring Boot" alt="Spring Boot" width="90px" />
+  </a>
+
+  <a href="https://www.docker.com/" target="_blank">
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/docker/docker-plain-wordmark.svg" title="Docker" alt="Docker" width="90px" />
+  </a>
+
+  <a href="https://kubernetes.io/" target="_blank">
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/kubernetes/kubernetes-plain-wordmark.svg" title="Kubernetes" alt="Kubernetes" width="90px" />
+  </a>
+
+  <a href="https://www.postgresql.org/" target="_blank">
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/postgresql/postgresql-plain-wordmark.svg" title="PostgreSQL" alt="PostgreSQL" width="90px" />
+  </a>
+
+  <a href="https://redis.io/" target="_blank">
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/redis/redis-original-wordmark.svg" title="Redis" alt="Redis" width="90px" />
+  </a>
+
+  <a href="https://www.rabbitmq.com/" target="_blank">
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/rabbitmq/rabbitmq-original-wordmark.svg" title="RabbitMQ" alt="RabbitMQ" width="90px" />
+  </a>
+
+  <a href="https://aws.amazon.com/" target="_blank">
+    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/amazonwebservices/amazonwebservices-plain-wordmark.svg" title="AWS" alt="AWS" width="90px" />
+  </a>
+
+  <a href="https://www.terraform.io/" target="_blank">
+    <img src="https://github.com/VictoriousWealth/VictoriousWealth/blob/main/terraform-icon-purple" title="Terraform" alt="Terraform" width="90px" />
+  </a>
+
+</p>
+
+
 
 | Category             | Technology                         |
 |----------------------|------------------------------------|
