@@ -1,18 +1,36 @@
-# **Section 1: Title & Document Control**
 
-### **1\. Title & Document Control**
+# **Table of Contents**
+
+* [1. Title & Document Control](#1-title--document-control)
+* [2. Executive Summary](#2-executive-summary)
+* [2A. Technology Overview](#2a-technology-overview)
+* [3. Goals & Objectives](#3-goals--objectives)
+* [4. Scope & Deliverables](#4-scope--deliverables)
+* [5. High-Level Architecture (Updated with Authentication Service)](#5-high-level-architecture-updated-with-authentication-service)
+* [6. Technical Design](#6-technical-design)
+* [7. Assumptions & Constraints](#7-assumptions--constraints)
+* [8. Risks & Mitigations](#8-risks--mitigations)
+* [9. Timeline & Milestones](#9-timeline--milestones)
+* [10. References & Resources](#10-references--resources)
+* [11. Appendix](#11-appendix)
+
+---
+
+# **Section 1: Title & Document Control** [↑ Top](#table-of-contents)
+
+### **1\. Title & Document Control** [↑ Section Top](#1-title--document-control)
 
 | Field | Content |
 | ----- | ----- |
 | **Project Name** | TradeStream — Real-Time Financial Data Processor |
-| **Version** | 0.1 (Draft) — Follows semantic versioning: 0.x for drafts, 1.0 for first release, 1.x for iterative improvements.  |
+| **Version** | 1.0 (Finalised) — Follows semantic versioning: 0.x for drafts, 1.0 for first release, 1.x for iterative improvements.  |
 | **Author** | Nick Efe Oni |
 | **Date** | Fri, 04 July 2025 |
 | **Reviewers** | N/A |
 
 ---
 
-## **2\. Executive Summary**
+## **2\. Executive Summary** [↑ Top](#table-of-contents)
 
 **TradeStream — Real-Time Financial Data Processor** is a scalable, resilient microservice-based system designed to simulate the processing of real-time financial transactions and market data streams. The project reflects the architectural principles and engineering practices commonly used in modern financial institutions, such as JPMorgan Chase, where secure, high-throughput, fault-tolerant systems are essential for reliable operations.
 
@@ -24,13 +42,13 @@ As a portfolio and learning project aligned with JPMorgan Chase’s technology s
 
 ---
 
-## **2A. Technology Overview**
+## **2A. Technology Overview** [↑ Section Top](#2-executive-summary)
 
 This section outlines the intended technology stack for TradeStream. It distinguishes between technologies confirmed for the Minimum Viable Product (MVP) and those planned as future enhancements to align with enterprise-grade scalability, resilience, and security standards.
 
 ---
 
-### **Minimum Viable Product (MVP) Technology Stack**
+### **Minimum Viable Product (MVP) Technology Stack** [↑ Section Top](#2-executive-summary)
 
 For the MVP phase, all microservices will be containerized and deployed on a single AWS Lightsail instance for simplified management and cost efficiency. Future iterations will explore multi-instance deployment and/or Kubernetes-based orchestration to reflect production-grade microservice infrastructure patterns.
 
@@ -47,7 +65,7 @@ For the MVP phase, all microservices will be containerized and deployed on a sin
 
 ---
 
-### **Planned / Future Enhancements**
+### **Planned / Future Enhancements** [↑ Section Top](#2-executive-summary)
 
 The following enhancements are planned for future development phases to align TradeStream more closely with enterprise-grade production standards:
 
@@ -61,7 +79,7 @@ The following enhancements are planned for future development phases to align Tr
 
 ---
 
-### **Assumptions & Notes**
+### **Assumptions & Notes** [↑ Section Top](#2-executive-summary)
 
 * **Stream Processing Choice:** Final decision between Kafka and RabbitMQ will be made during technical design based on project needs and ease of setup.  
 * **Future Enhancements:** Kubernetes, Terraform, and Observability tooling will be explored in later stages to demonstrate system scalability, reproducibility, and production-grade practices.  
@@ -69,15 +87,15 @@ The following enhancements are planned for future development phases to align Tr
 
 ---
 
-## **3\. Goals & Objectives**
+## **3\. Goals & Objectives** [↑ Top](#table-of-contents)
 
-### **3.1 Project Purpose**
+### **3.1 Project Purpose**  [↑ Section Top](#3-goals--objectives)
 
 The purpose of TradeStream is to design, build, and deploy a scalable, resilient, and secure microservice-based system that simulates the processing of real-time financial transactions and market data streams. This project serves as a technical portfolio piece and a practical learning exercise, demonstrating backend engineering skills aligned with the standards and technologies used in large-scale financial services environments, such as those at JPMorgan Chase.
 
 ---
 
-### **3.2 Technical Objectives**
+### **3.2 Technical Objectives**  [↑ Section Top](#3-goals--objectives)
 
 The key technical objectives of TradeStream are:
 
@@ -91,7 +109,7 @@ The key technical objectives of TradeStream are:
 
 ---
 
-### **3.3 Learning Objectives**
+### **3.3 Learning Objectives**  [↑ Section Top](#3-goals--objectives)
 
 In addition to technical deliverables, TradeStream aims to achieve the following personal and professional development objectives:
 
@@ -104,7 +122,7 @@ In addition to technical deliverables, TradeStream aims to achieve the following
 
 ---
 
-### **3.4 Future Enhancement Objectives**
+### **3.4 Future Enhancement Objectives**  [↑ Section Top](#3-goals--objectives)
 
 To align with enterprise-grade system expectations, the following future enhancements are planned:
 
@@ -116,9 +134,9 @@ To align with enterprise-grade system expectations, the following future enhance
 
 ---
 
-## **4\. Scope & Deliverables**
+## **4\. Scope & Deliverables** [↑ Top](#table-of-contents)
 
-### **4.1 Project Scope**
+### **4.1 Project Scope**  [↑ Section Top](#4-scope--deliverables)
 
 TradeStream will deliver a scalable, resilient, and secure microservice-based system that simulates the processing of real-time financial transactions and market data streams. The project is intended as a portfolio and learning exercise to showcase backend development, secure engineering, and system design practices aligned with standards used in financial services environments such as JPMorgan Chase.
 
@@ -143,7 +161,7 @@ TradeStream will deliver a scalable, resilient, and secure microservice-based sy
 
 ---
 
-### **4.2 Planned Future Deliverables**
+### **4.2 Planned Future Deliverables** [↑ Section Top](#4-scope--deliverables)
 
 In later phases of development, the project may incorporate:
 
@@ -161,7 +179,7 @@ In later phases of development, the project may incorporate:
 
 ---
 
-### **4.3 Deliverables Summary**
+### **4.3 Deliverables Summary** [↑ Section Top](#4-scope--deliverables)
 
 | Deliverable | Included in MVP | Planned for Future Phases |
 | ----- | ----- | ----- |
@@ -180,9 +198,9 @@ In later phases of development, the project may incorporate:
 
 ---
 
-# **5\. High-Level Architecture (Updated with Authentication Service)**
+# **5\. High-Level Architecture (Updated with Authentication Service)** [↑ Top](#table-of-contents)
 
-### **5.1 Architectural Overview**
+### **5.1 Architectural Overview** [↑ Section Top](#5-high-level-architecture-updated-with-authentication-service)
 
 TradeStream is designed as a scalable, resilient, and secure microservice-based system following modern architectural principles used in financial services environments. The system is composed of loosely coupled microservices, an API Gateway, a message broker for event-driven communication, a dedicated Authentication Service for secure token issuance, and a layered data storage approach incorporating both persistent and in-memory data stores.
 
@@ -190,13 +208,13 @@ The architecture separates concerns clearly between **external-facing components
 
 ---
 
-### **5.2 High-Level System Diagram**
+### **5.2 High-Level System Diagram** [↑ Section Top](#5-high-level-architecture-updated-with-authentication-service)
 
-<img src="https://github.com/VictoriousWealth/tradestream/blob/main/docs/architecture-diagram.png" alt="High-Level System Diagram">
+<img src="https://github.com/VictoriousWealth/tradestream/blob/main/docs/high-level-architecture-diagram.png" alt="High-Level System Diagram">
 
 ---
 
-### **5.3 Component Descriptions**
+### **5.3 Component Descriptions** [↑ Section Top](#5-high-level-architecture-updated-with-authentication-service)
 
 | Component | Description |
 | :---- | ----- |
@@ -212,7 +230,7 @@ The architecture separates concerns clearly between **external-facing components
 
 ---
 
-### **5.4 System Boundaries**
+### **5.4 System Boundaries** [↑ Section Top](#5-high-level-architecture-updated-with-authentication-service)
 
 | Boundary | Description |
 | :---- | ----- |
@@ -221,7 +239,7 @@ The architecture separates concerns clearly between **external-facing components
 
 ---
 
-### **5.5 Key Architectural Principles**
+### **5.5 Key Architectural Principles** [↑ Section Top](#5-high-level-architecture-updated-with-authentication-service)
 
 * **Microservice Isolation:** Each service owns its logic and data storage (PostgreSQL \+ Redis).  
 * **Authentication Separation:** A dedicated Authentication Service handles credential validation and token issuance.  
@@ -232,13 +250,13 @@ The architecture separates concerns clearly between **external-facing components
 
 ---
 
-# **6\. Technical Design**
+# **6\. Technical Design** [↑ Top](#table-of-contents)
 
 This section breaks down the internal structure of TradeStream's system components, key APIs, data flows, and security considerations. It provides a practical view of how the system will be implemented, building on the High-Level Architecture.
 
 ---
 
-## **6.1 Microservice Breakdown**
+## **6.1 Microservice Breakdown** [↑ Section Top](#6-technical-design)
 
 | Microservice | Responsibilities |
 | ----- | ----- |
@@ -250,9 +268,9 @@ This section breaks down the internal structure of TradeStream's system componen
 
 ---
 
-## **6.2 Key APIs**
+## **6.2 Key APIs** [↑ Section Top](#6-technical-design)
 
-### **Authentication Service**
+### **Authentication Service** [↑ Top](#table-of-contents)
 
 | Method | Endpoint | Description |
 | :---- | ----- | ----- |
@@ -260,7 +278,7 @@ This section breaks down the internal structure of TradeStream's system componen
 
 ---
 
-### **API Gateway**
+### **API Gateway** [↑ Section Top](#6-technical-design)
 
 | Method | Endpoint | Description |
 | :---- | ----- | ----- |
@@ -269,7 +287,7 @@ This section breaks down the internal structure of TradeStream's system componen
 
 ---
 
-### **Transaction Processor**
+### **Transaction Processor** [↑ Section Top](#6-technical-design)
 
 | Method | Endpoint | Description |
 | :---- | ----- | ----- |
@@ -279,7 +297,7 @@ This section breaks down the internal structure of TradeStream's system componen
 
 ---
 
-### **Market Data Consumer**
+### **Market Data Consumer** [↑ Section Top](#6-technical-design)
 
 | Method | Endpoint | Description |
 | :---- | ----- | ----- |
@@ -287,7 +305,7 @@ This section breaks down the internal structure of TradeStream's system componen
 
 ---
 
-## **6.3 Data Flow Example: Transaction Creation**
+## **6.3 Data Flow Example: Transaction Creation** [↑ Section Top](#6-technical-design)
 
 1. Client sends `POST /transactions` to the API Gateway with a valid JWT.  
 2. API Gateway validates the token and routes the request to the Transaction Processor.  
@@ -301,7 +319,7 @@ This section breaks down the internal structure of TradeStream's system componen
 
 ---
 
-## **6.4 Data Storage Overview**
+## **6.4 Data Storage Overview** [↑ Section Top](#6-technical-design)
 
 | Component | Storage Used |
 | :---- | ----- |
@@ -311,7 +329,7 @@ This section breaks down the internal structure of TradeStream's system componen
 
 ---
 
-## **6.5 Message Broker Usage**
+## **6.5 Message Broker Usage** [↑ Section Top](#6-technical-design)
 
 ✔ The system uses **Kafka or RabbitMQ** for real-time, decoupled event-driven communication.  
 ✔ Initial topics include:
@@ -322,7 +340,7 @@ This section breaks down the internal structure of TradeStream's system componen
 
 ---
 
-## **6.6 Security Considerations**
+## **6.6 Security Considerations** [↑ Section Top](#6-technical-design)
 
 * **JWT Authentication:**  
   * Tokens issued by Authentication Service.  
@@ -334,13 +352,13 @@ This section breaks down the internal structure of TradeStream's system componen
 
 ---
 
-# **7\. Assumptions & Constraints**
+# **7\. Assumptions & Constraints** [↑ Top](#table-of-contents)
 
 This section outlines the technical assumptions and project constraints that inform the design, implementation, and delivery of the TradeStream system. These factors should be considered throughout development to ensure realistic expectations and technical feasibility.
 
 ---
 
-## **7.1 Technical Assumptions**
+## **7.1 Technical Assumptions** [↑ Section Top](#7-assumptions--constraints)
 
 1. **Docker Availability:**  
    All system components will be containerized using Docker. It is assumed that Docker is available and operational on all development and deployment environments.  
@@ -363,7 +381,7 @@ This section outlines the technical assumptions and project constraints that inf
 
 ---
 
-## **7.2 Project Constraints**
+## **7.2 Project Constraints** [↑ Section Top](#7-assumptions--constraints)
 
 1. **Learning Project Scope:**  
    TradeStream is a self-initiated portfolio and learning project. It is not intended for production use or commercial deployment.  
@@ -381,13 +399,13 @@ This section outlines the technical assumptions and project constraints that inf
 
 ---
 
-# **8\. Risks & Mitigations**
+# **8\. Risks & Mitigations** [↑ Top](#table-of-contents)
 
 This section identifies potential technical and project-related risks that may impact the successful delivery of TradeStream. Where possible, proactive mitigation strategies have been defined to reduce their likelihood or potential impact.
 
 ---
 
-## **8.1 Technical Risks**
+## **8.1 Technical Risks** [↑ Section Top](#8-risks--mitigations)
 
 | Risk | Mitigation Strategy |
 | ----- | ----- |
@@ -398,7 +416,7 @@ This section identifies potential technical and project-related risks that may i
 
 ---
 
-## **8.2 Project Risks**
+## **8.2 Project Risks** [↑ Section Top](#8-risks--mitigations)
 
 | Risk | Mitigation Strategy |
 | ----- | ----- |
@@ -409,7 +427,7 @@ This section identifies potential technical and project-related risks that may i
 
 ---
 
-## **8.3 General Risk Considerations**
+## **8.3 General Risk Considerations** [↑ Section Top](#8-risks--mitigations)
 
 * The project is intentionally scoped as a **portfolio and learning exercise**, not a commercial product, reducing risk exposure.  
 * Risks related to incomplete functionality, limited scalability, or simplified security are acceptable within the learning-focused project constraints.
@@ -422,13 +440,13 @@ Here’s a clean, realistic draft for **Section 9: Timeline & Milestones** for y
 
 ---
 
-# **9\. Timeline & Milestones**
+# **9\. Timeline & Milestones** [↑ Top](#table-of-contents)
 
 This section outlines an estimated high-level timeline for delivering TradeStream, including key development phases and milestones. The timeline reflects realistic learning objectives, resource availability, and project scope.
 
 ---
 
-## **9.1 High-Level Timeline (Estimated)**
+## **9.1 High-Level Timeline (Estimated)** [↑ Section Top](#9-timeline--milestones)
 
 | Phase | Estimated Target | Description |
 | :---- | ----- | ----- |
@@ -441,7 +459,7 @@ This section outlines an estimated high-level timeline for delivering TradeStrea
 
 ---
 
-## **9.2 Key Milestones**
+## **9.2 Key Milestones** [↑ Section Top](#9-timeline--milestones)
 
 ✔ **PRD Finalized** — July 2025  
 ✔ **Authentication Service Functional** — August 2025  
@@ -453,7 +471,7 @@ This section outlines an estimated high-level timeline for delivering TradeStrea
 
 ---
 
-## **9.3 Notes**
+## **9.3 Notes** [↑ Section Top](#9-timeline--milestones)
 
 * The timeline is intentionally flexible to accommodate learning pace and evolving technical understanding.  
 * Project phases may overlap or adjust based on real-world challenges and progress.  
@@ -465,13 +483,13 @@ This section outlines an estimated high-level timeline for delivering TradeStrea
 
 ---
 
-# **10\. References & Resources (Finalized)**
+# **10\. References & Resources (Finalized)** [↑ Top](#table-of-contents)
 
 This section lists key technical references, tools, and learning resources that support the design and development of TradeStream. These resources provide guidance on industry standards, relevant technologies, and best practices.
 
 ---
 
-## **10.1 Technical References**
+## **10.1 Technical References** [↑ Section Top](#10-references--resources)
 
 | Resource | Description |
 | ----- | ----- |
@@ -487,7 +505,7 @@ This section lists key technical references, tools, and learning resources that 
 
 ---
 
-## **10.2 Learning & Best Practices**
+## **10.2 Learning & Best Practices** [↑ Section Top](#10-references--resources)
 
 | Resource | Description |
 | ----- | ----- |
@@ -500,7 +518,7 @@ This section lists key technical references, tools, and learning resources that 
 
 ---
 
-## **10.3 Personal Learning Resources**
+## **10.3 Personal Learning Resources** [↑ Section Top](#10-references--resources)
 
 | Resource | Description |
 | ----- | ----- |
@@ -510,7 +528,7 @@ This section lists key technical references, tools, and learning resources that 
 
 ---
 
-## **10.4 Future Exploration (Post-MVP)**
+## **10.4 Future Exploration (Post-MVP)** [↑ Section Top](#10-references--resources)
 
 * Kubernetes Documentation  
 * Terraform Documentation  
@@ -519,3 +537,137 @@ This section lists key technical references, tools, and learning resources that 
 
 ---
 
+---
+
+#  **11. Appendix** [↑ Top](#table-of-contents)
+
+This appendix provides supplementary information, definitions, and supporting details relevant to the TradeStream project. It serves as a quick reference for readers to better understand technical terms, acronyms, and concepts used throughout this document.
+
+---
+
+## **11.1 Acronyms & Abbreviations** [↑ Section Top](#11-appendix)
+
+| Term  | Definition                                      |
+| ----- | ----------------------------------------------- |
+| API   | Application Programming Interface               |
+| AWS   | Amazon Web Services                             |
+| CI/CD | Continuous Integration / Continuous Deployment  |
+| DB    | Database                                        |
+| EDA   | Event-Driven Architecture                       |
+| JWT   | JSON Web Token                                  |
+| K8s   | Kubernetes                                      |
+| MVP   | Minimum Viable Product                          |
+| PRD   | Product Requirements Document                   |
+| RBAC  | Role-Based Access Control                       |
+| Redis | Remote Dictionary Server (In-memory data store) |
+| SQL   | Structured Query Language                       |
+| VCS   | Version Control System                          |
+
+---
+
+## **11.2 Definitions & Key Concepts** [↑ Section Top](#11-appendix)
+
+| Term/Concept                        | Description                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Microservice Architecture**       | Architectural style where the system is composed of small, independent, loosely coupled services.      |
+| **Event-Driven Architecture (EDA)** | System design where components communicate via asynchronous events rather than direct calls.           |
+| **Containerization**                | Packaging of software and its dependencies into isolated, portable containers using tools like Docker. |
+| **Infrastructure as Code (IaC)**    | Managing and provisioning infrastructure through code (e.g., Terraform) rather than manual processes.  |
+| **Observability**                   | The ability to understand a system’s internal state through metrics, logs, and monitoring tools.       |
+| **Authentication Service**          | A dedicated service responsible for validating user credentials and issuing authentication tokens.     |
+| **API Gateway**                     | A centralized entry point for client requests, enforcing security and routing to backend services.     |
+| **Message Broker**                  | Middleware that enables decoupled, asynchronous communication between services via messages or events. |
+| **JWT (JSON Web Token)**            | A compact, URL-safe token used for securely transmitting information between parties.                  |
+| **Rate Limiting**                   | A technique used to control the number of requests a user or client can make to a service.             |
+
+---
+
+## **11.3 Tools & Technologies Summary** [↑ Section Top](#11-appendix)
+
+| Technology                     | Purpose                                                   |
+| ------------------------------ | --------------------------------------------------------- |
+| Java Spring Boot               | Backend framework for building secure, scalable APIs      |
+| Kafka/RabbitMQ                 | Message brokers for real-time, event-driven communication |
+| PostgreSQL                     | Relational database for transactional data storage        |
+| Redis                          | In-memory cache to improve performance                    |
+| Docker                         | Containerization platform for isolated service deployment |
+| AWS Lightsail                  | Cloud platform for hosting services                       |
+| GitHub Actions                 | CI/CD pipeline for automated build, test, and deployment  |
+| Kubernetes (Planned)           | Container orchestration for scaling and resilience        |
+| Terraform (Planned)            | IaC for reproducible infrastructure provisioning          |
+| Prometheus & Grafana (Planned) | Observability tooling for monitoring and metrics          |
+
+---
+
+## **11.4 Example User Credentials (MVP Testing)** [↑ Section Top](#11-appendix)
+
+For demonstration and testing purposes only. These are non-production, hardcoded credentials intended for the MVP phase:
+
+| Username | Password      | Notes                                                         |
+| -------- | ------------- | ------------------------------------------------------------- |
+| `admin`  | `password123` | Example user with basic access for testing API functionality. |
+
+⚠️ **Note:** In a real-world production system, credentials would be securely stored, encrypted, and managed using appropriate security best practices.
+
+---
+
+## **11.5 Example API Request (Transaction Creation)** [↑ Section Top](#11-appendix)
+
+**Endpoint:** `POST /transactions`
+**Authorization:** Bearer Token (JWT) required
+**Request Body Example:**
+
+```json
+{
+  "amount": 250.00,
+  "currency": "USD",
+  "description": "Test transaction for MVP",
+  "recipient": "Test Recipient"
+}
+```
+
+**Example Successful Response:**
+
+```json
+{
+  "id": "txn_123456",
+  "status": "CREATED",
+  "timestamp": "2025-07-06T12:34:56Z"
+}
+```
+
+---
+
+## **11.6 Future Considerations Checklist** [↑ Section Top](#11-appendix)
+
+Planned enhancements for future project phases include:
+
+✅ Kubernetes Deployment
+✅ Terraform Infrastructure Management
+✅ Prometheus & Grafana Observability
+✅ Advanced API Security (e.g., Rate Limiting, RBAC)
+✅ Full CI/CD Pipeline with Docker Image Publishing
+✅ Market Data Generator Component
+
+---
+
+## **11.7 Relevant Learning Resources (Quick Links)** [↑ Section Top](#11-appendix)
+
+* [Spring Boot Documentation](https://spring.io/projects/spring-boot)
+* [Kafka Documentation](https://kafka.apache.org/documentation/)
+* [RabbitMQ Documentation](https://www.rabbitmq.com/documentation.html)
+* [Docker Documentation](https://docs.docker.com/)
+* [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+* [Redis Documentation](https://redis.io/docs/)
+* [JWT Introduction (Auth0)](https://auth0.com/learn/json-web-tokens/)
+* [AWS Lightsail Documentation](https://lightsail.aws.amazon.com/ls/docs/en_us/articles/amazon-lightsail-docs)
+
+---
+
+## **11.8 Contact & Ownership** [↑ Section Top](#11-appendix)
+
+**Project Owner:** Nick Efe Oni
+**Role:** Author, Architect, and Developer of TradeStream
+**Contact:** \[Your preferred contact method, e.g., email, GitHub profile]
+
+---
