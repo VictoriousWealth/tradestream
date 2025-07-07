@@ -142,6 +142,15 @@ TradeStream is a backend portfolio project that demonstrates:
 - **Message Broker:** Kafka or RabbitMQ for decoupled, event-driven communication  
 - **PostgreSQL & Redis:** Each microservice manages its own independent data stores  
 
+### 🔍 Service-Specific Docs
+
+Each microservice has its own documentation with setup notes, endpoints, and future plans:
+
+- [API Gateway](api-gateway/README.md)
+- [Authentication Service](authentication-service/README.md)
+- [Transaction Processor](transaction-processor/README.md)
+- [Market Data Consumer](market-data-consumer/README.md)
+
 ---
 
 <a name="getting-started"></a>
