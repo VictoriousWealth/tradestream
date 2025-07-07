@@ -44,7 +44,7 @@
 ---
 
 <a name="project-overview"></a>
-## 🚀 Project Overview
+## 🚀 Project Overview [↑ Top](#table-of-contents)
 
 TradeStream is a backend portfolio project that demonstrates:
 
@@ -60,8 +60,8 @@ TradeStream is a backend portfolio project that demonstrates:
 
 ---
 
-<a name="technology-stack"></a>
-## 🛠️ Technology Stack
+<a name="technology-stack"></a> 
+## 🛠️ Technology Stack [↑ Top](#table-of-contents)
 
 <p align="center">
 
@@ -116,7 +116,7 @@ TradeStream is a backend portfolio project that demonstrates:
 | CI/CD (MVP)          | GitHub Actions                     |
 | Deployment           | AWS Lightsail                      |
 
-**Planned Future Enhancements:**
+**Planned Future Enhancements:** 
 
 - Kubernetes for container orchestration  
 - Terraform for infrastructure as code  
@@ -126,11 +126,11 @@ TradeStream is a backend portfolio project that demonstrates:
 ---
 
 <a name="system-architecture"></a>
-## 🏗️ System Architecture
+## 🏗️ System Architecture [↑ Top](#table-of-contents)
 
 > _See [`/docs/architecture-diagram.png`](docs/architecture-diagram.png) for the full system diagram._
 
-**Core Components:**
+**Core Components:** 
 
 - **API Gateway:** Public entry point, request routing, token validation  
 - **Authentication Service:** Issues JWT tokens after successful login  
@@ -142,7 +142,7 @@ TradeStream is a backend portfolio project that demonstrates:
 ---
 
 <a name="getting-started"></a>
-## ⚙️ Getting Started
+## ⚙️ Getting Started [↑ Top](#table-of-contents)
 
 ### Prerequisites
 
@@ -168,7 +168,7 @@ Access:
 
 <a name="usage"></a>
 
-## 💡 Usage
+## 💡 Usage [↑ Top](#table-of-contents)
 
 This project simulates real-time transaction processing using microservices and event-driven patterns. Intended for:
 
@@ -181,7 +181,7 @@ This project simulates real-time transaction processing using microservices and 
 
 <a name="roadmap"></a>
 
-## 🛣️ Roadmap
+## 🛣️ Roadmap [↑ Top](#table-of-contents)
 
 ✅ MVP Core Features:
 
@@ -204,7 +204,7 @@ This project simulates real-time transaction processing using microservices and 
 
 <a name="security-considerations"></a>
 
-## 🔒 Security Considerations
+## 🔒 Security Considerations [↑ Top](#table-of-contents)
 
 * Secure coding practices applied from Day 1
 * JWT-based API authentication
@@ -220,7 +220,7 @@ This project simulates real-time transaction processing using microservices and 
 
 <a name="documentation"></a>
 
-## 📚 Documentation
+## 📚 Documentation [↑ Top](#table-of-contents)
 
 * [Project Requirements & Design (PRD)](docs/tradestream-prd.pdf)
 * [System Architecture Diagram](docs/architecture-diagram.png)
@@ -231,7 +231,7 @@ This project simulates real-time transaction processing using microservices and 
 
 <a name="learning-objectives"></a>
 
-## 🎯 Learning Objectives
+## 🎯 Learning Objectives [↑ Top](#table-of-contents)
 
 TradeStream enables practical experience with:
 
@@ -245,7 +245,7 @@ TradeStream enables practical experience with:
 
 <a name="license"></a>
 
-## 📝 License
+## 📝 License [↑ Top](#table-of-contents)
 
 This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.
 
@@ -262,7 +262,7 @@ See the full license [here](https://creativecommons.org/licenses/by-nc/4.0/) for
 
 <a name="contact"></a>
 
-## 📬 Contact
+## 📬 Contact [↑ Top](#table-of-contents)
 
 **Nick Efe Oni**
 [LinkedIn](https://www.linkedin.com/in/nick-oni)
@@ -272,7 +272,7 @@ See the full license [here](https://creativecommons.org/licenses/by-nc/4.0/) for
 
 <a name="acknowledgements"></a>
 
-## 🙏 Acknowledgements
+## 🙏 Acknowledgements [↑ Top](#table-of-contents)
 
 * Architectural patterns inspired by real-world fintech systems such as JPMorgan
 * Security best practices influenced by **OWASP** guidelines
