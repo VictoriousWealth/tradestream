@@ -277,7 +277,7 @@ See the full license [here](https://creativecommons.org/licenses/by-nc/4.0/) for
 ## 📬 Contact [↑ Top](#table-of-contents)
 
 **Nick Efe Oni**
-[LinkedIn](https://www.linkedin.com/in/nick-oni)
+[LinkedIn](https://www.linkedin.com/in/nick-efe-oni)
 [GitHub](https://github.com/VictoriousWealth)
 
 ---
