@@ -1,10 +1,12 @@
-## 🛡️ Authentication Service
+![SECURITY: HIGH](https://img.shields.io/badge/SECURITY-HIGH-brightgreen) ![JWT](https://img.shields.io/badge/JWT-ENABLED-green) ![SIGNING: RSA-PSS](https://img.shields.io/badge/SIGNING-RSA--PSS%20\(PS256\)-blue) ![HTTPS ONLY](https://img.shields.io/badge/HTTPS-ENFORCED-green) ![AES-256-GCM](https://img.shields.io/badge/ENCRYPTION-AES--256--GCM-yellowgreen) ![JWS](https://img.shields.io/badge/ACCESS%20TOKEN-JWS-blue) ![JWE](https://img.shields.io/badge/REFRESH%20TOKEN-JWE-yellow) ![CONFIGURABLE](https://img.shields.io/badge/CONFIG-ENV--BASED-blue) ![WORK IN PROGRESS](https://img.shields.io/badge/MAINTENANCE-ACTIVE-blue) ![TESTS NEEDED](https://img.shields.io/badge/TESTS-MISSING-red)
+
+## Authentication Service ![SECURITY: HIGH](https://img.shields.io/badge/SECURITY-HIGH-brightgreen)
 
 This microservice handles user authentication and secure token issuance in the **TradeStream** system. It generates **signed access tokens** and **encrypted refresh tokens**, using modern cryptographic standards to ensure confidentiality, integrity, and tamper-proof delivery across services.
 
 ---
 
-### 📌 Responsibilities
+### Responsibilities ![JWT](https://img.shields.io/badge/JWT-ENABLED-green) ![SIGNING: RSA-PSS](https://img.shields.io/badge/SIGNING-RSA--PSS%20\(PS256\)-blue)
 
 * Verifies login credentials from users.
 * Issues signed **access tokens** (JWS) for stateless, tamper-evident API authorization.
@@ -14,7 +16,7 @@ This microservice handles user authentication and secure token issuance in the *
 
 ---
 
-### 🔐 Security Highlights
+### Security Highlights ![HTTPS ONLY](https://img.shields.io/badge/HTTPS-ENFORCED-green) ![AES-256-GCM](https://img.shields.io/badge/ENCRYPTION-AES--256--GCM-yellowgreen)
 
 * **Private RSA Key Usage**
 
@@ -30,16 +32,15 @@ This microservice handles user authentication and secure token issuance in the *
 
 ---
 
-### 📊 Architecture Diagram
+### Architecture Diagram
 
 ![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
 
-<br/>
 <em>This diagram shows the full login and token issuance process used by the Authentication Service.</em>
 
 ---
 
-### 🧠 How It Works
+### How It Works ![JWS](https://img.shields.io/badge/ACCESS%20TOKEN-JWS-blue) ![JWE](https://img.shields.io/badge/REFRESH%20TOKEN-JWE-yellow)
 
 #### Login Flow:
 
@@ -58,7 +59,7 @@ This microservice handles user authentication and secure token issuance in the *
 
 ---
 
-### 🔧 Configuration
+### Configuration ![CONFIGURABLE](https://img.shields.io/badge/CONFIG-ENV--BASED-blue)
 
 * `PRIVATE_KEY`: RSA private key for signing.
 * `JWT_EXPIRATION`: Access token expiration window.
@@ -66,7 +67,7 @@ This microservice handles user authentication and secure token issuance in the *
 
 ---
 
-### 🧪 TODO / Future Improvements
+### TODO / Future Improvements ![WORK IN PROGRESS](https://img.shields.io/badge/MAINTENANCE-ACTIVE-blue) ![TESTS NEEDED](https://img.shields.io/badge/TESTS-MISSING-red)
 
 * Add unit and integration tests for token validation logic.
 * Add metrics for login success/failure tracking.
