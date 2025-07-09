@@ -10,7 +10,7 @@ The API Gateway acts as the central access point for all client requests. It man
 
 This diagram illustrates the full authentication lifecycle, including how access and refresh tokens are processed, validated, and routed:
 
-![Token Authentication Flow](docs/token-authentication-flow.drawio.png)
+![Token Authentication Flow](docs/api-gateway-flow.drawio.png)
 
 🛡️ All security-sensitive communication is encrypted using HTTPS, and refresh tokens are never exposed in URLs. Access tokens are expected to be sent via Bearer token in the `Authorization` header. Refresh tokens are recommended to be stored in `HttpOnly` secure cookies or passed in the request body over HTTPS.
 
