@@ -8,7 +8,7 @@ This microservice handles user authentication and secure token issuance in the *
 
 ### Responsibilities ![JWT](https://img.shields.io/badge/JWT-ENABLED-green) ![SIGNING: RSA-PSS](https://img.shields.io/badge/SIGNING-RSA--PSS%20\(PS256\)-blue)
 
-* Verifies login credentials from users.
+* Verifies login credentials from users via secure database lookup.
 * Issues signed **access tokens** (JWS) for stateless, tamper-evident API authorization.
 * Issues **encrypted refresh tokens** (JWE) for secure re-authentication.
 * Signs tokens using **PS256 (RSA-PSS + SHA-256)** to avoid algorithm substitution attacks.
@@ -32,24 +32,28 @@ This microservice handles user authentication and secure token issuance in the *
 
 ---
 
-### Architecture Diagram
+### 📊 Architecture Diagram
 
-![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
+<details>
+  <summary>Click to view authentication flow diagram</summary>
 
-<em>This diagram shows the full login and token issuance process used by the Authentication Service.</em>
+  ![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
+
+</details>
 
 ---
 
-### How It Works ![JWS](https://img.shields.io/badge/ACCESS%20TOKEN-JWS-blue) ![JWE](https://img.shields.io/badge/REFRESH%20TOKEN-JWE-yellow)
+### 🧠 How It Works
 
 #### Login Flow:
 
 1. Client sends login request with credentials over HTTPS.
-2. If credentials are valid:
-
-   * Access token is generated and signed (JWS using `PS256`).
-   * Refresh token payload is also signed (JWS), then encrypted by the API Gateway (JWE).
-   * Tokens are returned to the client via API Gateway.
+2. Credentials are validated using a secure DB lookup:
+   * If valid:
+     * Access token is generated and signed (JWS using PS256).
+     * Refresh token is generated as a signed JWS.
+     * Refresh token is sent to API Gateway, which encrypts it (JWE).
+     * Both tokens are returned to the client via API Gateway.
 
 #### Refresh Flow:
 
@@ -59,7 +63,7 @@ This microservice handles user authentication and secure token issuance in the *
 
 ---
 
-### Configuration ![CONFIGURABLE](https://img.shields.io/badge/CONFIG-ENV--BASED-blue)
+### 🔧 Configuration
 
 * `PRIVATE_KEY`: RSA private key for signing.
 * `JWT_EXPIRATION`: Access token expiration window.
@@ -67,7 +71,7 @@ This microservice handles user authentication and secure token issuance in the *
 
 ---
 
-### TODO / Future Improvements ![WORK IN PROGRESS](https://img.shields.io/badge/MAINTENANCE-ACTIVE-blue) ![TESTS NEEDED](https://img.shields.io/badge/TESTS-MISSING-red)
+### 🧪 TODO / Future Improvements
 
 * Add unit and integration tests for token validation logic.
 * Add metrics for login success/failure tracking.
