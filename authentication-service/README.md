@@ -31,12 +31,11 @@ This microservice handles user authentication and secure token issuance in the *
 ---
 
 ### 📊 Architecture Diagram
-<details>
-  <summary>Click to view authentication flow diagram</summary>
 
-  ![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
+![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
 
-</details>
+<br/>
+<em>This diagram shows the full login and token issuance process used by the Authentication Service.</em>
 
 ---
 
