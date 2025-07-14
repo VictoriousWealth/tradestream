@@ -22,3 +22,6 @@
 # System specific
 Thumbs.db
 
+# extras
+*key*.pem
+secrets
