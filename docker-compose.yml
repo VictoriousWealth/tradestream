@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  user-registration-service:
+    build:
+      context: ./user-registration-service
+      dockerfile: Dockerfile
+    image: tradestream-user-registration-service:dev
+    ports:
+      - "8081:8081" 
+    depends_on:
+      - postgres
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/authdb
+      SPRING_DATASOURCE_USERNAME: authuser
+      SPRING_DATASOURCE_PASSWORD: authpass
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+  auth-service:
+    build:
+      context: ./authentication-service
+      dockerfile: Dockerfile
+    image: tradestream-auth-service:dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/authdb
+      SPRING_DATASOURCE_USERNAME: authuser
+      SPRING_DATASOURCE_PASSWORD: authpass
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
+    secrets:
+      - jwt_private.pem
+      - jwt_public.pem
+  
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: tradestream_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: authdb
+      POSTGRES_USER: authuser
+      POSTGRES_PASSWORD: authpass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+
+secrets:
+  jwt_private.pem:
+    external: true
+  jwt_public.pem:
+    external: true

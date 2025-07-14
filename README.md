@@ -106,16 +106,16 @@ TradeStream is a backend portfolio project that demonstrates:
 
 
 
-| Category             | Technology                         |
-|----------------------|------------------------------------|
-| Backend Framework    | Java Spring Boot                   |
-| Stream Processing    | Kafka or RabbitMQ (configurable)   |
-| Database             | PostgreSQL                         |
-| Cache Layer          | Redis                              |
-| Authentication       | JWT (JSON Web Tokens)              |
-| Containerization     | Docker, Docker Compose             |
-| CI/CD (MVP)          | GitHub Actions                     |
-| Deployment           | AWS Lightsail                      |
+| Category             | Technology                              |
+|----------------------|-----------------------------------------|
+| Backend Framework    | Java Spring Boot                        |
+| Stream Processing    | Kafka or RabbitMQ (configurable)        |
+| Database             | PostgreSQL                              |
+| Cache Layer          | Redis                                   |
+| Authentication       | JWS & JWE (JWT Signed & JWT Encrypted)  |
+| Containerization     | Docker, Docker Compose                  |
+| CI/CD (MVP)          | GitHub Actions                          |
+| Deployment           | AWS Lightsail                           |
 
 **Planned Future Enhancements:** 
 
@@ -147,6 +147,7 @@ TradeStream is a backend portfolio project that demonstrates:
 Each microservice has its own documentation with setup notes, endpoints, and future plans:
 
 - [API Gateway](api-gateway/README.md)
+- [User Registration Service](user-registration-service/README.md)
 - [Authentication Service](authentication-service/README.md)
 - [Transaction Processor](transaction-processor/README.md)
 - [Market Data Consumer](market-data-consumer/README.md)
@@ -169,12 +170,12 @@ cd tradestream
 
 # Build and run containers
 docker-compose up --build
-````
+```
 
 Access:
 
 * API Gateway at `http://localhost:8080`
-* Login, transaction, and health endpoints per the [API Design](docs/api-design.md)
+* Login, registration, transaction, and health endpoints per the [API Design](docs/api-design.md)
 
 ---
 
@@ -197,6 +198,7 @@ This project simulates real-time transaction processing using microservices and 
 
 ✅ MVP Core Features:
 
+* [x] User Registration Service
 * [x] Authentication Service
 * [x] Transaction Processor
 * [x] API Gateway
@@ -220,11 +222,10 @@ This project simulates real-time transaction processing using microservices and 
 
 * Secure coding practices applied from Day 1
 * JWT-based API authentication
-* Input validation throughout services
+* Special header(s) set by the API gateway that the other services will now check to double confirm origin of the request
 * Future security roadmap includes:
 
   * Rate limiting
-  * Role-Based Access Control (RBAC)
   * Secure HTTP headers
   * Vulnerability scanning
 
@@ -238,6 +239,8 @@ This project simulates real-time transaction processing using microservices and 
 * [System Architecture Diagram](docs/architecture-diagram.png)
 * [API Design](docs/api-design.md)
 * [Planned Enhancements](docs/future-enhancements.md)
+
+> Note all these documentation misses the user registration service as it is something I decided to add last minute 
 
 ---
 
@@ -286,7 +289,7 @@ See the full license [here](https://creativecommons.org/licenses/by-nc/4.0/) for
 
 ## 🙏 Acknowledgements [↑ Top](#table-of-contents)
 
-* Architectural patterns inspired by real-world fintech systems such as JPMorgan
+* Architectural patterns inspired by real-world fintech systems such as JPMorgan and BNY
 * Security best practices influenced by **OWASP** guidelines
 * Deployment and infrastructure ideas from **AWS** resources
 
