@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
     image: tradestream-auth-service:dev
     ports:
-      - "8080:8080"
+      - "8082:8082"
     depends_on:
       - postgres
     environment:
@@ -40,8 +40,6 @@ services:
     secrets:
       - jwt_private.pem
       - jwt_public.pem
-  
-
   postgres:
     image: postgres:15-alpine
     container_name: tradestream_postgres
@@ -54,8 +52,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+
 volumes:
   postgres_data:
+
 
 secrets:
   jwt_private.pem:
