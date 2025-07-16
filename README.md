@@ -129,9 +129,9 @@ TradeStream is a backend portfolio project that demonstrates:
 <a name="system-architecture"></a>
 ## 🏗️ System Architecture [↑ Top](#table-of-contents)
 
-> _See [./docs/high-level-architecture-diagram.png](docs/architecture-diagram.png) for a full high level system diagram._
+> _See [./docs/high-level-architecture-diagram.png](./docs/high-level-architecture-diagram.png) for a full high level system diagram._
 
-> _See [`api-gateway/docs/token-authentication-flow.drawio.png`](api-gateway/docs/token-authentication-flow.drawio.png) for a more detailed version focused on API Gateway and the Authentication Service._
+> _See [`api-gateway/docs/token-authentication-flow.drawio.png`](./api-gateway/docs/token-authentication-flow.drawio.png) for a more detailed version focused on API Gateway and the Authentication Service._
 
 **Core Components:** 
 
