@@ -479,10 +479,6 @@ This section outlines an estimated high-level timeline for delivering TradeStrea
 
 ---
 
-✅ Done\! Here's the **finalized version** of your References & Resources section with both the **HackTheBox Certified Bug Bounty Hunter** and the **IT and Cybersecurity Foundations \- Learn from Cybrary** course included.
-
----
-
 # **10\. References & Resources (Finalized)** [↑ Top](#table-of-contents)
 
 This section lists key technical references, tools, and learning resources that support the design and development of TradeStream. These resources provide guidance on industry standards, relevant technologies, and best practices.
@@ -607,7 +603,7 @@ For demonstration and testing purposes only. These are non-production, hardcoded
 | -------- | ------------- | ------------------------------------------------------------- |
 | `admin`  | `password123` | Example user with basic access for testing API functionality. |
 
-⚠️ **Note:** In a real-world production system, credentials would be securely stored, encrypted, and managed using appropriate security best practices.
+**Note:** In a real-world production system, credentials would be securely stored, encrypted, and managed using appropriate security best practices.
 
 ---
 
@@ -642,12 +638,12 @@ For demonstration and testing purposes only. These are non-production, hardcoded
 
 Planned enhancements for future project phases include:
 
-✅ Kubernetes Deployment
-✅ Terraform Infrastructure Management
-✅ Prometheus & Grafana Observability
-✅ Advanced API Security (e.g., Rate Limiting, RBAC)
-✅ Full CI/CD Pipeline with Docker Image Publishing
-✅ Market Data Generator Component
+Kubernetes Deployment
+Terraform Infrastructure Management
+Prometheus & Grafana Observability
+Advanced API Security (e.g., Rate Limiting, RBAC)
+Full CI/CD Pipeline with Docker Image Publishing
+Market Data Generator Component
 
 ---
 
