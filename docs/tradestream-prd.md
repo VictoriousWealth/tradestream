@@ -434,12 +434,6 @@ This section identifies potential technical and project-related risks that may i
 
 ---
 
-✅ **Risks & Mitigations locked in.**
-
-Here’s a clean, realistic draft for **Section 9: Timeline & Milestones** for your TradeStream PRD, tailored to a self-driven, learning-focused project.
-
----
-
 # **9\. Timeline & Milestones** [↑ Top](#table-of-contents)
 
 This section outlines an estimated high-level timeline for delivering TradeStream, including key development phases and milestones. The timeline reflects realistic learning objectives, resource availability, and project scope.
