@@ -40,6 +40,23 @@ services:
     secrets:
       - jwt_private.pem
       - jwt_public.pem
+  market-data-consumer:
+    build:
+      context: ./market-data-consumer
+      dockerfile: Dockerfile
+    image: market-data-consumer:dev
+    ports:
+      - "8083:8083"
+    depends_on:
+      - market_postgres
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://market_postgres:5432/marketdb
+      SPRING_DATASOURCE_USERNAME: marketuser
+      SPRING_DATASOURCE_PASSWORD: marketpass
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
   postgres:
     image: postgres:15-alpine
     container_name: tradestream_postgres
@@ -51,10 +68,23 @@ services:
       POSTGRES_PASSWORD: authpass
     volumes:
       - postgres_data:/var/lib/postgresql/data
+  market_postgres:
+    image: postgres:15-alpine
+    container_name: market_postgres
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: marketdb
+      POSTGRES_USER: marketuser
+      POSTGRES_PASSWORD: marketpass
+    volumes:
+      - market_postgres_data:/var/lib/postgresql/data
+
 
 
 volumes:
   postgres_data:
+  market_postgres_data:
 
 
 secrets:
