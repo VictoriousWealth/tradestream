@@ -16,9 +16,7 @@
 
 ## 📸 Screenshots
 
-```bash
-![./docs/example-curl-request-to-microservice.png]
-```
+![](./docs/example-curl-request-to-microservice.png)
 
 ---
 
