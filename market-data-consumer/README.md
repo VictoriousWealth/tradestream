@@ -1,10 +1,10 @@
-# 📈 Market Data Consumer Service
+# Market Data Consumer Service
 
 This microservice ingests market data events (e.g. stock price updates), validates them, and persists them into a PostgreSQL database.
 
 ---
 
-## 🚀 Features
+## Features
 
 - ✅ Exposes REST API to receive market data events
 - ✅ Validates input with Jakarta Bean Validation
@@ -16,20 +16,18 @@ This microservice ingests market data events (e.g. stock price updates), validat
 
 ---
 
-## 🔧 Tech Stack
+## Tech Stack
 
-![Java](https://img.shields.io/badge/Java-21-blue?logo=java\&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.0-green?logo=spring-boot)
-![Spring Web](https://img.shields.io/badge/Spring_Web-white?logo=spring\&logoColor=green)
-![Spring Data JPA](https://img.shields.io/badge/Spring_Data_JPA-white?logo=spring\&logoColor=green)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?logo=postgresql)
-![Flyway](https://img.shields.io/badge/Flyway-Database_Migrations-red?logo=flyway\&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Containerized-blue?logo=docker)
-![Hibernate Validator](https://img.shields.io/badge/Hibernate_Validator-Validation-red?logo=hibernate)
+- ![Java](https://img.shields.io/badge/Java-21-blue?logo=java\&logoColor=white) 
+- ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.0-green?logo=spring-boot)
+- ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?logo=postgresql)
+- ![Flyway](https://img.shields.io/badge/Flyway-Database_Migrations-red?logo=flyway\&logoColor=white)
+- ![Docker](https://img.shields.io/badge/Docker-Containerized-blue?logo=docker)
+- ![Docker Compose](https://img.shields.io/badge/Docker--Compose-Orchestration-2496ED?logo=docker\&logoColor=white)
 
 ---
 
-## 📦 API Specification
+##� API Specification
 
 ### POST `/api/stock/event`
 
@@ -54,7 +52,7 @@ Ingests a new market data event.
 
 ---
 
-## ❗ Validation Rules
+## Validation Rules
 
 | Field  | Constraints                |
 | ------ | -------------------------- |
@@ -66,7 +64,7 @@ Ingests a new market data event.
 
 ---
 
-## 🐳 Running Locally
+## Running Locally
 
 ### 1. Build the Docker images
 
@@ -96,7 +94,7 @@ curl -X POST http://localhost:8083/api/stock/event \
 
 ---
 
-## 🗃️ Database Schema
+## Database Schema
 
 Created via Flyway (`V1__init_schema.sql`, etc):
 
@@ -119,7 +117,7 @@ CREATE TABLE stock_data (
 
 ---
 
-## 🧪 Seed Data
+## Seed Data
 
 Seeded automatically by Flyway (`V4__seed_stock_data.sql`):
 
@@ -131,7 +129,7 @@ INSERT INTO stock_data (...) VALUES
 
 ---
 
-## 📁 Folder Structure
+## Folder Structure
 
 ```
 .
