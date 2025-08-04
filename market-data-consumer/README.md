@@ -27,7 +27,7 @@ This microservice ingests market data events (e.g. stock price updates), validat
 
 ---
 
-##� API Specification
+## API Specification
 
 ### POST `/api/stock/event`
 
