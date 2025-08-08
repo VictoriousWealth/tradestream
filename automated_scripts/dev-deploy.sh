@@ -5,8 +5,8 @@ set -e
 STACK_NAME="tradestream"
 TIMESTAMP=$(date +%s)
 
-SERVICE_KEYS=("auth-service" "user-registration-service" "market-data-consumer")
-SERVICE_DIRS=("authentication-service" "user-registration-service" "market-data-consumer")
+SERVICE_KEYS=("auth-service" "user-registration-service" "market-data-consumer" "transaction-processor")
+SERVICE_DIRS=("authentication-service" "user-registration-service" "market-data-consumer" "transaction-processor")
 
 echo "🔁 Starting multi-service build & deploy..."
 for i in "${!SERVICE_KEYS[@]}"; do
