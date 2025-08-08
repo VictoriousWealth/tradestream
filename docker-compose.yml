@@ -1,15 +1,41 @@
-version: '3.8'
+networks:
+  public_net:
+    driver: bridge
+  private_net:
+    driver: bridge
 
 services:
-  user-registration-service:
+  # --- Edge ---
+  api-gateway:
+    profiles: ["later"] 
     build:
-      context: ./user-registration-service
+      context: ./api-gateway
       dockerfile: Dockerfile
-    image: tradestream-user-registration-service:dev
+    image: tradestream-api-gateway:dev
     ports:
-      - "8081:8081" 
+      - "8080:8080"
     depends_on:
-      - postgres
+      auth-service:
+        condition: service_healthy
+      user-registration-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8080
+      REDIS_HOST: redis
+      ORDERS_BASE_URL: http://orders-service:8085
+      AUTH_BASE_URL: http://auth-service:8082
+      REG_BASE_URL: http://user-registration-service:8081
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+    networks: [public_net, private_net]
+
+  # --- Auth & Users ---
+  user-registration-service:
+    build: { context: ./services/user-registration-service, dockerfile: Dockerfile }
+    image: tradestream-user-registration-service:dev
     environment:
       SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/authdb
@@ -18,17 +44,16 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_FLYWAY_ENABLED: "true"
       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
-    deploy:
-      replicas: 1
-  auth-service:
-    build:
-      context: ./authentication-service
-      dockerfile: Dockerfile
-    image: tradestream-auth-service:dev
-    ports:
-      - "8082:8082"
     depends_on:
-      - postgres
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+    networks: [private_net]
+
+  auth-service:
+    build: { context: ./services/authentication-service, dockerfile: Dockerfile }
+    image: tradestream-auth-service:dev
     environment:
       SERVER_PORT: 8082
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/authdb
@@ -39,20 +64,60 @@ services:
       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
       JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
       JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
-    deploy:
-      replicas: 1
-    secrets:
-      - jwt_private.pem
-      - jwt_public.pem
-  market-data-consumer:
-    build:
-      context: ./market-data-consumer
-      dockerfile: Dockerfile
-    image: market-data-consumer:dev
-    ports:
-      - "8083:8083"
     depends_on:
-      - market_postgres
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+    secrets: [jwt_private.pem, jwt_public.pem]
+    networks: [private_net]
+
+  # --- Orders & Matching ---
+  orders-service:
+    profiles: ["later"]
+    build: { context: ./services/orders-service, dockerfile: Dockerfile }
+    image: tradestream-orders-service:dev
+    environment:
+      SERVER_PORT: 8085
+      SPRING_DATASOURCE_URL: jdbc:postgresql://orders_postgres:5432/ordersdb
+      SPRING_DATASOURCE_USERNAME: ordersuser
+      SPRING_DATASOURCE_PASSWORD: orderspass
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_TOPIC_ORDER_PLACED: order.placed.v1
+    depends_on:
+      orders_postgres: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+    networks: [private_net]
+
+  matching-engine:
+    profiles: ["later"]
+    build: { context: ./services/matching-engine, dockerfile: Dockerfile }
+    image: tradestream-matching-engine:dev
+    environment:
+      SERVER_PORT: 8086
+      ENGINE_PARTITIONS: "by-ticker"
+
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_TOPIC_ORDER_PLACED: order.placed.v1
+      KAFKA_TOPIC_TRADE_EXECUTED: trade.executed.v1
+    depends_on:
+      redpanda: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/actuator/health"]
+    networks: [private_net]
+
+  # --- Consumers ---
+  market-data-consumer:
+    build: { context: ./services/market-data-consumer, dockerfile: Dockerfile }
+    image: market-data-consumer:dev
     environment:
       SERVER_PORT: 8083
       SPRING_DATASOURCE_URL: jdbc:postgresql://market_postgres:5432/marketdb
@@ -61,18 +126,25 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_FLYWAY_ENABLED: "true"
       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
-    deploy:
-      replicas: 1
-  transaction-processor:
-    build:
-      context: ./transaction-processor
-      dockerfile: Dockerfile
-    image: transaction-processor:dev
-    ports:
-      - "8084:8084"
+
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_TOPIC_TRADE_EXECUTED: trade.executed.v1
+      KAFKA_CONSUMER_GROUP: md-consumer
+      
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
-      - transaction_postgres
-      - market-data-consumer
+      market_postgres: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+    networks: [private_net]
+
+  transaction-processor:
+    build: { context: ./services/transaction-processor, dockerfile: Dockerfile }
+    image: transaction-processor:dev
     environment:
       SERVER_PORT: 8084
       SPRING_DATASOURCE_URL: jdbc:postgresql://transaction_postgres:5432/transactiondb
@@ -82,52 +154,110 @@ services:
       SPRING_FLYWAY_ENABLED: "true"
       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
       MARKET_SERVICE_URL: http://market-data-consumer:8083
-    deploy:
-      replicas: 1
+
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_TOPIC_TRADE_EXECUTED: trade.executed.v1
+      KAFKA_CONSUMER_GROUP: pf-consumer
+    depends_on:
+      transaction_postgres: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
+    networks: [private_net]
+
+  # --- Datastores ---
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15.8-alpine
     container_name: tradestream_postgres
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_DB: authdb
       POSTGRES_USER: authuser
       POSTGRES_PASSWORD: authpass
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authuser -d authdb"]
+    networks: [private_net]
+
+  orders_postgres:
+    image: postgres:15.8-alpine
+    container_name: orders_postgres
+    environment:
+      POSTGRES_DB: ordersdb
+      POSTGRES_USER: ordersuser
+      POSTGRES_PASSWORD: orderspass
+    volumes: [orders_postgres_data:/var/lib/postgresql/data]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ordersuser -d ordersdb"]
+    networks: [private_net]
+
   market_postgres:
-    image: postgres:15-alpine
+    image: postgres:15.8-alpine
     container_name: market_postgres
-    ports:
-      - "5433:5432"
     environment:
       POSTGRES_DB: marketdb
       POSTGRES_USER: marketuser
       POSTGRES_PASSWORD: marketpass
-    volumes:
-      - market_postgres_data:/var/lib/postgresql/data
+    volumes: [market_postgres_data:/var/lib/postgresql/data]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketuser -d marketdb"]
+    networks: [private_net]
+
   transaction_postgres:
-    image: postgres:15-alpine
+    image: postgres:15.8-alpine
     container_name: transaction_postgres
-    ports:
-      - "5434:5432"
     environment:
       POSTGRES_DB: transactiondb
       POSTGRES_USER: transactionuser
       POSTGRES_PASSWORD: transactionpass
-    volumes:
-      - transaction_postgres_data:/var/lib/postgresql/data
+    volumes: [transaction_postgres_data:/var/lib/postgresql/data]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U transactionuser -d transactiondb"]
+    networks: [private_net]
 
+  redis:
+    image: redis:7-alpine
+    container_name: tradestream_redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+    networks: [private_net]
 
+  # --- Kafka-compatible broker (internal only) ---
+  redpanda:
+    image: redpandadata/redpanda:latest
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      - --kafka-addr=redpanda:9092
+      - --advertise-kafka-addr=redpanda:9092
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9644/v1/status/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [private_net]
 
 volumes:
   postgres_data:
+  orders_postgres_data:
   market_postgres_data:
   transaction_postgres_data:
 
-
 secrets:
   jwt_private.pem:
-    external: true
+    file: ./secrets/jwt_private.pem
   jwt_public.pem:
-    external: true
+    file: ./secrets/jwt_public.pem
