@@ -1,21 +1,31 @@
-# **Table of Contents**
+# **TradeStream — Event-Driven Trading Simulation Platform**
+
+**Product Requirements & Technical Design Document**
+**Version:** 2.0 (Upgraded Architecture)
+**Author:** Nick Efe Oni
+**Date:** 08 August 2025
+
+---
+
+## **Table of Contents**
 
 * [1. Title & Document Control](#1-title--document-control)
 * [2. Executive Summary](#2-executive-summary)
 * [2A. Technology Overview](#2a-technology-overview)
 * [3. Goals & Objectives](#3-goals--objectives)
 * [4. Scope & Deliverables](#4-scope--deliverables)
-* [5. High-Level Architecture (Updated with Matching Engine)](#5-high-level-architecture-updated-with-matching-engine)
+* [5. High-Level Architecture](#5-high-level-architecture)
 * [6. Technical Design](#6-technical-design)
 * [7. Assumptions & Constraints](#7-assumptions--constraints)
 * [8. Risks & Mitigations](#8-risks--mitigations)
 * [9. Timeline & Milestones](#9-timeline--milestones)
-* [10. References & Resources](#10-references--resources)
-* [11. Appendix](#11-appendix)
+* [10. Security Mapping](#10-security-mapping)
+* [11. References & Resources](#11-references--resources)
+* [12. Appendix](#12-appendix)
 
 ---
 
-# **1. Title & Document Control**
+## **1. Title & Document Control**
 
 | Field            | Content                                                |
 | ---------------- | ------------------------------------------------------ |
@@ -27,237 +37,233 @@
 
 ---
 
-# **2. Executive Summary**
+## **2. Executive Summary**
 
-**TradeStream — Event-Driven Trading Simulation Platform** is a microservice-based, event-driven system that simulates the full lifecycle of securities trading, including order placement, order matching, trade execution, portfolio updates, and market data aggregation.
+**TradeStream** simulates a full securities trading lifecycle using an event-driven, microservice-based backend.
 
-This release evolves the previous design from a passive transaction and market data updater into a **realistic market simulation engine** with:
+Key upgrades in v2.0:
 
-* A dedicated **Matching Engine Service** to process orders and maintain per-ticker order books.
-* **Event-driven trade propagation** using Kafka or RabbitMQ for asynchronous updates to portfolios and market data.
-* Real-time OHLC and volume updates based on actual trades.
-* Redis-backed API Gateway rate-limiting and caching.
-* JWT with **JWS + JWE** for secure API authentication.
-
----
-
-# **2A. Technology Overview**
-
-## Minimum Viable Product Stack
-
-| Category          | Technology                         | Purpose                             |
-| ----------------- | ---------------------------------- | ----------------------------------- |
-| Backend Framework | Java Spring Boot                   | Microservice APIs                   |
-| Stream Processing | Kafka or RabbitMQ                  | Event-driven trade & order updates  |
-| Database          | PostgreSQL                         | Service-specific persistent storage |
-| Cache Layer       | Redis                              | Caching quotes & rate-limiting      |
-| Authentication    | JWS & JWE (JWT signed & encrypted) | Secure API auth                     |
-| Containerization  | Docker & Docker Compose            | Packaging & deployment              |
-| CI/CD             | GitHub Actions                     | Automated build/test/deploy         |
-| Deployment        | AWS Lightsail                      | Initial cloud hosting               |
-
-## Planned Enhancements
-
-| Category                | Technology                           | Purpose                   |
-| ----------------------- | ------------------------------------ | ------------------------- |
-| Container Orchestration | Kubernetes                           | Scale & resilience        |
-| IaC                     | Terraform                            | Infrastructure as code    |
-| Observability           | Prometheus + Grafana                 | Metrics, monitoring       |
-| Security Enhancements   | RBAC, token hardening, vuln scanning | Production-grade security |
+* **Matching Engine Service** with per-ticker in-memory order books.
+* **Asynchronous trade propagation** using Kafka/RabbitMQ.
+* **OHLC and volume updates** driven by actual trades.
+* **Redis-backed API Gateway** for caching and per-user rate-limiting.
+* **JWS + JWE JWT authentication** for API security.
 
 ---
 
-# **3. Goals & Objectives**
+## **2A. Technology Overview**
 
-## 3.1 Purpose
-
-Deliver a realistic, secure, and modular trading simulation platform that demonstrates enterprise-level backend architecture.
-
-## 3.2 Technical Objectives
-
-* Implement **order placement** with market/limit orders.
-* Introduce a **Matching Engine** for realistic price movement and partial fills.
-* Update **Market Data Service** reactively from trade events.
-* Manage user portfolios dynamically from executed trades.
-* Secure all APIs behind an API Gateway with JWT validation and Redis-based rate-limiting.
-* Deploy the entire stack on AWS Lightsail with Docker Compose.
-
-## 3.3 Learning Objectives
-
-* Master event-driven microservice patterns.
-* Build a functional order book and matching algorithm.
-* Apply secure authentication (JWS + JWE).
-* Integrate Redis caching and rate-limiting.
-* Deploy multi-service systems in a real cloud environment.
+| Category          | Technology                         | Purpose                            |
+| ----------------- | ---------------------------------- | ---------------------------------- |
+| Backend Framework | Java Spring Boot                   | Microservice APIs                  |
+| Stream Processing | Kafka or RabbitMQ                  | Event-driven trade & order updates |
+| Database          | PostgreSQL                         | Service-specific storage           |
+| Cache Layer       | Redis                              | Caching quotes & rate-limiting     |
+| Authentication    | JWS & JWE (JWT signed & encrypted) | Secure API auth                    |
+| Containerization  | Docker & Docker Compose            | Deployment packaging               |
+| CI/CD             | GitHub Actions                     | Build/test/deploy automation       |
+| Deployment        | AWS Lightsail                      | Cloud hosting                      |
 
 ---
 
-# **4. Scope & Deliverables**
+## **3. Goals & Objectives**
 
-## 4.1 MVP Scope
+### Technical Goals
 
-* API Gateway with authentication enforcement & rate-limiting.
-* User Registration & Authentication services.
-* Orders Service for order intake and persistence.
-* Matching Engine Service with in-memory order book per ticker.
-* Market Data Service for OHLC & volume aggregation.
-* Portfolio Service for holdings & transaction history.
-* Event Bus (Kafka/RabbitMQ) for `OrderPlaced` and `TradeExecuted`.
-* Postgres DB per service, Redis for cache/rate limit.
+* Implement market/limit order placement.
+* Realistic matching with price-time priority and partial fills.
+* OHLC/volume updates from trade events.
+* JWT + Redis rate-limiting in API Gateway.
+* Deploy MVP on AWS Lightsail with Docker Compose.
 
-## 4.2 Out of Scope (MVP)
+### Learning Goals
 
-* Advanced order types (stop loss, iceberg).
-* Multi-day order persistence.
-* Real-time WebSocket feeds.
-* Kubernetes deployment.
-* Advanced observability.
+* Deepen knowledge of event-driven architecture.
+* Implement and optimize an order-matching algorithm.
+* Apply production-grade JWT handling.
 
 ---
 
-# **5. High-Level Architecture (Updated with Matching Engine)**
+## **4. Scope & Deliverables**
 
-## 5.1 Overview
+### MVP Deliverables
 
-The system now processes trades end-to-end:
-
-1. User submits an order → API Gateway → Orders Service.
-2. Orders Service publishes `OrderPlaced` → Matching Engine.
-3. Matching Engine updates order book, matches orders, publishes `TradeExecuted`.
-4. Portfolio Service & Market Data Service consume `TradeExecuted`.
-5. Market Data recalculates OHLC and volume.
-6. Portfolio updates holdings and transactions.
-
-## 5.2 Components
-
-| Component           | Role                                               |
-| ------------------- | -------------------------------------------------- |
-| API Gateway         | Routing, JWT decrypt/verify, Redis rate limit      |
-| User Registration   | User onboarding                                    |
-| Auth Service        | Issues JWE(JWS) tokens                             |
-| Orders Service      | Receives and stores orders, publishes events       |
-| Matching Engine     | Maintains order book, matches orders, emits trades |
-| Market Data Service | Consumes trades, updates OHLC/volume               |
-| Portfolio Service   | Consumes trades, updates positions & transactions  |
-| Kafka/RabbitMQ      | Event delivery                                     |
-| Redis               | Rate-limiting & caching                            |
-| PostgreSQL          | Service persistence                                |
+* API Gateway with JWT validation & Redis rate-limiting.
+* Auth & User Registration services.
+* Orders Service.
+* Matching Engine Service.
+* Market Data Service.
+* Portfolio Service.
+* Kafka/RabbitMQ integration.
+* PostgreSQL per service.
 
 ---
 
-# **6. Technical Design**
+## **5. High-Level Architecture**
 
-## 6.1 Event Model
+### Overview Flow
 
-### `OrderPlaced`
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant C as Client App
+    participant G as API Gateway
+    participant O as Orders Service
+    participant ME as Matching Engine
+    participant MD as Market Data Service
+    participant PF as Portfolio Service
+    participant B as Event Bus
 
-```json
-{
-  "orderId": "uuid",
-  "userId": "uuid",
-  "ticker": "AAPL",
-  "side": "BUY",
-  "type": "LIMIT",
-  "price": 196.20,
-  "quantity": 100,
-  "timeInForce": "DAY",
-  "timestamp": "2025-08-08T10:30:00Z"
-}
+    U->>C: Place Order
+    C->>G: POST /orders
+    G->>O: Forward w/ userId
+    O->>B: Publish OrderPlaced
+    B->>ME: Deliver event
+    ME->>B: Publish TradeExecuted
+    B->>MD: Deliver trade
+    B->>PF: Deliver trade
 ```
 
-### `TradeExecuted`
+**Component Roles**
 
-```json
-{
-  "tradeId": "uuid",
-  "orderId": "uuid",
-  "userId": "uuid",
-  "ticker": "AAPL",
-  "price": 196.20,
-  "quantity": 40,
-  "side": "BUY",
-  "timestamp": "2025-08-08T10:30:01Z"
-}
+| Component           | Role                                       |
+| ------------------- | ------------------------------------------ |
+| API Gateway         | JWT verification, Redis caching/rate-limit |
+| Orders Service      | Intake & store orders, emit events         |
+| Matching Engine     | Match orders, emit trades                  |
+| Market Data Service | Update OHLC & volume                       |
+| Portfolio Service   | Update positions & transactions            |
+
+---
+
+## **6. Technical Design**
+
+### 6.1 Event Models
+
+#### `OrderPlaced` Schema
+
+| Field       | Type     | Required | Notes                  |
+| ----------- | -------- | -------- | ---------------------- |
+| orderId     | UUID     | Yes      | Unique per order       |
+| userId      | UUID     | Yes      | Authenticated user     |
+| ticker      | String   | Yes      | Uppercase, max 5 chars |
+| side        | Enum     | Yes      | BUY / SELL             |
+| type        | Enum     | Yes      | MARKET / LIMIT         |
+| price       | Decimal  | Yes      | > 0 if LIMIT           |
+| quantity    | Integer  | Yes      | > 0                    |
+| timeInForce | Enum     | Yes      | DAY / GTC              |
+| timestamp   | ISO-8601 | Yes      | UTC                    |
+
+#### `TradeExecuted` Schema
+
+| Field     | Type     | Required | Notes             |
+| --------- | -------- | -------- | ----------------- |
+| tradeId   | UUID     | Yes      | Unique per trade  |
+| orderId   | UUID     | Yes      | Originating order |
+| userId    | UUID     | Yes      | Trade owner       |
+| ticker    | String   | Yes      | Stock symbol      |
+| price     | Decimal  | Yes      | Execution price   |
+| quantity  | Integer  | Yes      | Filled amount     |
+| side      | Enum     | Yes      | BUY / SELL        |
+| timestamp | ISO-8601 | Yes      | UTC               |
+
+---
+
+### 6.2 Matching Engine Threading Model
+
+* **Single-threaded per ticker** for MVP → avoids race conditions.
+* Horizontal scaling possible by partitioning symbols across engine instances.
+
+---
+
+### 6.3 API Gateway Rate Limit Policy
+
+| User Type     | Requests/sec | Burst | Notes                         |
+| ------------- | ------------ | ----- | ----------------------------- |
+| Authenticated | 50           | 100   | Per userId                    |
+| Anonymous     | 0            | 0     | Blocked except login/register |
+
+---
+
+### 6.4 Deployment Topology
+
+```mermaid
+flowchart LR
+  %% External
+  User[Client / Browser\n(HTTPS)] -->|443/HTTPS| GW[(API Gateway\nJWT verify + Redis rate limit)]
+
+  %% Lightsail host
+  subgraph LS[AWS Lightsail VM (Docker Compose)]
+    direction LR
+
+    %% Edge/Gateway and cache
+    GW --> RDS[(Redis\nCache + Rate Limiter)]
+
+    %% Auth & user onboarding
+    GW --> URS[User Registration Service]
+    GW --> AUTH[Auth Service\n(JWS+JWE issuance)]
+    AUTH ---|secrets| KPRIV[(jwt_private.pem)]
+    AUTH ---|secrets| KPUB[(jwt_public.pem)]
+    URS --> P_AUTH[(Postgres: authdb)]
+    AUTH --> P_AUTH
+
+    %% Orders & matching
+    GW --> ORD[Orders Service]
+    ORD --> P_ORD[(Postgres: ordersdb)]
+    ORD --> BUS[(Kafka or RabbitMQ)]
+
+    BUS --> ME[Matching Engine Service]
+    ME -->|TradeExecuted| BUS
+
+    %% Consumers
+    BUS --> MDS[Market Data Service]
+    BUS --> PFS[Portfolio Service]
+    MDS --> P_MKT[(Postgres: marketdb)]
+    PFS --> P_TX[(Postgres: transactiondb)]
+
+    %% Optional real-time fanout later
+    MDS -.optional.-> WS[(WebSocket/SSE Fanout)]
+    ORD -.status updates.-> WS
+    PFS -.portfolio updates.-> WS
+  end
+
+  %% Notes
+  classDef pub fill:#eef,stroke:#88a,color:#000,stroke-width:1px;
+  class GW pub
 ```
 
-## 6.2 Matching Engine Logic
+---
 
-* Maintain **two priority queues** (bids: max-heap by price; asks: min-heap by price).
-* Match orders on price overlap.
-* Partial fills generate multiple `TradeExecuted` events.
-* Remaining quantities stay in the book until filled or expired.
+## **7. Assumptions & Constraints**
 
-## 6.3 API Gateway Security
-
-* Decrypt JWE, verify JWS signature.
-* Inject `X-User-Id` header for downstream services.
-* Apply Redis-based request throttling per user.
-
-## 6.4 Data Storage
-
-* **Orders DB:** pending & completed orders.
-* **Trades DB:** historical trades (Market Data).
-* **Positions DB:** holdings per user (Portfolio).
+* Single Lightsail instance for MVP.
+* Each service has its own DB schema.
+* Event communication via Kafka/RabbitMQ only.
 
 ---
 
-# **7. Assumptions & Constraints**
+## **8. Risks & Mitigations**
 
-* MVP runs on single AWS Lightsail instance.
-* Services communicate only via API Gateway (public) or broker (internal).
-* Each service owns its DB schema.
-* Matching Engine runs single-threaded per ticker for MVP.
-
----
-
-# **8. Risks & Mitigations**
-
-| Risk                        | Mitigation                             |
-| --------------------------- | -------------------------------------- |
-| Event loss on broker        | Enable persistent topics/queues        |
-| Order book concurrency bugs | Lock per-ticker book updates           |
-| Matching latency            | Keep in-memory for MVP, optimize later |
-| JWT handling complexity     | Use tested JOSE/JWT libraries          |
+| Risk                 | Mitigation           |
+| -------------------- | -------------------- |
+| Event loss           | Persistent queues    |
+| Redis downtime       | Graceful degradation |
+| Single-instance SPOF | K8s in Phase 4       |
 
 ---
 
-# **9. Timeline & Milestones**
+## **9. Timeline & Milestones**
 
-| Phase   | Target   | Deliverables                            |
-| ------- | -------- | --------------------------------------- |
-| Phase 1 | Aug 2025 | Event bus, `TradeExecuted` flow MVP     |
-| Phase 2 | Sep 2025 | Orders Service + basic matching         |
-| Phase 3 | Oct 2025 | Real-time OHLC updates, Redis caching   |
-| Phase 4 | Post-MVP | WebSockets, advanced orders, K8s deploy |
+| Phase | Target   | Deliverables      | GitHub Epic |
+| ----- | -------- | ----------------- | ----------- |
+| 1     | Aug 2025 | Event bus MVP     | `#12`       |
+| 2     | Sep 2025 | Orders + Matching | `#21`       |
 
 ---
 
-# **10. References & Resources**
+## **10. Security Mapping**
 
-(Same as old PRD, plus order matching resources)
-
-| Resource                           | Description               |
-| ---------------------------------- | ------------------------- |
-| \[MIT Market Microstructure Notes] | Understanding order books |
-| \[Spring Cloud Gateway Docs]       | API Gateway config        |
-| \[Kafka/RabbitMQ Docs]             | Event streaming           |
-| \[Redis Rate Limiter Examples]     | API Gateway rate control  |
-
----
-
-# **11. Appendix**
-
-## 11.1 Acronyms
-
-(Same as old PRD)
-
-## 11.2 Example Order Lifecycle
-
-1. User places buy order for 100 AAPL @ 196.20.
-2. Order enters bid book, matches existing sell @ 196.20 for 40 shares.
-3. `TradeExecuted`(40\@196.20) emitted.
-4. Market Data updates OHLC/volume.
-5. Portfolio updates user’s holdings (+40 AAPL).
-6. Remaining 60 shares stay on bid side until filled or cancelled.
+* ASVS 2.1.1: JWT signature validation.
+* ASVS 3.2.2: HttpOnly cookie for refresh token.
 
 ---
