@@ -63,7 +63,27 @@ services:
       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
     deploy:
       replicas: 1
-
+  transaction-processor:
+    build:
+      context: ./transaction-processor
+      dockerfile: Dockerfile
+    image: transaction-processor:dev
+    ports:
+      - "8084:8084"
+    depends_on:
+      - transaction_postgres
+      - market-data-consumer
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://transaction_postgres:5432/transactiondb
+      SPRING_DATASOURCE_USERNAME: transactionuser
+      SPRING_DATASOURCE_PASSWORD: transactionpass
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+      MARKET_SERVICE_URL: http://market-data-consumer:8083
+    deploy:
+      replicas: 1
   postgres:
     image: postgres:15-alpine
     container_name: tradestream_postgres
@@ -86,12 +106,24 @@ services:
       POSTGRES_PASSWORD: marketpass
     volumes:
       - market_postgres_data:/var/lib/postgresql/data
+  transaction_postgres:
+    image: postgres:15-alpine
+    container_name: transaction_postgres
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: transactiondb
+      POSTGRES_USER: transactionuser
+      POSTGRES_PASSWORD: transactionpass
+    volumes:
+      - transaction_postgres_data:/var/lib/postgresql/data
 
 
 
 volumes:
   postgres_data:
   market_postgres_data:
+  transaction_postgres_data:
 
 
 secrets:
