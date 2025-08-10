@@ -1,5 +1,6 @@
 package com.tradestream.market_data_consumer.dto;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -10,8 +11,8 @@ public record TradeExecuted(
     UUID orderId,
     UUID userId,
     String ticker,
-    Double price,
-    Integer quantity,
+    BigDecimal price,
+    BigDecimal quantity,
     String side,
     @JsonFormat(shape = JsonFormat.Shape.STRING)
     Instant timestamp // ISO-8601 UTC
