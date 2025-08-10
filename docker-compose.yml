@@ -74,7 +74,6 @@ services:
 
   # --- Orders & Matching ---
   orders-service:
-    profiles: ["later"]
     build: { context: ./services/orders-service, dockerfile: Dockerfile }
     image: tradestream-orders-service:dev
     environment:
@@ -88,6 +87,8 @@ services:
 
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       KAFKA_TOPIC_ORDER_PLACED: order.placed.v1
+      KAFKA_TOPIC_ORDER_CANCELLED: order.cancelled.v1
+      KAFKA_TOPIC_TRADE_EXECUTED: trade.executed.v1
     depends_on:
       orders_postgres: { condition: service_healthy }
       redpanda: { condition: service_healthy }

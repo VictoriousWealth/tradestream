@@ -1,0 +1,4 @@
+ALTER TABLE orders
+  ADD COLUMN filled_quantity NUMERIC(18,6) NOT NULL DEFAULT 0;
+
+ALTER TABLE orders ADD COLUMN last_fill_price NUMERIC(18,6);
