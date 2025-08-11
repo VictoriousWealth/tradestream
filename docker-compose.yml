@@ -98,22 +98,31 @@ services:
     networks: [private_net]
 
   matching-engine:
-    profiles: ["later"]
     build: { context: ./services/matching-engine, dockerfile: Dockerfile }
     image: tradestream-matching-engine:dev
     environment:
       SERVER_PORT: 8086
       ENGINE_PARTITIONS: "by-ticker"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://matching_postgres:5432/matchingdb
+      SPRING_DATASOURCE_USERNAME: matchinguser
+      SPRING_DATASOURCE_PASSWORD: matchingpass
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
 
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       KAFKA_TOPIC_ORDER_PLACED: order.placed.v1
+      KAFKA_TOPIC_ORDER_CANCELLED: order.cancelled.v1
       KAFKA_TOPIC_TRADE_EXECUTED: trade.executed.v1
+      KAFKA_CONSUMER_GROUP: matching-engine
     depends_on:
+      matching_postgres: { condition: service_healthy }
       redpanda: { condition: service_healthy }
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8086/actuator/health"]
     networks: [private_net]
+
 
   # --- Consumers ---
   market-data-consumer:
@@ -219,6 +228,20 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U transactionuser -d transactiondb"]
     networks: [private_net]
+  
+  matching_postgres:
+    image: postgres:15.8-alpine
+    container_name: matching_postgres
+    environment:
+      POSTGRES_DB: matchingdb
+      POSTGRES_USER: matchinguser
+      POSTGRES_PASSWORD: matchingpass
+    volumes: [matching_postgres_data:/var/lib/postgresql/data]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U matchinguser -d matchingdb"]
+    networks: [private_net]
+
 
   redis:
     image: redis:7-alpine
@@ -255,6 +278,7 @@ volumes:
   postgres_data:
   orders_postgres_data:
   market_postgres_data:
+  matching_postgres_data:
   transaction_postgres_data:
 
 secrets:
