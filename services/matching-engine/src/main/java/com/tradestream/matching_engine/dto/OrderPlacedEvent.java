@@ -4,6 +4,8 @@ package com.tradestream.matching_engine.dto;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.tradestream.matching_engine.domain.OrderSide;
 import com.tradestream.matching_engine.domain.OrderType;
 import com.tradestream.matching_engine.domain.TimeInForce;
@@ -20,7 +22,7 @@ public class OrderPlacedEvent {
     private UUID userId;
     private String ticker;
     private OrderSide side;
-    private OrderType orderType;
+    @JsonProperty("orderType") @JsonAlias({"type","orderType"}) private OrderType orderType;
     private TimeInForce timeInForce;
     private BigDecimal price;     // null for MARKET
     private BigDecimal quantity;

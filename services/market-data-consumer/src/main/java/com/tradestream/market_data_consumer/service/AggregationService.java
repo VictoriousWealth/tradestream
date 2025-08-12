@@ -40,8 +40,8 @@ public class AggregationService {
         if (inserted == 0) return false; // duplicate
 
         String ticker = t.ticker().toUpperCase(Locale.ROOT);
-        BigDecimal price = BigDecimal.valueOf(t.price());
-        BigDecimal qty   = BigDecimal.valueOf(t.quantity());
+        BigDecimal price = t.price();
+        BigDecimal qty   = t.quantity();
 
         for (Interval itv : SUPPORTED) {
             Instant bucket = Bucketizer.bucketStart(t.timestamp(), itv);
