@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,80 +27,87 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class MatchingService {
+    private static final Logger log = LoggerFactory.getLogger(MatchingService.class);
+
     private final RestingOrderRepository restingRepo;
     private final TradePublisher tradePublisher;
 
     // ticker -> order book (in-memory)
     private final Map<String, OrderBook> books = new ConcurrentHashMap<>();
 
-    /** Warm-start: call on @PostConstruct from a runner */
     public void loadActiveOrders(List<RestingOrder> active) {
-        active.forEach(ro -> books.computeIfAbsent(ro.getTicker(), t -> new OrderBook()).add(ro));
+        log.info("Loading {} active orders into in-memory books", active.size());
+        active.forEach(ro -> {
+            books.computeIfAbsent(ro.getTicker(), t -> new OrderBook()).add(ro);
+            log.debug("Loaded order {} into book for {}", ro.getId(), ro.getTicker());
+        });
     }
 
     @Transactional
     public void cancel(UUID orderId) {
-        restingRepo.findById(orderId).ifPresent(ro -> {
+        log.info("Received cancel for orderId={}", orderId);
+        restingRepo.findById(orderId).ifPresentOrElse(ro -> {
             ro.setStatus("CANCELED");
             restingRepo.save(ro);
             books.computeIfAbsent(ro.getTicker(), t -> new OrderBook()).remove(ro);
-        });
+            boolean removed = true;
+            log.info("Cancel applied: id={} ticker={} removedFromBook={}", orderId, ro.getTicker(), removed);
+        }, () -> log.warn("Cancel requested for unknown orderId={}", orderId));
     }
 
-    /**
-     * Core matching for an incoming order (from OrderPlaced).
-     * Returns true if fully filled; false if anything rests/cancels.
-     */
     @Transactional
     public boolean handleIncoming(OrderPlacedEvent evt) {
+        log.info("Handling incoming order: {}", evt);
         RestingOrder incoming = toResting(evt);
         OrderBook book = books.computeIfAbsent(incoming.getTicker(), t -> new OrderBook());
 
-        // FOK pre-check: must be fully fillable now
+        // FOK pre-check
         if (incoming.getTimeInForce() == TimeInForce.FOK && !canFullyFill(incoming, book)) {
-            return false; // reject without persisting
+            log.info("Rejecting FOK order {} - cannot fully fill", incoming.getId());
+            return false;
         }
 
-        // Aggressively match while crossed
+        // Matching loop
         while (incoming.getRemainingQuantity().compareTo(BigDecimal.ZERO) > 0 &&
                book.isCrossed(incoming.getPrice(), incoming.getSide())) {
             RestingOrder top = book.pollOpp(incoming.getSide());
             if (top == null) break;
 
             BigDecimal tradeQty = incoming.getRemainingQuantity().min(top.getRemainingQuantity());
-            BigDecimal tradePrice = top.getPrice() != null ? top.getPrice() : incoming.getPrice(); // market/limit cross
+            BigDecimal tradePrice = top.getPrice() != null ? top.getPrice() : incoming.getPrice();
+
+            log.info("Match found: incoming={} resting={} qty={} price={}",
+                    incoming.getId(), top.getId(), tradeQty, tradePrice);
 
             publishTrade(incoming, top, tradeQty, tradePrice);
 
-            // update resting (from book)
             top.setRemainingQuantity(top.getRemainingQuantity().subtract(tradeQty));
             top.setStatus(top.getRemainingQuantity().signum() == 0 ? "FILLED" : "PARTIALLY_FILLED");
             restingRepo.save(top);
             if (top.getRemainingQuantity().signum() > 0) {
-                book.requeueOpp(top); // still has qty
+                book.requeueOpp(top);
+                log.debug("Re-queued partially filled order {}", top.getId());
             }
 
-            // update incoming
             incoming.setRemainingQuantity(incoming.getRemainingQuantity().subtract(tradeQty));
         }
 
-        // Post-match resolution by TIF
+        // Post-match persistence
         if (incoming.getRemainingQuantity().signum() == 0) {
-            // fully filled, nothing to persist
+            log.info("Order {} fully filled", incoming.getId());
             return true;
         }
 
         if (incoming.getTimeInForce() == TimeInForce.IOC) {
-            // cancel remainder
+            log.info("Order {} IOC - unfilled qty canceled", incoming.getId());
             return false;
         }
 
-        // Only LIMIT orders can rest; MARKET remainder cancels
         if (incoming.getOrderType() == OrderType.MARKET) {
+            log.info("Order {} MARKET - remainder canceled", incoming.getId());
             return false;
         }
 
-        // Safety guard: LIMIT must have price before resting
         if (incoming.getPrice() == null) {
             throw new IllegalStateException("LIMIT order must have price to rest");
         }
@@ -107,6 +116,8 @@ public class MatchingService {
                 ? "PARTIALLY_FILLED" : "ACTIVE");
         restingRepo.save(incoming);
         book.add(incoming);
+        log.info("Rested order {} with status {} and remaining qty {}",
+                incoming.getId(), incoming.getStatus(), incoming.getRemainingQuantity());
         return false;
     }
 

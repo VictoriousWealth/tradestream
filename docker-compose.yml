@@ -109,7 +109,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_FLYWAY_ENABLED: "true"
       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
-
+      SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       KAFKA_TOPIC_ORDER_PLACED: order.placed.v1
       KAFKA_TOPIC_ORDER_CANCELLED: order.cancelled.v1

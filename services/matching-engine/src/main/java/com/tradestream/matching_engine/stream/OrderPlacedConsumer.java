@@ -1,11 +1,13 @@
 // stream/OrderPlacedConsumer.java
 package com.tradestream.matching_engine.stream;
 
+import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
@@ -21,6 +23,9 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 public class OrderPlacedConsumer {
+    
+    private static final Logger log = LoggerFactory.getLogger(OrderPlacedConsumer.class);
+    
     private final MatchingService matchingService;
     private final ProcessedMessageRepository msgRepo;
 
@@ -36,11 +41,26 @@ public class OrderPlacedConsumer {
     @Transactional
     public void onMessage(ConsumerRecord<String, OrderPlacedEvent> rec, Acknowledgment ack) {
         OrderPlacedEvent evt = rec.value();
-        UUID messageId = extractMessageId(rec, Optional.ofNullable(evt.getOrderId()).orElse(UUID.randomUUID()));
-        if (msgRepo.existsById(messageId)) { ack.acknowledge(); return; }
+        
+        UUID messageId = extractMessageId(rec, null);
+        if (messageId == null) {
+            String rid = rec.topic() + "|" + rec.partition() + "|" + rec.offset();
+            messageId = UUID.nameUUIDFromBytes(rid.getBytes(StandardCharsets.UTF_8));
+        }
+
+        if (msgRepo.existsByTopicAndMessageId(rec.topic(), messageId)) {
+            log.info("DUP topic={} messageId={} - skipping", rec.topic(), messageId);
+            ack.acknowledge();
+            return;
+        }
 
         matchingService.handleIncoming(evt);
-        msgRepo.save(ProcessedMessage.builder().messageId(messageId).receivedAt(OffsetDateTime.now()).build());
+        msgRepo.save(ProcessedMessage.builder()
+                .topic(rec.topic())
+                .messageId(messageId)
+                .receivedAt(OffsetDateTime.now())
+                .build());
+
         ack.acknowledge();
     }
 

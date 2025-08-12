@@ -49,3 +49,7 @@ tradestream:
     orderPlaced: ${KAFKA_TOPIC_ORDER_PLACED:order.placed.v1}
     orderCancelled: ${KAFKA_TOPIC_ORDER_CANCELLED:order.cancelled.v1}
     tradeExecuted: ${KAFKA_TOPIC_TRADE_EXECUTED:trade.executed.v1}
+
+logging:
+  level:
+    com.tradestream.matching_engine.stream: INFO
