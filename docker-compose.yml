@@ -114,6 +114,9 @@ services:
       KAFKA_TOPIC_ORDER_PLACED: order.placed.v1
       KAFKA_TOPIC_ORDER_CANCELLED: order.cancelled.v1
       KAFKA_TOPIC_TRADE_EXECUTED: trade.executed.v1
+      TRADESTREAM_TOPICS_ORDERPLACED: order.placed.v1
+      TRADESTREAM_TOPICS_ORDERCANCELLED: order.cancelled.v1
+      TRADESTREAM_TOPICS_TRADEEXECUTED: trade.executed.v1
       KAFKA_CONSUMER_GROUP: matching-engine
     depends_on:
       matching_postgres: { condition: service_healthy }
@@ -154,7 +157,7 @@ services:
 
   transaction-processor:
     build: { context: ./services/transaction-processor, dockerfile: Dockerfile }
-    image: transaction-processor:dev
+    image: tradestream-transaction-processor:dev
     environment:
       SERVER_PORT: 8084
       SPRING_DATASOURCE_URL: jdbc:postgresql://transaction_postgres:5432/transactiondb
@@ -163,17 +166,49 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_FLYWAY_ENABLED: "true"
       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
-      MARKET_SERVICE_URL: http://market-data-consumer:8083
-
       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
       KAFKA_TOPIC_TRADE_EXECUTED: trade.executed.v1
-      KAFKA_CONSUMER_GROUP: pf-consumer
+      KAFKA_TOPIC_TRANSACTION_RECORDED: transaction.recorded.v1
+      KAFKA_CONSUMER_GROUP: txproc-journal
+      ORDERS_BASE_URL: http://orders-service:8085
+
     depends_on:
       transaction_postgres: { condition: service_healthy }
       redpanda: { condition: service_healthy }
+      orders-service: { condition: service_healthy }
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
+    networks: [private_net]
+  
+  portfolio-service:
+    build: { context: ./services/portfolio-service, dockerfile: Dockerfile }
+    image: tradestream-portfolio-service:dev
+    environment:
+      SERVER_PORT: 8087
+      SPRING_DATASOURCE_URL: jdbc:postgresql://portfolio_postgres:5432/portfoliodb
+      SPRING_DATASOURCE_USERNAME: portfoliouser
+      SPRING_DATASOURCE_PASSWORD: portfoliopass
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+      KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+      KAFKA_TOPIC_TRADE_EXECUTED: trade.executed.v1
+      KAFKA_TOPIC_TRANSACTION_RECORDED: transaction.recorded.v1
+      KAFKA_CONSUMER_GROUP: portfolio-svc
+      ORDERS_BASE_URL: http://orders-service:8085
+      SPRING_CACHE_TYPE: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CACHE_L1_ENABLED: "true"
+    depends_on:
+      portfolio_postgres: { condition: service_healthy }
+      redpanda: { condition: service_healthy }
+      orders-service: { condition: service_healthy }
+      # redis: { condition: service_healthy }   # uncomment if/when used
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8087/actuator/health"]
     networks: [private_net]
 
   # --- Datastores ---
@@ -241,6 +276,20 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U matchinguser -d matchingdb"]
     networks: [private_net]
+  
+  portfolio_postgres:
+    image: postgres:15.8-alpine
+    container_name: portfolio_postgres
+    environment:
+      POSTGRES_DB: portfoliodb
+      POSTGRES_USER: portfoliouser
+      POSTGRES_PASSWORD: portfoliopass
+    volumes: [portfolio_postgres_data:/var/lib/postgresql/data]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portfoliouser -d portfoliodb"]
+    networks: [private_net]
+
 
 
   redis:
@@ -280,6 +329,7 @@ volumes:
   market_postgres_data:
   matching_postgres_data:
   transaction_postgres_data:
+  portfolio_postgres_data:
 
 secrets:
   jwt_private.pem:

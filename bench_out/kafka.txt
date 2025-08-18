@@ -1,0 +1,63 @@
+== cluster info ==
+CLUSTER
+=======
+redpanda.1a480cff-38fa-41e8-858e-ec8b8ac0e688
+
+BROKERS
+=======
+ID    HOST      PORT
+0*    redpanda  9092
+
+TOPICS
+======
+NAME                     PARTITIONS  REPLICAS
+__consumer_offsets       3           1
+order.cancelled.v1       1           1
+order.cancelled.v1.DLT   1           1
+order.placed.v1          1           1
+order.placed.v1.DLT      1           1
+trade.executed.v1        1           1
+transaction.recorded.v1  1           1
+
+
+== topics ==
+NAME                     PARTITIONS  REPLICAS
+order.cancelled.v1       1           1
+order.cancelled.v1.DLT   1           1
+order.placed.v1          1           1
+order.placed.v1.DLT      1           1
+trade.executed.v1        1           1
+transaction.recorded.v1  1           1
+
+== groups ==
+GROUP        matching-engine
+COORDINATOR  0
+STATE        Stable
+BALANCER     range
+MEMBERS      2
+TOTAL-LAG    0
+
+TOPIC               PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                                        CLIENT-ID                   HOST
+order.cancelled.v1  0          1               0                 1               0     consumer-matching-engine-3-7e0fa464-ae04-43c4-9ca5-c3a628184c0a  consumer-matching-engine-3  172.18.0.10
+order.placed.v1     0          8039            0                 8039            0     consumer-matching-engine-1-5126c150-1620-484e-975a-4062194b76cd  consumer-matching-engine-1  172.18.0.10
+
+GROUP        md-consumer
+COORDINATOR  0
+STATE        Stable
+BALANCER     range
+MEMBERS      1
+TOTAL-LAG    0
+
+TOPIC              PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                                    CLIENT-ID               HOST
+trade.executed.v1  0          47              0                 47              0     consumer-md-consumer-1-d3c1a4f4-7b20-4760-b356-ede1d1fbd7da  consumer-md-consumer-1  172.18.0.14
+
+GROUP        txproc-journal
+COORDINATOR  0
+STATE        Stable
+BALANCER     range
+MEMBERS      1
+TOTAL-LAG    0
+
+TOPIC              PARTITION  CURRENT-OFFSET  LOG-START-OFFSET  LOG-END-OFFSET  LAG   MEMBER-ID                                                       CLIENT-ID                  HOST
+trade.executed.v1  0          47              0                 47              0     consumer-txproc-journal-1-0071257b-63ee-45a2-bc7f-c9de541896e4  consumer-txproc-journal-1  172.18.0.16
+

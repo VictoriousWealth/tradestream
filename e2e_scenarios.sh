@@ -10,12 +10,16 @@ fail(){ echo -e "${RED}✘ $*${NC}"; exit 1; }
 PRIVATE_NET="$(docker network ls --format '{{.Name}}' | grep -E '_private_net$' | head -n1 || true)"
 [[ -z "$PRIVATE_NET" ]] && PRIVATE_NET="tradestream_private_net"
 
-ORDERS_HOST="${ORDERS_HOST:-tradestream-orders-service-1}"
-ME_HOST="${ME_HOST:-tradestream-matching-engine-1}"
-MDS_HOST="${MDS_HOST:-tradestream-market-data-consumer-1}"
+# Prefer service DNS names (more stable than container names)
+ORDERS_HOST="${ORDERS_HOST:-orders-service}"
+ME_HOST="${ME_HOST:-matching-engine}"
+MDS_HOST="${MDS_HOST:-market-data-consumer}"
+TX_HOST="${TX_HOST:-transaction-processor}"
+
 ORDERS_PORT=8085
 ME_PORT=8086
 MDS_PORT=8083
+TX_PORT=8084
 
 USER_A="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 USER_B="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
@@ -32,9 +36,7 @@ arm_topic_watcher() {
     rpk topic consume ${topic} --offset end -f '%v' -n 1 > ${watch_file} 2>/dev/null & echo \$! > /tmp/e2e_watch.pid"
 }
 
-arm_trade_watcher() {
-  arm_topic_watcher "trade.executed.v1" "$1"
-}
+arm_trade_watcher() { arm_topic_watcher "trade.executed.v1" "$1"; }
 
 wait_trade_or_timeout() {
   local watch_file="$1" max_halfsecs="${2:-40}"
@@ -73,16 +75,48 @@ wait_for_cancel_published() {
 wait_me_caught_up() {
   local topic="$1" timeout="${2:-60}"
   for i in $(seq 1 "$timeout"); do
-    # column 6 is LAG in the rpk table; awk collapses multiple spaces
     local lag
-    lag="$(docker compose exec -T redpanda rpk group describe matching-engine \
-      | awk -v t="$topic" 'BEGIN{lag="NA"} $1==t {lag=$6} END{print lag}')"
-    if [[ "$lag" == "0" ]]; then
-      return 0
-    fi
+    lag="$(docker compose exec -T redpanda rpk group describe matching-engine 2>/dev/null \
+      | awk -v t="$topic" '$1==t {print $6}' | tail -n1)"
+    if [[ "$lag" == "0" ]]; then return 0; fi
     sleep 1
   done
   return 1
+}
+
+# --- TX-PROCESSOR helpers ---
+wait_tx_health() {
+  for i in {1..60}; do
+    if net_curl GET "http://${TX_HOST}:${TX_PORT}/actuator/health" >/dev/null; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
+
+# Wait until txproc consumer group is caught up on trade.executed.v1
+wait_txproc_caught_up() {
+  local timeout="${1:-60}"
+  for i in $(seq 1 "$timeout"); do
+    local lag
+    lag="$(docker compose exec -T redpanda rpk group describe txproc-journal 2>/dev/null \
+      | awk '$1=="trade.executed.v1"{print $6}' | tail -n1)"
+    [[ "$lag" == "0" ]] && return 0
+    sleep 1
+  done
+  return 1
+}
+
+# Returns totalElements for user+ticker page query
+tx_count_user_ticker() {
+  local user="$1" ticker="$2"
+  net_curl GET "http://${TX_HOST}:${TX_PORT}/api/transactions/${user}/ticker/${ticker}?page=0&size=1" \
+    | jq -r '.totalElements'
+}
+
+# Fetch a page (for debugging)
+tx_list_user_ticker() {
+  local user="$1" ticker="$2" size="${3:-10}"
+  net_curl GET "http://${TX_HOST}:${TX_PORT}/api/transactions/${user}/ticker/${ticker}?page=0&size=${size}"
 }
 
 post_order() {
@@ -111,20 +145,22 @@ get_order() {
 assert_eq() { [[ "$1" == "$2" ]] || fail "assert failed: expected [$2] got [$1] ($3)"; }
 assert_num_eq() { awk "BEGIN{exit !($1==$2)}" || fail "assert failed: expected [$2] got [$1] ($3)"; }
 
-# --- bring up core services ---
+# --- bring up core services (now includes tx-proc + its postgres) ---
 info "Using docker network: ${PRIVATE_NET}"
 docker compose up -d orders_postgres matching_postgres market_postgres postgres redis redpanda \
-  orders-service matching-engine market-data-consumer >/dev/null
+  orders-service matching-engine market-data-consumer \
+  transaction_postgres transaction-processor >/dev/null
 
 # health
 info "Waiting for health..."
 for i in {1..60}; do
   set +e
   net_curl GET "http://${ORDERS_HOST}:${ORDERS_PORT}/actuator/health" >/dev/null && O=ok || O=
-  net_curl GET "http://${ME_HOST}:${ME_PORT}/actuator/health" >/dev/null && M=ok || M=
-  net_curl GET "http://${MDS_HOST}:${MDS_PORT}/actuator/health" >/dev/null && D=ok || D=
+  net_curl GET "http://${ME_HOST}:${ME_PORT}/actuator/health"      >/dev/null && M=ok || M=
+  net_curl GET "http://${MDS_HOST}:${MDS_PORT}/actuator/health"    >/dev/null && D=ok || D=
+  net_curl GET "http://${TX_HOST}:${TX_PORT}/actuator/health"      >/dev/null && T=ok || T=
   set -e
-  [[ "$O$M$D" == "okokok" ]] && break
+  [[ "$O$M$D$T" == "okokokok" ]] && break
   sleep 2
 done
 ok "All healthy."
@@ -160,6 +196,19 @@ assert_eq "$b_status" "FILLED" "buy status"
 assert_num_eq "$b_rem" 0 "buy remaining"
 ok "Partial fill OK."
 
+# TX-PROCESSOR CHECK
+info "Checking tx-processor ledger for ${T_PF}"
+wait_txproc_caught_up 60 || fail "tx-processor not caught up"
+for i in {1..30}; do
+  cA="$(tx_count_user_ticker "$USER_A" "$T_PF")"
+  cB="$(tx_count_user_ticker "$USER_B" "$T_PF")"
+  [[ "$cA" == "1" && "$cB" == "1" ]] && break
+  sleep 1
+done
+assert_eq "$cA" "1" "seller ledger row for ${T_PF}"
+assert_eq "$cB" "1" "buyer ledger row for ${T_PF}"
+ok "tx-processor ledger recorded partial-fill."
+
 # =============== 2) IOC partial ==================
 info "[2/9] IOC partial (${T_IOC1}): SELL 10, BUY IOC 50"
 WATCH="/tmp/ioc1_trade.json"; arm_trade_watcher "$WATCH"
@@ -170,12 +219,33 @@ echo "$TR_IOC1" | jq .
 qty="$(echo "$TR_IOC1" | jq -r .quantity)"; assert_num_eq "$qty" 10 "IOC matched available"
 ok "IOC partial OK."
 
+# TX-PROCESSOR CHECK
+info "Checking tx-processor ledger for ${T_IOC1}"
+wait_txproc_caught_up 60 || fail "tx-processor not caught up"
+for i in {1..20}; do
+  cA="$(tx_count_user_ticker "$USER_A" "$T_IOC1")"
+  cB="$(tx_count_user_ticker "$USER_B" "$T_IOC1")"
+  [[ "$cA" == "1" && "$cB" == "1" ]] && break
+  sleep 1
+done
+assert_eq "$cA" "1" "seller ledger row for ${T_IOC1}"
+assert_eq "$cB" "1" "buyer ledger row for ${T_IOC1}"
+ok "IOC partial recorded in ledger."
+
 # =============== 3) IOC no-liquidity ============
 info "[3/9] IOC no-liquidity (${T_IOC0}): BUY IOC 10 (no rests) => no trade"
 WATCH="/tmp/ioc0_trade.json"; arm_trade_watcher "$WATCH"
 post_order BUY LIMIT IOC 150.25 10 "$T_IOC0" "$USER_B" >/dev/null
 if wait_trade_or_timeout "$WATCH" 10; then fail "Unexpected trade for IOC no-liquidity"; fi
 ok "IOC no-liquidity OK (no trade)."
+
+# TX-PROCESSOR CHECK
+info "Checking no-ledger for ${T_IOC0}"
+cA="$(tx_count_user_ticker "$USER_A" "$T_IOC0")"
+cB="$(tx_count_user_ticker "$USER_B" "$T_IOC0")"
+assert_eq "$cA" "0" "no trade => no seller row"
+assert_eq "$cB" "0" "no trade => no buyer row"
+ok "IOC no-liquidity produced no ledger rows."
 
 # =============== 4) FOK insufficient ============
 info "[4/9] FOK insufficient (${T_FOK}): SELL 50, then BUY FOK 100 => no trade"
@@ -184,6 +254,13 @@ post_order SELL LIMIT GTC 150.25 50 "$T_FOK" "$USER_A" >/dev/null
 post_order BUY  LIMIT FOK 150.25 100 "$T_FOK" "$USER_B" >/dev/null
 if wait_trade_or_timeout "$WATCH" 10; then fail "Unexpected trade for FOK insufficient"; fi
 ok "FOK insufficient OK (no trade)."
+
+# TX-PROCESSOR CHECK
+info "Checking no-ledger for ${T_FOK}"
+cA="$(tx_count_user_ticker "$USER_A" "$T_FOK")"
+cB="$(tx_count_user_ticker "$USER_B" "$T_FOK")"
+assert_eq "$cA" "0"; assert_eq "$cB" "0"
+ok "FOK insufficient produced no ledger rows."
 
 # =============== 5) MARKET order ================
 info "[5/9] MARKET (${T_MKT}): SELL 20@150.30, BUY MARKET 25 => trade 20 @ 150.30"
@@ -196,6 +273,18 @@ qty="$(echo "$TR_MKT" | jq -r .quantity)"; price="$(echo "$TR_MKT" | jq -r .pric
 assert_num_eq "$qty" 20 "MARKET qty equals available"
 assert_num_eq "$price" 150.30 "MARKET executes at resting price"
 ok "MARKET behavior OK."
+
+# TX-PROCESSOR CHECK
+info "Checking tx-processor ledger for ${T_MKT}"
+wait_txproc_caught_up 60 || fail "tx-processor not caught up"
+for i in {1..20}; do
+  cA="$(tx_count_user_ticker "$USER_A" "$T_MKT")"
+  cB="$(tx_count_user_ticker "$USER_B" "$T_MKT")"
+  [[ "$cA" == "1" && "$cB" == "1" ]] && break
+  sleep 1
+done
+assert_eq "$cA" "1"; assert_eq "$cB" "1"
+ok "MARKET trade recorded in ledger."
 
 # =============== 6) Cancel flow =================
 # policy: you do NOT allow cancelling partially-filled orders (only NEW)
@@ -220,6 +309,13 @@ post_order BUY LIMIT GTC 150.25 40 "$T_CAN" "$USER_B" >/dev/null
 if wait_trade_or_timeout "$WATCH" 10; then fail "Unexpected trade after cancel"; fi
 ok "Cancel flow OK (no trade after cancel)."
 
+# TX-PROCESSOR CHECK
+info "Checking no-ledger for ${T_CAN}"
+cA="$(tx_count_user_ticker "$USER_A" "$T_CAN")"
+cB="$(tx_count_user_ticker "$USER_B" "$T_CAN")"
+assert_eq "$cA" "0"; assert_eq "$cB" "0"
+ok "Cancel flow produced no ledger rows."
+
 # =============== 7) Idempotency ================
 info "[7/9] Idempotency: re-publish previous partial-fill trade, expect no double-apply"
 TKEY="$T_PF"
@@ -237,6 +333,14 @@ assert_eq "$s_filled_post" "$s_filled_pre" "sell filled should not change"
 assert_eq "$b_filled_post" "$b_filled_pre" "buy filled should not change"
 ok "Idempotency OK (duplicate trade ignored)."
 
+# TX-PROCESSOR CHECK
+info "Checking idempotency in ledger for ${T_PF}"
+cA2="$(tx_count_user_ticker "$USER_A" "$T_PF")"
+cB2="$(tx_count_user_ticker "$USER_B" "$T_PF")"
+assert_eq "$cA2" "1" "duplicate should not add seller rows"
+assert_eq "$cB2" "1" "duplicate should not add buyer rows"
+ok "Ledger idempotency OK."
+
 # =============== 8) Recovery ====================
 info "[8/9] Recovery: place SELL 15, restart engine, then BUY 15 => trade"
 WATCH="/tmp/rcv_trade.json"; arm_trade_watcher "$WATCH"
@@ -250,6 +354,18 @@ post_order BUY LIMIT GTC 150.25 15 "$T_RCV" "$USER_B" >/dev/null
 TR_RCV="$(wait_trade_or_timeout "$WATCH" 60 || fail "No trade after restart")"
 echo "$TR_RCV" | jq .
 ok "Recovery warm-start OK."
+
+# TX-PROCESSOR CHECK
+info "Checking tx-processor ledger for ${T_RCV}"
+wait_txproc_caught_up 60 || fail "tx-processor not caught up"
+for i in {1..20}; do
+  cA="$(tx_count_user_ticker "$USER_A" "$T_RCV")"
+  cB="$(tx_count_user_ticker "$USER_B" "$T_RCV")"
+  [[ "$cA" == "1" && "$cB" == "1" ]] && break
+  sleep 1
+done
+assert_eq "$cA" "1"; assert_eq "$cB" "1"
+ok "Recovery trade recorded in ledger."
 
 # =============== 9) DLT poison ==================
 info "[9/9] DLT: send bad side to order.placed.v1 => should land in order.placed.v1.DLT"

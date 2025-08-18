@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.tradestream.orders_service.domain.OrderType;
 import com.tradestream.orders_service.domain.Side;
 import com.tradestream.orders_service.domain.TimeInForce;
@@ -18,5 +19,5 @@ public record OrderPlaced(
         TimeInForce timeInForce,
         BigDecimal quantity,
         BigDecimal price,       // null for MARKET
-        Instant timestamp       // event time (createdAt)
+        @JsonFormat(shape = JsonFormat.Shape.STRING) Instant timestamp       // event time (createdAt)
 ) { }
