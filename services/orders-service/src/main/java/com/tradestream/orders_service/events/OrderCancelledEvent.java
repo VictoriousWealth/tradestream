@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import lombok.Builder;
 import lombok.Data;
 
@@ -15,5 +17,5 @@ public class OrderCancelledEvent {
     private String ticker;
     private BigDecimal quantity;
     private BigDecimal price;
-    private Instant timestamp;
+    @JsonFormat(shape = JsonFormat.Shape.STRING) private Instant timestamp;
 }
