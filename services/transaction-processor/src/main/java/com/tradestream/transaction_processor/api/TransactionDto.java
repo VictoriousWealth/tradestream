@@ -13,7 +13,7 @@ public record TransactionDto(
         UUID userId,
         String side,
         String ticker,
-        int quantity,
+        BigDecimal quantity,   // <—
         BigDecimal price,
         Instant executedAt
 ) {

@@ -4,6 +4,7 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:redpanda:9092}
     consumer:
+      auto-offset-reset: earliest
       group-id: ${KAFKA_CONSUMER_GROUP:matching-engine}
       max-poll-records: 100
       enable-auto-commit: false
