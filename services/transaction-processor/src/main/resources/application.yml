@@ -8,25 +8,30 @@ spring:
   jpa:
     hibernate:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
+    properties:
+      hibernate.jdbc.time_zone: UTC
     open-in-view: false
   flyway:
     enabled: ${SPRING_FLYWAY_ENABLED:true}
     locations: ${SPRING_FLYWAY_LOCATIONS:classpath:db/migration}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:redpanda:9092}
+
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP:transaction_processor-journal}
       auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      key-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
       properties:
-        # Trust our DTO package and ignore TypeId header so we always deserialize into our class
-        spring.json.trusted.packages: "*"
+        spring.deserializer.key.delegate.class: org.apache.kafka.common.serialization.StringDeserializer
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: "com.tradestream.*"
         spring.json.use.type.headers: false
         spring.json.value.default.type: com.tradestream.transaction_processor.consumer.TradeExecutedEvent
+
     listener:
-      # process one record at a time with per-record acks
       ack-mode: RECORD
+
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer

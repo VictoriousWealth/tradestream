@@ -28,46 +28,38 @@ public class TransactionService {
 
     @Transactional
     public void processTrade(String topic, String messageKey, TradeExecutedEvent event) {
-        // Idempotency check
         var key = new ProcessedMessage.Key(topic, event.getTradeId().toString());
         if (processedMessageRepository.existsById(key)) {
-            return; // already processed
+            return;
         }
 
-        // Resolve buyer & seller user IDs from Orders Service
-        UUID buyerUserId = ordersServiceClient.getUserIdForOrder(event.getBuyOrderId());
-        UUID sellerUserId = ordersServiceClient.getUserIdForOrder(event.getSellOrderId());
+        var buyerUserId  = ordersServiceClient.getUserIdForOrder(event.getBuyOrderId());
+        var sellerUserId = ordersServiceClient.getUserIdForOrder(event.getSellOrderId());
 
-        // Persist buyer transaction
-        Transaction buyerTx = transactionRepository.save(Transaction.builder()
+        var buyerTx = transactionRepository.save(Transaction.builder()
                 .tradeId(event.getTradeId())
                 .orderId(event.getBuyOrderId())
                 .userId(buyerUserId)
                 .side(Transaction.Side.BUY)
                 .ticker(event.getTicker())
-                .quantity(event.getQuantity())
+                .quantity(event.getQuantity()) // BigDecimal
                 .price(event.getPrice())
                 .executedAt(event.getTimestamp())
                 .build());
 
-        // Persist seller transaction
-        Transaction sellerTx = transactionRepository.save(Transaction.builder()
+        var sellerTx = transactionRepository.save(Transaction.builder()
                 .tradeId(event.getTradeId())
                 .orderId(event.getSellOrderId())
                 .userId(sellerUserId)
                 .side(Transaction.Side.SELL)
                 .ticker(event.getTicker())
-                .quantity(event.getQuantity())
+                .quantity(event.getQuantity()) // BigDecimal
                 .price(event.getPrice())
                 .executedAt(event.getTimestamp())
                 .build());
 
-        // Mark message as processed (idempotency)
         processedMessageRepository.save(new ProcessedMessage(key, Instant.now()));
 
-        // Emit one event per journal row (post-persist; still within the same txn).
-        // NOTE: In a perfect world, use the Outbox pattern to ensure "commit+publish" atomicity.
-        // For MVP, idempotent consumers will handle rare duplicates.
         recordedProducer.publish(toEvent(buyerTx));
         recordedProducer.publish(toEvent(sellerTx));
     }
@@ -80,7 +72,7 @@ public class TransactionService {
                 .userId(tx.getUserId())
                 .side(tx.getSide().name())
                 .ticker(tx.getTicker())
-                .quantity(tx.getQuantity())
+                .quantity(tx.getQuantity()) 
                 .price(tx.getPrice())
                 .executedAt(tx.getExecutedAt())
                 .version(1)

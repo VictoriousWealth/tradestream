@@ -2,6 +2,7 @@
 package com.tradestream.matching_engine.dto;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.UUID;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
@@ -26,4 +27,5 @@ public class OrderPlacedEvent {
     private TimeInForce timeInForce;
     private BigDecimal price;     // null for MARKET
     private BigDecimal quantity;
+    Instant timestamp;
 }

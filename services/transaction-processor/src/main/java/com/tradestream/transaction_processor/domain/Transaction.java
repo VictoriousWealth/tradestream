@@ -1,6 +1,5 @@
 package com.tradestream.transaction_processor.domain;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -32,7 +31,7 @@ import lombok.Setter;
 public class Transaction {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID) // Hibernate 6 / Boot 3
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "trade_id", nullable = false)
@@ -51,11 +50,11 @@ public class Transaction {
     @Column(name = "ticker", nullable = false, length = 32)
     private String ticker;
 
-    @Column(name = "quantity", nullable = false)
-    private int quantity; // strictly positive
+    @Column(name = "quantity", nullable = false, precision = 18, scale = 6) // <—
+    private java.math.BigDecimal quantity;
 
     @Column(name = "price", nullable = false, precision = 18, scale = 6)
-    private BigDecimal price;
+    private java.math.BigDecimal price;
 
     @Column(name = "executed_at", nullable = false)
     private Instant executedAt;
