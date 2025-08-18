@@ -12,7 +12,7 @@ public class TradeExecutedEvent {
     private UUID buyOrderId;
     private UUID sellOrderId;
     private String ticker;
-    private BigDecimal price;
-    private int quantity;
-    private Instant timestamp; // a unix epoch
+    private BigDecimal price;     // keep BigDecimal
+    private BigDecimal quantity;  // <— was int
+    private Instant timestamp;    // ISO-8601 instant (producer side decides format)
 }
