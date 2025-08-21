@@ -27,8 +27,9 @@ public class SecurityConfig {
 
         // 🔹 Authorization
         http.authorizeHttpRequests(auth -> {
-            auth.requestMatchers(HttpMethod.GET, "/", "/error").permitAll();
-            auth.requestMatchers("/login", "/refresh").permitAll();            
+            auth.requestMatchers(HttpMethod.GET, "/", "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll();
+            auth.requestMatchers("/error").permitAll();
+            auth.requestMatchers(HttpMethod.POST, "/login", "/refresh").permitAll();            
             auth.anyRequest().denyAll(); // Protect all other routes by denying access
         });
 
