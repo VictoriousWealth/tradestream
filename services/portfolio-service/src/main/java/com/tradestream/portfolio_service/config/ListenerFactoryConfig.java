@@ -1,7 +1,6 @@
 package com.tradestream.portfolio_service.config;
 
 import com.tradestream.portfolio_service.dto.TransactionRecordedEvent;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.*;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;

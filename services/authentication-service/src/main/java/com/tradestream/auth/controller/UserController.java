@@ -34,8 +34,8 @@ public class UserController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(@RequestBody UserDTO userDTO) {
         // we have the credentials, now we need to treat them to have no spaces
-        String username = userDTO.getUsername().replace(" ", "");
-        String password = userDTO.getPassword().replace(" ", "");
+        String username = userDTO.getUsername().trim();
+        String password = userDTO.getPassword().trim();
 
         // validate the credentials
         User user = userRepository.findByUsername(username)
