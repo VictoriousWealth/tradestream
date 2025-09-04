@@ -7,31 +7,28 @@ networks:
 services:
   # --- Edge ---
   api-gateway:
-    profiles: ["later"] 
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
     image: tradestream-api-gateway:dev
-    ports:
-      - "8080:8080"
+    ports: ["8080:8080"]
     depends_on:
-      auth-service:
-        condition: service_healthy
-      user-registration-service:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      auth-service: { condition: service_healthy }
+      user-registration-service: { condition: service_healthy }
+      redis: { condition: service_healthy }
     environment:
       SERVER_PORT: 8080
-      REDIS_HOST: redis
-      ORDERS_BASE_URL: http://orders-service:8085
       AUTH_BASE_URL: http://auth-service:8082
       REG_BASE_URL: http://user-registration-service:8081
+      ORDERS_BASE_URL: http://orders-service:8085
+      JWT_PUBLIC_KEY_LOCATION: file:/run/secrets/jwt_public.pem
+      REDIS_HOST: redis
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: ["CMD","curl","-f","http://localhost:8080/actuator/health"]
+    secrets:
+      - jwt_public.pem
     networks: [public_net, private_net]
-
   # --- Auth & Users ---
   user-registration-service:
     build: { context: ./services/user-registration-service, dockerfile: Dockerfile }

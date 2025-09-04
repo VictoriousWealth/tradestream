@@ -1,0 +1,111 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Mount the same secret as auth-service
+          public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:/run/secrets/jwt_public.pem}
+
+  cloud:
+    gateway:
+      default-filters:
+        - RemoveRequestHeader=Cookie
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin RETAIN_UNIQUE
+
+      routes:
+        # ---------- AUTH ----------
+        - id: auth-login
+          uri: ${AUTH_BASE_URL:http://auth-service:8082}
+          predicates:
+            - Path=/api/auth/login
+          filters:
+            - RewritePath=/api/auth/login,/login
+            # Optional: throttle login by IP (requires Redis)
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@ipKeyResolver}"
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+
+        - id: auth-refresh
+          uri: ${AUTH_BASE_URL:http://auth-service:8082}
+          predicates:
+            - Path=/api/auth/refresh
+          filters:
+            - RewritePath=/api/auth/refresh,/refresh
+            - AddRequestHeader=X-Internal-Caller,api-gateway
+
+        # ---------- USER REGISTRATION (internal-only via header) ----------
+        - id: user-registration
+          uri: ${REG_BASE_URL:http://user-registration-service:8081}
+          predicates:
+            - Path=/api/users/register
+          filters:
+            - RewritePath=/api/users/register,/register
+            - AddRequestHeader=X-Internal-Caller,api-gateway
+
+        # ---------- ORDERS ----------
+        - id: orders
+          uri: ${ORDERS_BASE_URL:http://orders-service:8085}
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            # orders-service already exposes /orders/**
+            - CircuitBreaker=name=ordersCB,fallbackUri=forward:/fallback
+
+        # ---------- TRANSACTIONS (already /api/transactions/**) ----------
+        - id: transactions
+          uri: http://transaction-processor:8084
+          predicates:
+            - Path=/api/transactions/**
+          filters:
+            - CircuitBreaker=name=txCB,fallbackUri=forward:/fallback
+
+        # ---------- PORTFOLIO (/portfolio/**) ----------
+        - id: portfolio
+          uri: http://portfolio-service:8087
+          predicates:
+            - Path=/api/portfolio/**
+          filters:
+            - RewritePath=/api/portfolio/(?<p>.*),/portfolio/${p}
+            - CircuitBreaker=name=portfolioCB,fallbackUri=forward:/fallback
+
+        # ---------- MARKET DATA: normalize to /api/market-data/** ----------
+        - id: market-data
+          uri: http://market-data-consumer:8083
+          predicates:
+            - Path=/api/market-data/**
+          filters:
+            # Rewrite to /candles/**
+            - RewritePath=/api/market-data/(?<p>.*),/candles/${p}
+            - CircuitBreaker=name=mdCB,fallbackUri=forward:/fallback
+
+      globalcors:
+        corsConfigurations:
+          "[/**]":
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: false
+            exposedHeaders: "X-Request-Id"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,gateway,metrics"
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      ordersCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
+      txCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
+      portfolioCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
+      mdCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
+
