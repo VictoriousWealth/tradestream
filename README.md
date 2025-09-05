@@ -1,4 +1,6 @@
-<h1 align="center">TradeStream — Real-Time Financial Data Processor</h1>
+# TradeStream — Distributed Trading Platform
+
+> Event-driven trading system with Spring/Java microservices, Kafka/Redpanda, PostgreSQL, Redis, and Docker. This root README is the entry for recruiters and engineers: what’s here **today**, how to run it, and where to look next.
 
 <p align="center">
   <a href="https://github.com/VictoriousWealth/tradestream">
@@ -10,7 +12,7 @@
   <a href="https://github.com/VictoriousWealth/tradestream/pulls">
     <img src="https://img.shields.io/github/issues-pr/VictoriousWealth/tradestream" alt="Pull Requests">
   </a>
-  <a href="https://github.com/VictoriousWealth/tradestream/blob/main/LICENSE">
+  <a href="LICENSE">
     <img src="https://img.shields.io/badge/LICENSE-CC%20BY--NC%204.0-blue.svg" alt="License">
   </a>
   <a href="https://github.com/VictoriousWealth/tradestream/commits/main">
@@ -18,281 +20,225 @@
   </a>
 </p>
 
-<p align="center">
-  Scalable, secure microservice-based system simulating real-time financial transaction processing.<br>
-  Inspired by architecture and engineering practices used in modern financial institutions like JPMorgan Chase.<br><br>
-  <a href="#project-overview"><strong>Explore the Project Overview »</strong></a>
-</p>
+---
+
+## TL;DR
+
+* **Edge security:** Spring Cloud **API Gateway** (Java 21) validates **PS256 JWT** at the perimeter, injects `X-Request-Id`, applies **Resilience4j** circuit breakers, and **Redis** IP rate limits **login**.
+* **Order → Trade pipeline:** **Orders Service** → **Matching Engine** (price–time priority) → **Transaction Processor** (immutable journal).
+* **Read models:** **Portfolio Service** projects positions & realized PnL. **Market Data Consumer** aggregates OHLCV and keeps “latest” hot in Redis.
+* **Everything is containerized**; **Flyway** manages schemas; **Actuator** provides health/metrics.
+
+> This repo is **educational/portfolio**—it simulates a trading stack; it does **not** process real money.
 
 ---
 
-<a name="table-of-contents"></a>
-## 📑 Table of Contents
+## What’s the current status?
 
-- [Project Overview](#project-overview)
-- [Technology Stack](#technology-stack)
-- [System Architecture](#system-architecture)
-- [Getting Started](#getting-started)
-- [Usage](#usage)
-- [Roadmap](#roadmap)
-- [Security Considerations](#security-considerations)
-- [Documentation](#documentation)
-- [Learning Objectives](#learning-objectives)
-- [License](#license)
-- [Contact](#contact)
-- [Acknowledgements](#acknowledgements)
+| Component                   | Path                                  | Status | Notes                                                                                    |
+| --------------------------- | ------------------------------------- | :----: | ---------------------------------------------------------------------------------------- |
+| **API Gateway**             | `api-gateway/`                        |    ✅   | PS256 JWT verification, Redis rate limit (login), circuit breakers, CORS, tracing header |
+| **User Registration**       | `services/user-registration-service/` |    ✅   | Internal-only `/register` gated by `X-Internal-Caller: api-gateway`, BCrypt, Postgres    |
+| **Authentication Service**  | `services/authentication-service/`    |    ✅   | `/login` issues **PS256**-signed access+refresh; `/refresh` is **internal-only**         |
+| **Orders Service**          | `services/orders-service/`            |    ✅   | REST + Kafka producer/consumer, pessimistic locks, idempotent fill tracking              |
+| **Matching Engine**         | `services/matching-engine/`           |    ✅   | Price–time priority, idempotency ledger, DLQ                                             |
+| **Transaction Processor**   | `services/transaction-processor/`     |    ✅   | Journals `trade.executed.v1` → emits `transaction.recorded.v1`, REST queries             |
+| **Portfolio Service**       | `services/portfolio-service/`         |    ✅   | Projects transactions → positions & realized PnL; pessimistic locking + ledger           |
+| **Market Data Consumer**    | `services/market-data-consumer/`      |    ✅   | Kafka→Postgres OHLCV; Redis-cached “latest” with precise eviction                        |
+| **Docs: recruiter summary** | `cvreadme.md`                         |    ✅   | Hybrid, recruiter-friendly project overview                                              |
+| **Kubernetes/Terraform**    | —                                     |   🔜   | Planned future work; not present in this repo                                            |
+| **RabbitMQ option**         | —                                     |    ❌   | **Not used**—message bus is **Kafka/Redpanda only**                                      |
+| **JWE (encrypted JWTs)**    | —                                     |    ❌   | **Not used**—project uses **signed JWT (PS256)** only                                    |
 
----
-
-<a name="project-overview"></a>
-## 🚀 Project Overview [↑ Top](#table-of-contents)
-
-TradeStream is a backend portfolio project that demonstrates:
-
-- Secure, production-grade APIs using **Java Spring Boot**
-- Event-driven architecture with **Kafka or RabbitMQ**
-- Decoupled microservices with independent **PostgreSQL & Redis** data stores
-- Containerized deployment with **Docker & Docker Compose**
-- Secure API authentication using **JWT**
-- Real-time transaction processing simulation
-- Cloud deployment on **AWS Lightsail**
-
-⚠️ **Note:** This project is for educational and portfolio purposes only. It does not process real financial transactions.
+Legend: ✅ present & working (dev), 🔜 planned, ❌ not applicable.
 
 ---
 
-<a name="technology-stack"></a> 
-## 🛠️ Technology Stack [↑ Top](#table-of-contents)
+## Architecture at a glance
 
-<p align="center">
+```
+Clients
+  │
+  ▼
+API Gateway (8080)  — PS256 JWT, Circuit Breakers, Redis Rate Limit (login), X-Request-Id
+  │
+  ├─ /api/users/register  → user-registration-service (8081) [internal header required]
+  ├─ /api/auth/*          → authentication-service (8082)    [/login public, /refresh internal-only]
+  ├─ /api/orders/*        → orders-service (8085)
+  ├─ /api/transactions/*  → transaction-processor (8084)
+  ├─ /api/portfolio/*     → portfolio-service (8087)
+  └─ /api/market-data/*   → market-data-consumer (8083)
 
-  <a href="https://www.java.com/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/java/java-original-wordmark.svg" title="Java" alt="Java" width="80px" />
-  </a>
-
-  <a href="https://spring.io/projects/spring-boot" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/spring/spring-original-wordmark.svg" title="Spring Boot" alt="Spring Boot" width="80px" />
-  </a>
-
-  <a href="https://www.docker.com/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/docker/docker-plain-wordmark.svg" title="Docker" alt="Docker" width="80px" />
-  </a>
-
-  <a href="https://kubernetes.io/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/kubernetes/kubernetes-plain-wordmark.svg" title="Kubernetes" alt="Kubernetes" width="80px" />
-  </a>
-
-  <a href="https://www.postgresql.org/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/postgresql/postgresql-plain-wordmark.svg" title="PostgreSQL" alt="PostgreSQL" width="80px" />
-  </a>
-
-  <a href="https://redis.io/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/redis/redis-original-wordmark.svg" title="Redis" alt="Redis" width="80px" />
-  </a>
-
-  <a href="https://www.rabbitmq.com/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/rabbitmq/rabbitmq-original-wordmark.svg" title="RabbitMQ" alt="RabbitMQ" width="80px" />
-  </a>
-
-  <a href="https://aws.amazon.com/" target="_blank">
-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/amazonwebservices/amazonwebservices-plain-wordmark.svg" title="AWS" alt="AWS" width="80px" />
-  </a>
-
-  <a href="https://www.terraform.io/" target="_blank">
-    <img src="https://github.com/VictoriousWealth/VictoriousWealth/blob/main/terraform-icon-purple" title="Terraform" alt="Terraform" width="80px" />
-  </a>
-
-</p>
-
-
-
-| Category             | Technology                              |
-|----------------------|-----------------------------------------|
-| Backend Framework    | Java Spring Boot                        |
-| Stream Processing    | Kafka or RabbitMQ (configurable)        |
-| Database             | PostgreSQL                              |
-| Cache Layer          | Redis                                   |
-| Authentication       | JWS & JWE (JWT Signed & JWT Encrypted)  |
-| Containerization     | Docker, Docker Compose                  |
-| CI/CD (MVP)          | GitHub Actions                          |
-| Deployment           | AWS Lightsail                           |
-
-**Planned Future Enhancements:** 
-
-- Kubernetes for container orchestration  
-- Terraform for infrastructure as code  
-- Prometheus & Grafana for observability  
-- Advanced API security measures  
-
----
-
-<a name="system-architecture"></a>
-## 🏗️ System Architecture [↑ Top](#table-of-contents)
-
-> _See [`./docs/high-level-architecture-diagram.png`](./docs/high-level-architecture-diagram.png) for a full high level system diagram._
-
-> _See [`./api-gateway/docs/api-gateway-flow.drawio.png`](./api-gateway/docs/api-gateway-flow.drawio.png) for a more detailed version focused on API Gateway._
-
-> _See [`./authentication-service/docs/authentication-flow.drawio.png`](./authentication-service/docs/authentication-flow.drawio.png) for a more detailed version focused on the Authentication Service._
-
-**Core Components:** 
-
-- **API Gateway:** Public entry point, request routing, token validation  
-- **Authentication Service:** Issues JWT tokens after successful login  
-- **Transaction Processor:** Handles transaction logic, publishes events  
-- **Market Data Consumer:** Placeholder for future real-time market data processing  
-- **Message Broker:** Kafka or RabbitMQ for decoupled, event-driven communication  
-- **PostgreSQL & Redis:** Each microservice manages its own independent data stores  
-
-### 🔍 Service-Specific Docs
-
-Each microservice has its own documentation with setup notes, endpoints, and future plans:
-
-- [API Gateway](api-gateway/README.md)
-- [User Registration Service](user-registration-service/README.md)
-- [Authentication Service](authentication-service/README.md)
-- [Transaction Processor](transaction-processor/README.md)
-- [Market Data Consumer](market-data-consumer/README.md)
-
----
-
-<a name="getting-started"></a>
-## ⚙️ Getting Started [↑ Top](#table-of-contents)
-
-### Prerequisites
-
-- Docker & Docker Compose installed  
-- Basic familiarity with Java, Spring Boot, and containers  
-
-### Installation
-
-```bash
-git clone https://github.com/VictoriousWealth/tradestream.git
-cd tradestream
-
-# Build and run containers
-docker-compose up --build
+Kafka/Redpanda (9092)
+  ├─ order.placed.v1 → Matching Engine (8086) → trade.executed.v1
+  └─ trade.executed.v1 → Transaction Processor → transaction.recorded.v1 → Portfolio Service
 ```
 
-Access:
+---
 
-* API Gateway at `http://localhost:8080`
-* Login, registration, transaction, and health endpoints per the [API Design](docs/api-design.md)
+## Tech stack (actual)
+
+* **Language/Frameworks:** Java 17/21, Spring Boot 3, Spring Cloud Gateway, Project Reactor
+* **Messaging:** Kafka-compatible **Redpanda**
+* **Datastores:** PostgreSQL (per service, **Flyway** migrations), **Redis** (rate limit + market latest)
+* **Resilience/Obs:** Resilience4j circuit breakers, Spring **Actuator**
+* **Packaging:** Docker & **Docker Compose** (local dev)
+* **Auth:** **JWT (PS256)** at the gateway; private key in Auth service; public key at Gateway
+* **CI/CD/Cloud:** local-first; cloud/IaC (Kubernetes/Terraform) are **planned**, not in-repo
 
 ---
 
-<a name="usage"></a>
+## Run it locally
 
-## 💡 Usage [↑ Top](#table-of-contents)
+### Prereqs
 
-This project simulates real-time transaction processing using microservices and event-driven patterns. Intended for:
+* Docker & Docker Compose
+* `openssl` (for JWT keypair)
+* `jq` (nice to have)
+* (optional) `kcat` for Kafka testing
 
-* Backend portfolio demonstrations
-* Learning microservice architecture principles
-* Experimenting with containerized deployments
-* Practicing secure API development for financial-like systems
+### 1) Generate PS256 keys
 
----
+```bash
+mkdir -p secrets
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/jwt_private.pem
+openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
+```
 
-<a name="roadmap"></a>
+### 2) Bring everything up
 
-## 🛣️ Roadmap [↑ Top](#table-of-contents)
+```bash
+docker compose up -d --build
+```
 
-✅ MVP Core Features:
+### 3) Health check
 
-* [x] User Registration Service
-* [x] Authentication Service
-* [x] Transaction Processor
-* [x] API Gateway
-* [x] Event publishing via Kafka or RabbitMQ
-* [x] Secure APIs with JWT
-* [x] Containerized deployment on Lightsail
-
-🔜 Future Enhancements:
-
-* [ ] Market Data Generator
-* [ ] Kubernetes deployment
-* [ ] Infrastructure as code with Terraform
-* [ ] Observability with Prometheus & Grafana
-* [ ] Advanced security hardening
+```bash
+curl -s http://localhost:8080/actuator/health
+# {"status":"UP"}
+```
 
 ---
 
-<a name="security-considerations"></a>
+## Quickstart (Gateway-first)
 
-## 🔒 Security Considerations [↑ Top](#table-of-contents)
+### Register → Login
 
-* Secure coding practices applied from Day 1
-* JWT-based API authentication
-* Special header(s) set by the API gateway that the other services will now check to double confirm origin of the request
-* Future security roadmap includes:
+```bash
+curl -sS -X POST http://localhost:8080/api/users/register \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"S3cureP@ss!"}'
 
-  * Rate limiting
-  * Secure HTTP headers
-  * Vulnerability scanning
+ACCESS=$(curl -sS -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"alice","password":"S3cureP@ss!"}' | jq -r .access_token)
+echo "ACCESS=$ACCESS"
+```
 
----
+### Place an order
 
-<a name="documentation"></a>
+```bash
+curl -sS -X POST http://localhost:8080/api/orders \
+  -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
+  -d '{"userId":"<uuid>","ticker":"AAPL","side":"BUY","type":"LIMIT","timeInForce":"GTC","quantity":10,"price":150.5}' | jq .
+```
 
-## 📚 Documentation [↑ Top](#table-of-contents)
+### Portfolio & Market Data
 
-* [Project Requirements & Design (PRD)](docs/tradestream-prd.pdf)
-* [System Architecture Diagram](docs/architecture-diagram.png)
-* [API Design](docs/api-design.md)
-* [Planned Enhancements](docs/future-enhancements.md)
+```bash
+curl -sS -H "Authorization: Bearer $ACCESS" \
+  http://localhost:8080/api/portfolio/<uuid>/positions | jq .
 
-> Note all these documentation misses the user registration service as it is something I decided to add last minute 
+curl -sS -H "Authorization: Bearer $ACCESS" \
+  "http://localhost:8080/api/market-data/candles/AAPL/latest?interval=1m" | jq .
+```
 
----
-
-<a name="learning-objectives"></a>
-
-## 🎯 Learning Objectives [↑ Top](#table-of-contents)
-
-TradeStream enables practical experience with:
-
-* Secure backend and microservice design
-* Event-driven architectures for real-time data
-* Docker-based containerization
-* Cloud deployment fundamentals
-* Enterprise-grade system patterns for financial technology
+> Handy scripts live at repo root: `e2e_trade_pipeline_test.sh`, `e2e_portfolio_service.sh`, `gateway_smoke.sh`.
 
 ---
 
-<a name="license"></a>
+## Gateway routes (reality-checked)
 
-## 📝 License [↑ Top](#table-of-contents)
+| Area         | Route                                            | Auth | Rewrites to…                                 |
+| ------------ | ------------------------------------------------ | :--: | -------------------------------------------- |
+| Auth         | `POST /api/auth/login`                           |  No  | `/login` → authentication-service (8082)     |
+| Auth         | `POST /api/auth/refresh`                         |  No  | `/refresh` (internal-only header enforced)   |
+| Users        | `POST /api/users/register`                       |  No  | `/register` → user-registration (8081)       |
+| Orders       | `POST /api/orders`                               |  Yes | `/orders` → orders-service (8085)            |
+| Orders       | `GET /api/orders/{id}`                           |  Yes | `/orders/{id}`                               |
+| Orders       | `POST /api/orders/{id}/cancel`                   |  Yes | `/orders/{id}/cancel`                        |
+| Transactions | `GET /api/transactions/**`                       |  Yes | (no rewrite) → transaction-processor (8084)  |
+| Portfolio    | `GET /api/portfolio/{userId}/positions[...]`     |  Yes | `/portfolio/...` → portfolio-service (8087)  |
+| Market Data  | `GET /api/market-data/candles/{ticker}[/latest]` |  Yes | `/candles/...` → market-data-consumer (8083) |
+| Ops          | `/actuator/*`                                    |  No  | Gateway itself                               |
 
-This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.
-
-You are free to:
-
-* Share and adapt the project
-* Use it for educational, personal, or research purposes
-
-**Commercial use is not permitted.**
-
-See the full license [here](https://creativecommons.org/licenses/by-nc/4.0/) for details.
-
----
-
-<a name="contact"></a>
-
-## 📬 Contact [↑ Top](#table-of-contents)
-
-**Nick Efe Oni**
-[LinkedIn](https://www.linkedin.com/in/nick-efe-oni)
-[GitHub](https://github.com/VictoriousWealth)
+* **Login is IP rate-limited via Redis** (token-bucket).
+* **Circuit breakers** return predictable JSON fallbacks.
+* **`X-Request-Id`** injected if missing; cookies stripped.
 
 ---
 
-<a name="acknowledgements"></a>
+## Security model (current)
 
-## 🙏 Acknowledgements [↑ Top](#table-of-contents)
+* **JWT at edge:** Gateway is a **resource server** validating **PS256** signatures with the public key.
+* **Internal caller gates:**
 
-* Architectural patterns inspired by real-world fintech systems such as JPMorgan and BNY
-* Security best practices influenced by **OWASP** guidelines
-* Deployment and infrastructure ideas from **AWS** resources
+  * `authentication-service` `/refresh` requires `X-Internal-Caller: api-gateway`.
+  * `user-registration-service` `/register` requires the same header (added by the Gateway).
+* **No JWE** (encryption) — **signed** JWTs only.
+* **Rate limiting:** Redis-backed rate limit on login endpoints.
+* **CORS:** permissive in dev; tighten in prod (config in Gateway).
 
 ---
+
+## Troubleshooting (real problems you’ll see)
+
+| Symptom                          | Likely cause                           | Fix                                             |
+| -------------------------------- | -------------------------------------- | ----------------------------------------------- |
+| `401` at gateway                 | Missing/expired/invalid JWT (PS256)    | Re-login; verify public key mount               |
+| `429` on `/api/auth/login`       | Rate limit tripped                     | Back off; expected behavior                     |
+| Gateway degraded JSON (`503`)    | Circuit breaker open on downstream     | Check downstream `/actuator/health`             |
+| Orders don’t execute             | Matching Engine or Kafka not consuming | Inspect topics/consumer logs                    |
+| Duplicate fills / position drift | Ledger/migration missing               | Ensure Flyway applied; check unique constraints |
+| Stale market “latest”            | Quiet feed; TTL not expired            | Next trade will evict → fresh read              |
+| `/register` returns `403`        | Missing internal-caller header         | Ensure Gateway injects `X-Internal-Caller`      |
+
+---
+
+## Repo layout (trimmed)
+
+```
+.
+├── api-gateway/
+├── services/
+│   ├── authentication-service/
+│   ├── user-registration-service/
+│   ├── orders-service/
+│   ├── matching-engine/
+│   ├── transaction-processor/
+│   └── market-data-consumer/
+├── docker-compose.yml
+├── secrets/                       # jwt_private.pem / jwt_public.pem
+├── cvreadme.md                    # recruiter-facing overview
+├── e2e_*.sh / gateway_smoke.sh
+└── bench_out/
+```
+
+**Per-service READMEs (sources of truth):**
+
+* `api-gateway/README.md`
+* `services/authentication-service/README.md`
+* `services/user-registration-service/README.md`
+* `services/orders-service/README.md`
+* `services/matching-engine/README.md`
+* `services/transaction-processor/README.md`
+* `services/market-data-consumer/README.md`
+
+---
+
+## License
+
+This project is licensed under **CC BY-NC 4.0**. See [`LICENSE`](LICENSE).
+
+---
+
