@@ -22,7 +22,10 @@ services:
       REG_BASE_URL: http://user-registration-service:8081
       ORDERS_BASE_URL: http://orders-service:8085
       JWT_PUBLIC_KEY_LOCATION: file:/run/secrets/jwt_public.pem
-      REDIS_HOST: redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PUBLIC_KEY_LOCATION: file:/run/secrets/jwt_public.pem
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWS_ALGORITHM: PS256
     restart: unless-stopped
     healthcheck:
       test: ["CMD","curl","-f","http://localhost:8080/actuator/health"]
