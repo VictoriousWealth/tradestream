@@ -11,6 +11,7 @@ spring:
         jwt:
           # Mount the same secret as auth-service
           public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:/run/secrets/jwt_public.pem}
+          jws-algorithm: PS256
 
   cloud:
     gateway:
@@ -56,7 +57,8 @@ spring:
           predicates:
             - Path=/api/orders/**
           filters:
-            # orders-service already exposes /orders/**
+            - StripPrefix=1
+            - RewritePath=/api/orders/(?<p>.*),/orders/${p}
             - CircuitBreaker=name=ordersCB,fallbackUri=forward:/fallback
 
         # ---------- TRANSACTIONS (already /api/transactions/**) ----------
@@ -80,10 +82,11 @@ spring:
         - id: market-data
           uri: http://market-data-consumer:8083
           predicates:
-            - Path=/api/market-data/**
+            - Path=/api/market-data/candles/**
           filters:
             # Rewrite to /candles/**
-            - RewritePath=/api/market-data/(?<p>.*),/candles/${p}
+            # - StripPrefix=2
+            - RewritePath=/api/market-data/(?<p>.*),/${p}
             - CircuitBreaker=name=mdCB,fallbackUri=forward:/fallback
 
       globalcors:
@@ -108,4 +111,10 @@ resilience4j:
       txCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
       portfolioCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
       mdCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
+
+logging:
+  level:
+    org.springframework:security: DEBUG
+    org.springframework.security.oauth2: DEBUG
+    org.springframework.security.oauth2.server.resource: DEBUG
 

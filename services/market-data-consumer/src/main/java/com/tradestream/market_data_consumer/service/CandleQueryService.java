@@ -18,7 +18,11 @@ public class CandleQueryService {
     private final CandleRepository repo;
 
     // Cache the latest candle per (ticker, interval)
-    @Cacheable(cacheNames = "latest", key = "T(java.lang.String).format('%s:%s', #interval, #ticker.toUpperCase())")
+    @Cacheable(
+        cacheNames = "latest", 
+        key = "T(java.lang.String).format('%s:%s', #interval, #ticker.toUpperCase())",
+        unless = "#result == null"   // don't cache null values
+    )
     public Candle latest(String ticker, String interval) {
         return repo.findFirstByTickerIgnoreCaseAndIntervalOrderByBucketStartDesc(ticker, interval)
                    .orElse(null); // cache-null-values=false, so null not cached
