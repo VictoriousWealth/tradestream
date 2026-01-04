@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  DOCKER_BUILDKIT: 1
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Docker info
+        run: |
+          docker version
+          docker compose version
+
+      - name: Run portfolio service E2E
+        run: |
+          chmod +x e2e_portfolio_service.sh
+          ./e2e_portfolio_service.sh
+
+      - name: Run trade pipeline E2E
+        run: |
+          chmod +x e2e_trade_pipeline_test.sh
+          ./e2e_trade_pipeline_test.sh
+
+      - name: Run cancel flow test
+        run: |
+          chmod +x manual_cancel_test.sh
+          ./manual_cancel_test.sh
+
+      - name: Run scenarios suite
+        run: |
+          chmod +x e2e_scenarios.sh
+          ./e2e_scenarios.sh
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose down -v || true
