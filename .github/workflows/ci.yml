@@ -22,6 +22,9 @@ jobs:
           docker version
           docker compose version
 
+      - name: Build API Gateway jar
+        run: mvn -B -DskipTests package -f api-gateway/pom.xml
+
       - name: Build images
         run: docker compose build
 
