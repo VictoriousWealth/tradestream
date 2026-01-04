@@ -7,7 +7,9 @@ ORDERS_HOST="${ORDERS_HOST:-tradestream-orders-service-1}"
 ORDERS_PORT="${ORDERS_PORT:-8085}"
 USER_A="${USER_A:-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}"
 USER_B="${USER_B:-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb}"
-TICK="E2CANTEST$(date +%s)"
+TS="$(date +%s)"
+# orders-service enforces ticker length <=16; keep ours short but unique-ish
+TICK="E2CAN${TS: -6}"
 
 echo "NET=$PRIVATE_NET HOST=$ORDERS_HOST PORT=$ORDERS_PORT TICK=$TICK"
 
