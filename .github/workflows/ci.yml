@@ -43,6 +43,23 @@ jobs:
       - name: Start stack
         run: docker compose up -d
 
+      - name: Wait for core services
+        run: |
+          wait_on() {
+            local url="$1" label="$2"
+            for i in {1..60}; do
+              if docker run --rm --network tradestream_private_net curlimages/curl:8.9.1 -fsS "$url" >/dev/null 2>&1; then
+                echo "✅ $label is up"
+                return 0
+              fi
+              sleep 2
+            done
+            echo "❌ $label did not become ready" >&2
+            return 1
+          }
+          wait_on http://orders-service:8085/actuator/health orders-service
+          wait_on http://portfolio-service:8087/actuator/health portfolio-service
+
       - name: Run portfolio service E2E
         run: |
           chmod +x e2e_portfolio_service.sh
