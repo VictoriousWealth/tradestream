@@ -22,6 +22,12 @@ jobs:
           docker version
           docker compose version
 
+      - name: Build images
+        run: docker compose build
+
+      - name: Start stack
+        run: docker compose up -d
+
       - name: Run portfolio service E2E
         run: |
           chmod +x e2e_portfolio_service.sh
