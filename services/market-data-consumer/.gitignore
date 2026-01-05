@@ -1,5 +1,6 @@
 HELP.md
 .gradle
+.gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
@@ -14,6 +15,7 @@ build/
 .springBeans
 .sts4-cache
 bin/
+bin
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
