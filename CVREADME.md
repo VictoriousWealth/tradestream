@@ -1,6 +1,6 @@
 # TradeStream — High-Performance Trading Microservices Platform
 
-> A production-minded, event-driven trading platform built with Java/Spring, Kafka/Redpanda, PostgreSQL, Redis, and Docker. This **root README** is the entry point for recruiters and engineers: architecture, how to run, critical routes, and links into each service’s source of truth.
+> A production-minded, event-driven trading platform built with Java/Spring, Kafka/Redpanda, PostgreSQL, Redis, and Docker. This **recruiter-facing README** is the entry point for architecture, how to run, critical routes, and links into each service’s source of truth.
 
 ---
 
@@ -129,7 +129,7 @@ AUTH     USER-REG   ORDERS (8085)          TRANSACTION PROC    MARKET DATA
 | Security         | Spring Security, **JWT (PS256)**                           | Centralized authentication/authorization at the edge |
 | Resilience       | Resilience4j, DLQ pattern                                  | Circuit breakers, retries, dead-letter queues        |
 | Packaging        | Docker, Docker Compose                                     | Consistent, isolated environments                    |
-| Build & Ops      | Maven, Gradle, Spring Actuator                             | Dependency mgmt, builds, health/metrics endpoints    |
+| Build & Ops      | Maven, Gradle, Spring Actuator, GitHub Actions             | Dependency mgmt, builds, health/metrics endpoints    |
 
 ---
 
@@ -280,4 +280,3 @@ curl -sS -H "Authorization: Bearer $ACCESS" \
 ## License
 
 See [`LICENSE`](LICENSE).
-
