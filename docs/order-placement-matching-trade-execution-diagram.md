@@ -5,18 +5,18 @@ sequenceDiagram
     autonumber
     actor U as User
     participant C as Client App
-    participant G as API Gateway (JWT verify + rate limit)
+    participant G as API Gateway (JWT verify)
     participant O as Orders Service
     participant OBDB as Orders DB
-    participant B as Event Bus (Kafka/RabbitMQ)
+    participant B as Event Bus (Redpanda/Kafka)
     participant ME as Matching Engine
     participant BOOK as In-Memory Order Book (per ticker)
 
     Note over U,C: User is already authenticated (JWT in Authorization header)
 
     U->>C: Place Order (ticker, side, type, qty, price)
-    C->>G: POST /orders (JWT)
-    G-->>C: 401 if invalid JWT / 429 if rate-limited
+    C->>G: POST /api/orders (JWT)
+    G-->>C: 401 if invalid JWT
     G->>O: Forward request (userId propagated)
 
     O->>O: Validate request (type/side/ticker/qty/price)
