@@ -45,7 +45,8 @@
 | **Transaction Processor**   | `services/transaction-processor/`     |    ✅   | Journals `trade.executed.v1` → emits `transaction.recorded.v1`, REST queries             |
 | **Portfolio Service**       | `services/portfolio-service/`         |    ✅   | Projects transactions → positions & realized PnL; pessimistic locking + ledger           |
 | **Market Data Consumer**    | `services/market-data-consumer/`      |    ✅   | Kafka→Postgres OHLCV; Redis-cached “latest” with precise eviction                        |
-| **Docs: recruiter summary** | `cvreadme.md`                         |    ✅   | Hybrid, recruiter-friendly project overview                                              |
+| **Docs: recruiter summary** | `CVREADME.md`                         |    ✅   | Hybrid, recruiter-friendly project overview                                              |
+| **CI (GitHub Actions)**     | `.github/workflows/ci.yml`            |    ✅   | Docker Compose E2E checks for core flows                                                 |
 | **Kubernetes/Terraform**    | —                                     |   🔜   | Planned future work; not present in this repo                                            |
 | **RabbitMQ option**         | —                                     |    ❌   | **Not used**—message bus is **Kafka/Redpanda only**                                      |
 | **JWE (encrypted JWTs)**    | —                                     |    ❌   | **Not used**—project uses **signed JWT (PS256)** only                                    |
@@ -84,7 +85,7 @@ Kafka/Redpanda (9092)
 * **Resilience/Obs:** Resilience4j circuit breakers, Spring **Actuator**
 * **Packaging:** Docker & **Docker Compose** (local dev)
 * **Auth:** **JWT (PS256)** at the gateway; private key in Auth service; public key at Gateway
-* **CI/CD/Cloud:** local-first; cloud/IaC (Kubernetes/Terraform) are **planned**, not in-repo
+* **CI/CD/Cloud:** GitHub Actions (E2E via Docker Compose); cloud/IaC (Kubernetes/Terraform) are **planned**, not in-repo
 
 ---
 
@@ -241,4 +242,3 @@ curl -sS -H "Authorization: Bearer $ACCESS" \
 This project is licensed under **CC BY-NC 4.0**. See [`LICENSE`](LICENSE).
 
 ---
-
