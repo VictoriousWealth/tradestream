@@ -40,15 +40,42 @@ Common guardrails (applied to all bots by default):
 
 ## Streamlit Analytics Console
 
-* Live dashboard for **PnL, positions, signals, and order flow**.
-* Reads from existing REST APIs and optional Kafka topics.
+* **UI inspiration:** https://trade-tapestry-view.lovable.app (screenshot reference for layout/feel).
+* Multi-tab console that mirrors a trading ops desk:
+  * **Overview:** KPI tiles (PnL, active bots, orders/min), health badges, recent alerts.
+  * **Market Data:** OHLC candles with trade markers + ML signal overlays.
+  * **Bot Performance:** leaderboard, win rate, drawdown, activity rate.
+  * **Portfolio & Risk:** positions table, exposure by ticker, VaR/drawdown.
+  * **Order Flow:** order timeline, fill rates, slippage heatmap.
+  * **ML Monitoring:** model registry view, drift indicators, recent accuracy/F1.
+* Data sources:
+  * `/api/market-data/candles/*`
+  * `/api/portfolio/*`
+  * `/api/transactions/*`
+  * `signal.generated.v1` (optional) for ML signals
 * Tech: Streamlit + Plotly + Pandas.
 
 ## Observability Stack
 
-* **Metrics**: Prometheus + Grafana (scrape `/actuator/prometheus` from Java).
-* **Logs**: Loki + Grafana.
-* **Tracing**: OpenTelemetry SDK/agent + Jaeger.
+### Final product (what you see)
+* **Grafana dashboards**: latency, error rates, Kafka lag, orders/sec, PnL pipeline health.
+* **Jaeger tracing UI**: end-to-end traces from Gateway through downstream services.
+* **Loki log explorer**: logs searchable by `X-Request-Id` or trace ID.
+* **Alerts**: Slack/email on error spikes, lag, or service down.
+
+### How it works (data flow)
+1. Java services expose metrics via `/actuator/prometheus`.
+2. Prometheus scrapes metrics on an interval.
+3. Grafana visualizes metrics and logs.
+4. OpenTelemetry collects traces (Java + Python).
+5. Jaeger stores and visualizes traces.
+6. Logs stream to Loki (via promtail or Docker log driver).
+
+### Path from idea to product (phased)
+1. **Metrics first**: add Prometheus + Grafana; ship core dashboards.
+2. **Logs next**: add Loki + promtail; correlate by `X-Request-Id`.
+3. **Tracing**: add OpenTelemetry + Jaeger; validate trace propagation.
+4. **Alerting**: define Grafana alert rules and notifications.
 
 ## Platform/Infra
 
