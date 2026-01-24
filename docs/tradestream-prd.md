@@ -44,25 +44,25 @@
 Key upgrades in v2.0:
 
 * **Matching Engine Service** with per-ticker in-memory order books.
-* **Asynchronous trade propagation** using Kafka/RabbitMQ.
+* **Asynchronous trade propagation** using **Redpanda (Kafka API)**.
 * **OHLC and volume updates** driven by actual trades.
-* **Redis-backed API Gateway** for caching and per-user rate-limiting.
-* **JWS + JWE JWT authentication** for API security.
+* **Redis-backed API Gateway** for **login** rate limiting.
+* **JWS (PS256) JWT authentication** for API security (no JWE).
 
 ---
 
 ## **2A. Technology Overview**
 
-| Category          | Technology                         | Purpose                            |
-| ----------------- | ---------------------------------- | ---------------------------------- |
-| Backend Framework | Java Spring Boot                   | Microservice APIs                  |
-| Stream Processing | Kafka or RabbitMQ                  | Event-driven trade & order updates |
-| Database          | PostgreSQL                         | Service-specific storage           |
-| Cache Layer       | Redis                              | Caching quotes & rate-limiting     |
-| Authentication    | JWS & JWE (JWT signed & encrypted) | Secure API auth                    |
-| Containerization  | Docker & Docker Compose            | Deployment packaging               |
-| CI/CD             | GitHub Actions                     | Build/test/deploy automation       |
-| Deployment        | AWS Lightsail                      | Cloud hosting                      |
+| Category          | Technology                      | Purpose                            |
+| ----------------- | ------------------------------- | ---------------------------------- |
+| Backend Framework | Java Spring Boot                | Microservice APIs                  |
+| Stream Processing | Redpanda (Kafka API)            | Event-driven trade & order updates |
+| Database          | PostgreSQL                      | Service-specific storage           |
+| Cache Layer       | Redis                           | Rate limiting + market latest      |
+| Authentication    | JWS (JWT signed, PS256)         | Secure API auth                    |
+| Containerization  | Docker & Docker Compose         | Deployment packaging               |
+| CI/CD             | GitHub Actions                  | Build/test automation              |
+| Deployment        | Local Docker Compose (dev)      | Local-first runtime                |
 
 ---
 
@@ -73,8 +73,8 @@ Key upgrades in v2.0:
 * Implement market/limit order placement.
 * Realistic matching with price-time priority and partial fills.
 * OHLC/volume updates from trade events.
-* JWT + Redis rate-limiting in API Gateway.
-* Deploy MVP on AWS Lightsail with Docker Compose.
+* JWT + Redis **login** rate-limiting in API Gateway.
+* Run MVP locally via Docker Compose (cloud/IaC planned).
 
 ### Learning Goals
 
@@ -88,13 +88,14 @@ Key upgrades in v2.0:
 
 ### MVP Deliverables
 
-* API Gateway with JWT validation & Redis rate-limiting.
+* API Gateway with JWT validation & Redis login rate-limiting.
 * Auth & User Registration services.
 * Orders Service.
 * Matching Engine Service.
-* Market Data Service.
+* Market Data Consumer.
+* Transaction Processor.
 * Portfolio Service.
-* Kafka/RabbitMQ integration.
+* Redpanda (Kafka API) integration.
 * PostgreSQL per service.
 
 ---
@@ -110,29 +111,33 @@ sequenceDiagram
     participant G as API Gateway
     participant O as Orders Service
     participant ME as Matching Engine
-    participant MD as Market Data Service
+    participant MD as Market Data Consumer
+    participant TP as Transaction Processor
     participant PF as Portfolio Service
-    participant B as Event Bus
+    participant B as Event Bus (Redpanda/Kafka)
 
     U->>C: Place Order
-    C->>G: POST /orders
+    C->>G: POST /api/orders
     G->>O: Forward w/ userId
     O->>B: Publish OrderPlaced
     B->>ME: Deliver event
     ME->>B: Publish TradeExecuted
     B->>MD: Deliver trade
-    B->>PF: Deliver trade
+    B->>TP: Deliver trade
+    TP->>B: Publish TransactionRecorded
+    B->>PF: Deliver transaction
 ```
 
 **Component Roles**
 
-| Component           | Role                                       |
-| ------------------- | ------------------------------------------ |
-| API Gateway         | JWT verification, Redis caching/rate-limit |
-| Orders Service      | Intake & store orders, emit events         |
-| Matching Engine     | Match orders, emit trades                  |
-| Market Data Service | Update OHLC & volume                       |
-| Portfolio Service   | Update positions & transactions            |
+| Component              | Role                                                     |
+| ---------------------- | -------------------------------------------------------- |
+| API Gateway            | JWT verification, Redis login rate limiting              |
+| Orders Service         | Intake & store orders, emit events                       |
+| Matching Engine        | Match orders, emit trades                                |
+| Market Data Consumer   | Update OHLCV candles, cache latest in Redis              |
+| Transaction Processor  | Journal trades, emit `transaction.recorded.v1`           |
+| Portfolio Service      | Update positions from `transaction.recorded.v1`          |
 
 ---
 
@@ -142,30 +147,29 @@ sequenceDiagram
 
 #### `OrderPlaced` Schema
 
-| Field       | Type     | Required | Notes                  |
-| ----------- | -------- | -------- | ---------------------- |
-| orderId     | UUID     | Yes      | Unique per order       |
-| userId      | UUID     | Yes      | Authenticated user     |
-| ticker      | String   | Yes      | Uppercase, max 5 chars |
-| side        | Enum     | Yes      | BUY / SELL             |
-| type        | Enum     | Yes      | MARKET / LIMIT         |
-| price       | Decimal  | Yes      | > 0 if LIMIT           |
-| quantity    | Integer  | Yes      | > 0                    |
-| timeInForce | Enum     | Yes      | DAY / GTC              |
-| timestamp   | ISO-8601 | Yes      | UTC                    |
+| Field       | Type     | Required | Notes                         |
+| ----------- | -------- | -------- | ----------------------------- |
+| orderId     | UUID     | Yes      | Unique per order              |
+| userId      | UUID     | Yes      | Authenticated user            |
+| ticker      | String   | Yes      | Uppercase symbol              |
+| side        | Enum     | Yes      | BUY / SELL                    |
+| type        | Enum     | Yes      | MARKET / LIMIT                |
+| timeInForce | Enum     | Yes      | DAY / GTC                     |
+| price       | Decimal  | No       | `null` for MARKET             |
+| quantity    | Decimal  | Yes      | > 0 (BigDecimal)              |
+| timestamp   | ISO-8601 | Yes      | UTC instant (createdAt)       |
 
 #### `TradeExecuted` Schema
 
-| Field     | Type     | Required | Notes             |
-| --------- | -------- | -------- | ----------------- |
-| tradeId   | UUID     | Yes      | Unique per trade  |
-| orderId   | UUID     | Yes      | Originating order |
-| userId    | UUID     | Yes      | Trade owner       |
-| ticker    | String   | Yes      | Stock symbol      |
-| price     | Decimal  | Yes      | Execution price   |
-| quantity  | Integer  | Yes      | Filled amount     |
-| side      | Enum     | Yes      | BUY / SELL        |
-| timestamp | ISO-8601 | Yes      | UTC               |
+| Field       | Type     | Required | Notes                          |
+| ----------- | -------- | -------- | ------------------------------ |
+| tradeId     | UUID     | Yes      | Unique per trade               |
+| buyOrderId  | UUID     | Yes      | Buy-side order id              |
+| sellOrderId | UUID     | Yes      | Sell-side order id             |
+| ticker      | String   | Yes      | Stock symbol                   |
+| price       | Decimal  | Yes      | Execution price                |
+| quantity    | Decimal  | Yes      | Filled amount (BigDecimal)     |
+| timestamp   | ISO-8601 | Yes      | UTC                            |
 
 ---
 
@@ -178,10 +182,9 @@ sequenceDiagram
 
 ### 6.3 API Gateway Rate Limit Policy
 
-| User Type     | Requests/sec | Burst | Notes                         |
-| ------------- | ------------ | ----- | ----------------------------- |
-| Authenticated | 50           | 100   | Per userId                    |
-| Anonymous     | 0            | 0     | Blocked except login/register |
+| Endpoint              | Requests/sec | Burst | Notes                           |
+| --------------------- | ------------ | ----- | ------------------------------- |
+| `POST /api/auth/login`| 10           | 20    | IP-based token bucket via Redis |
 
 ---
 
@@ -190,18 +193,18 @@ sequenceDiagram
 ```mermaid
 flowchart LR
   %% External
-  User[Client / Browser\n(HTTPS)] -->|443/HTTPS| GW[(API Gateway\nJWT verify + Redis rate limit)]
+  User[Client / Browser\n(HTTP)] -->|8080| GW[(API Gateway\nJWT verify + Redis login rate limit)]
 
-  %% Lightsail host
-  subgraph LS[AWS Lightsail VM (Docker Compose)]
+  %% Local Docker Compose
+  subgraph DC[Local Docker Compose]
     direction LR
 
     %% Edge/Gateway and cache
-    GW --> RDS[(Redis\nCache + Rate Limiter)]
+    GW --> RDS[(Redis\nLogin rate limit + market latest)]
 
     %% Auth & user onboarding
     GW --> URS[User Registration Service]
-    GW --> AUTH[Auth Service\n(JWS+JWE issuance)]
+    GW --> AUTH[Auth Service\n(PS256 issuance)]
     AUTH ---|secrets| KPRIV[(jwt_private.pem)]
     AUTH ---|secrets| KPUB[(jwt_public.pem)]
     URS --> P_AUTH[(Postgres: authdb)]
@@ -210,21 +213,19 @@ flowchart LR
     %% Orders & matching
     GW --> ORD[Orders Service]
     ORD --> P_ORD[(Postgres: ordersdb)]
-    ORD --> BUS[(Kafka or RabbitMQ)]
+    ORD --> BUS[(Redpanda/Kafka)]
 
     BUS --> ME[Matching Engine Service]
     ME -->|TradeExecuted| BUS
 
     %% Consumers
-    BUS --> MDS[Market Data Service]
-    BUS --> PFS[Portfolio Service]
+    BUS --> MDS[Market Data Consumer]
+    BUS --> TP[Transaction Processor]
     MDS --> P_MKT[(Postgres: marketdb)]
-    PFS --> P_TX[(Postgres: transactiondb)]
-
-    %% Optional real-time fanout later
-    MDS -.optional.-> WS[(WebSocket/SSE Fanout)]
-    ORD -.status updates.-> WS
-    PFS -.portfolio updates.-> WS
+    TP --> P_TX[(Postgres: transactiondb)]
+    TP -->|TransactionRecorded| BUS
+    BUS --> PFS[Portfolio Service]
+    PFS --> P_PF[(Postgres: portfoliodb)]
   end
 
   %% Notes
@@ -236,9 +237,10 @@ flowchart LR
 
 ## **7. Assumptions & Constraints**
 
-* Single Lightsail instance for MVP.
+* Local Docker Compose for MVP runtime.
 * Each service has its own DB schema.
-* Event communication via Kafka/RabbitMQ only.
+* Kafka broker is Redpanda (Kafka API compatible).
+* Event communication via Redpanda (Kafka API) only.
 
 ---
 
@@ -263,7 +265,7 @@ flowchart LR
 
 ## **10. Security Mapping**
 
-* ASVS 2.1.1: JWT signature validation.
-* ASVS 3.2.2: HttpOnly cookie for refresh token.
+* ASVS 2.1.1: JWT signature validation (PS256).
+* ASVS 3.4.1: Internal-only refresh via `X-Internal-Caller` gate.
 
 ---
