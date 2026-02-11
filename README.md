@@ -6,6 +6,9 @@
   <a href="https://github.com/VictoriousWealth/tradestream">
     <img src="https://img.shields.io/github/repo-size/VictoriousWealth/tradestream" alt="Repo Size">
   </a>
+  <a href="https://github.com/VictoriousWealth/tradestream/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/VictoriousWealth/tradestream/ci.yml?branch=main" alt="CI Status">
+  </a>
   <a href="https://github.com/VictoriousWealth/tradestream/issues">
     <img src="https://img.shields.io/github/issues/VictoriousWealth/tradestream" alt="Open Issues">
   </a>
