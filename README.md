@@ -49,8 +49,11 @@
 | **Portfolio Service**       | `services/portfolio-service/`         |    ✅   | Projects transactions → positions & realized PnL; pessimistic locking + ledger           |
 | **Market Data Consumer**    | `services/market-data-consumer/`      |    ✅   | Kafka→Postgres OHLCV; Redis-cached “latest” with precise eviction                        |
 | **Docs: recruiter summary** | `CVREADME.md`                         |    ✅   | Hybrid, recruiter-friendly project overview                                              |
+| **Docs: codebase review**   | `CODEBASE_REVIEW_7POINTS.md`          |    ✅   | Interview-oriented review of architecture, trade-offs, bugs, and redesign ideas          |
+| **Docs: observability**     | `docs/observability-stack-guide.md`   |    ✅   | Metrics/logs/tracing/alerting implementation plan and readiness checklist                 |
+| **Docs: future work**       | `docs/future-enhancements.md`         |    ✅   | Prioritized roadmap for analytics, simulation bots, schema contracts, observability, infra |
 | **CI (GitHub Actions)**     | `.github/workflows/ci.yml`            |    ✅   | Docker Compose E2E checks for core flows                                                 |
-| **Kubernetes/Terraform**    | —                                     |   🔜   | Planned future work; not present in this repo                                            |
+| **Roadmap delivery**        | —                                     |   🔜   | Next work is documented, but not implemented: observability stack, analytics console, contracts, bot simulation, infra hardening |
 | **RabbitMQ option**         | —                                     |    ❌   | **Not used**—message bus is **Kafka/Redpanda only**                                      |
 | **JWE (encrypted JWTs)**    | —                                     |    ❌   | **Not used**—project uses **signed JWT (PS256)** only                                    |
 
@@ -88,7 +91,23 @@ Kafka/Redpanda (9092)
 * **Resilience/Obs:** Resilience4j circuit breakers, Spring **Actuator**
 * **Packaging:** Docker & **Docker Compose** (local dev)
 * **Auth:** **JWT (PS256)** at the gateway; private key in Auth service; public key at Gateway
-* **CI/CD/Cloud:** GitHub Actions (E2E via Docker Compose); cloud/IaC (Kubernetes/Terraform) are **planned**, not in-repo
+* **CI/CD/Cloud:** GitHub Actions (E2E via Docker Compose); deployment/orchestration beyond local Compose is roadmap work, not in-repo
+
+---
+
+## Documentation map
+
+Start here depending on what you need:
+
+* `README.md` — current implementation overview and local runbook
+* `CVREADME.md` — recruiter-facing summary
+* `CODEBASE_REVIEW_7POINTS.md` — architecture/trade-off/bug/redesign review for interview prep
+* `docs/tradestream-prd.md` — project requirements and architecture rationale
+* `docs/api-design.md` — gateway routes and service API behavior
+* `docs/future-enhancements.md` — concrete roadmap for simulation bots, analytics UI, schema governance, observability, and platform hardening
+* `docs/observability-stack-guide.md` — implementation guide for metrics, logs, traces, lag dashboards, and alerting
+* `docs/order-placement-matching-trade-execution-diagram.md` — order placement to trade execution flow
+* `docs/trade-execution-market-data-&-portfolio-updates-+-order-status-diagram.md` — downstream projection/update flow
 
 ---
 
@@ -161,6 +180,45 @@ curl -sS -H "Authorization: Bearer $ACCESS" \
 
 ---
 
+## CI and operational readiness
+
+GitHub Actions currently validates the stack using Docker Compose end-to-end checks:
+
+* generates temporary JWT test keys for CI
+* sets up JDK 21
+* builds the API Gateway jar
+* builds and starts the Compose stack
+* waits for core services to become healthy before testing
+* runs portfolio, trade pipeline, cancel flow, and scenario scripts
+
+Primary workflow:
+
+* `.github/workflows/ci.yml`
+
+Operationally relevant docs:
+
+* `docs/observability-stack-guide.md`
+* `gateway_smoke.sh`
+* `e2e_trade_pipeline_test.sh`
+* `e2e_portfolio_service.sh`
+* `e2e_scenarios.sh`
+
+---
+
+## Future work (documented, not implemented)
+
+The next tranche of work is already scoped in `docs/future-enhancements.md` and `docs/observability-stack-guide.md`. The most concrete items are:
+
+* **Observability implementation:** Prometheus/Grafana, Loki, Jaeger/OpenTelemetry, lag dashboards, DLT alerting.
+* **Schema governance:** Confluent Schema Registry and CI contract tests for `order.placed.v1`, `trade.executed.v1`, and `transaction.recorded.v1`.
+* **Analytics console:** Streamlit + Plotly ops dashboard for PnL, market data, bot activity, order flow, and risk.
+* **Bot market simulation:** retail, market-maker, institutional, hedge, HFT, and portfolio bots to stress the event pipeline with richer market behavior.
+* **Platform hardening:** stronger service-to-service auth, refresh-token rotation/revocation, per-user gateway limits, and eventual cloud/IaC work.
+
+This keeps the README honest about what exists today while making the intended direction explicit for reviewers.
+
+---
+
 ## Gateway routes (reality-checked)
 
 | Area         | Route                                            | Auth | Rewrites to…                                 |
@@ -220,10 +278,13 @@ curl -sS -H "Authorization: Bearer $ACCESS" \
 │   ├── orders-service/
 │   ├── matching-engine/
 │   ├── transaction-processor/
+│   ├── portfolio-service/
 │   └── market-data-consumer/
+├── docs/
 ├── docker-compose.yml
 ├── secrets/                       # jwt_private.pem / jwt_public.pem
-├── cvreadme.md                    # recruiter-facing overview
+├── CVREADME.md                    # recruiter-facing overview
+├── CODEBASE_REVIEW_7POINTS.md     # architecture/trade-off/bug review
 ├── e2e_*.sh / gateway_smoke.sh
 └── bench_out/
 ```
