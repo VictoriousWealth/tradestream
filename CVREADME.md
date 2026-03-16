@@ -204,6 +204,20 @@ curl -sS -H "Authorization: Bearer $ACCESS" \
 
 ---
 
+## What’s Next
+
+The repo now documents the next work explicitly rather than implying broad future plans. The most concrete roadmap items are:
+
+* **Observability implementation** across Prometheus/Grafana, Loki, Jaeger/OpenTelemetry, lag dashboards, and alerting.
+* **Schema governance** with Schema Registry and CI contract tests for core event topics.
+* **Analytics console** for PnL, risk, order flow, market activity, and bot visibility.
+* **Bot market simulation** to generate richer order flow and stress the event pipeline.
+* **Platform hardening** such as stronger internal service auth, refresh-token rotation/revocation, and later cloud/IaC work.
+
+This keeps the recruiter summary honest about current scope while showing a clear next-step product direction.
+
+---
+
 ## Configuration (high-value envs)
 
 * **Gateway**
@@ -256,7 +270,9 @@ curl -sS -H "Authorization: Bearer $ACCESS" \
 │   ├── orders-service/
 │   ├── matching-engine/
 │   ├── transaction-processor/
+│   ├── portfolio-service/
 │   └── market-data-consumer/
+├── docs/
 ├── docker-compose.yml
 ├── secrets/                 # jwt_private.pem / jwt_public.pem
 ├── e2e_*.sh / gateway_smoke.sh
@@ -273,7 +289,10 @@ curl -sS -H "Authorization: Bearer $ACCESS" \
 * Orders → `services/orders-service/README.md`
 * Matching Engine → `services/matching-engine/README.md`
 * Transaction Processor → `services/transaction-processor/README.md`
+* Portfolio → `services/portfolio-service/README.md`
 * Market Data Consumer → `services/market-data-consumer/README.md`
+* Roadmap → `docs/future-enhancements.md`
+* Observability plan → `docs/observability-stack-guide.md`
 
 ---
 
