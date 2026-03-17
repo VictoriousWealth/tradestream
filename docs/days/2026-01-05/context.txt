@@ -1,0 +1,8 @@
+Date: 2026-01-05
+Commit count: 4
+
+Commits:
+c49149b 2026-01-05 10:48:00 +0000 Nick Efe Oni fix: update .gitignore for market data consumer to include gradle and bin directories
+ddc1068 2026-01-05 10:48:00 +0000 Nick Efe Oni fix: update .gitignore for matching engine to include gradle and build directories
+1d242a4 2026-01-05 11:08:07 +0000 Nick Efe Oni refactor(build): removed build files from the index
+e76c331 2026-01-05 11:14:17 +0000 Nick Efe Oni deploy
