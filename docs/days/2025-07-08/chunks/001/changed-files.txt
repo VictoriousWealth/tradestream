@@ -1,0 +1,4 @@
+api-gateway/docs/token-authentication-flow.drawio.png
+api-gateway/README.md
+docs/architecture-diagram.drawio.png
+README.md
