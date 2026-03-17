@@ -1,0 +1,64 @@
+Date: 2025-08-11
+Chunk: 001
+Chunk commit count: 1
+Chunk unique filtered files: 54
+Chunk patch bytes: 253953
+
+Commits:
+870d88c 2025-08-11 15:34:21 +0100 Nick Efe Oni Deploy
+
+Changed files:
+docker-compose.yml
+services/matching-engine/.gradle/8.14.3/checksums/checksums.lock
+services/matching-engine/.gradle/8.14.3/checksums/md5-checksums.bin
+services/matching-engine/.gradle/8.14.3/checksums/sha1-checksums.bin
+services/matching-engine/.gradle/8.14.3/executionHistory/executionHistory.lock
+services/matching-engine/.gradle/8.14.3/fileChanges/last-build.bin
+services/matching-engine/.gradle/8.14.3/fileHashes/fileHashes.bin
+services/matching-engine/.gradle/8.14.3/fileHashes/fileHashes.lock
+services/matching-engine/.gradle/8.14.3/gc.properties
+services/matching-engine/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+services/matching-engine/.gradle/buildOutputCleanup/cache.properties
+services/matching-engine/.gradle/nb-cache/matching-engine-570099026/project-info.ser
+services/matching-engine/.gradle/nb-cache/subprojects.ser
+services/matching-engine/.gradle/nb-cache/trust/BDF89FDF85BCD60872607B8E708056B8520BBCEB5BC6A2ACD64493765BA1B020
+services/matching-engine/.gradle/vcs-1/gc.properties
+services/matching-engine/bin/main/application.yml
+services/matching-engine/bin/main/db/migration/V1__init.sql
+services/matching-engine/build.gradle
+services/matching-engine/build/reports/problems/problems-report.html
+services/matching-engine/build/tmp/bootJar/MANIFEST.MF
+services/matching-engine/build/tmp/jar/MANIFEST.MF
+services/matching-engine/Dockerfile
+services/matching-engine/gradle/wrapper/gradle-wrapper.jar
+services/matching-engine/gradle/wrapper/gradle-wrapper.properties
+services/matching-engine/gradlew
+services/matching-engine/gradlew.bat
+services/matching-engine/HELP.md
+services/matching-engine/README.md
+services/matching-engine/settings.gradle
+services/matching-engine/src/main/java/com/tradestream/matching_engine/config/BytesListenerFactoryConfig.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/config/EngineProps.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/config/KafkaConfig.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/config/KafkaDlqConfig.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/domain/OrderSide.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/domain/OrderType.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/domain/ProcessedMessage.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/domain/RestingOrder.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/domain/TimeInForce.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderCancelledEvent.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderPlacedEvent.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/TradeExecutedEvent.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/matching/MatchingService.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/matching/OrderBook.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/matching/TradePublisher.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/MatchingEngineApplication.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/persistence/ProcessedMessageRepository.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/persistence/RestingOrderRepository.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/DltLoggingConsumer.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderCancelledConsumer.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderPlacedConsumer.java
+services/matching-engine/src/main/resources/application.yml
+services/matching-engine/src/main/resources/db/migration/V1__init.sql
+services/matching-engine/src/test/java/com/tradestream/matching_engine/MatchingEngineApplicationTests.java
+services/orders-service/.gradle/nb-cache/subprojects.ser
