@@ -1,0 +1,45 @@
+Date: 2025-08-08
+Chunk: 001
+Chunk commit count: 2
+Chunk unique filtered files: 34
+Chunk patch bytes: 98876
+
+Commits:
+b0f420f 2025-08-08 08:38:13 +0100 Nick Efe Oni Deploy
+c72277b 2025-08-08 11:12:42 +0100 Nick Efe Oni Deploy
+
+Changed files:
+authentication-service/src/main/java/com/tradestream/auth/security/InternalCallerInterceptor.java
+automated_scripts/dev-deploy.sh
+docker-compose.yml
+docs/tradestream-prd.md
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataController.java
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataDto.java
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataMapper.java
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataRepository.java
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataService.java
+transaction-processor/.gitattributes
+transaction-processor/.gitignore
+transaction-processor/build.gradle
+transaction-processor/Dockerfile
+transaction-processor/gradle/wrapper/gradle-wrapper.jar
+transaction-processor/gradle/wrapper/gradle-wrapper.properties
+transaction-processor/gradlew
+transaction-processor/gradlew.bat
+transaction-processor/pom.xml
+transaction-processor/settings.gradle
+transaction-processor/src/main/java/com/tradestream/transaction_processor/config/RestTemplateConfig.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/market_data/MarketDataClient.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/market_data/MarketDataEvent.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/portofolio/Portfolio.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/portofolio/PortfolioRepository.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/stock_data/StockDataDto.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/transaction/Transaction.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/transaction/TransactionController.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/transaction/TransactionRepository.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/transaction/TransactionRequest.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/transaction/TransactionService.java
+transaction-processor/src/main/java/com/tradestream/transaction_processor/TransactionProcessorApplication.java
+transaction-processor/src/main/resources/application.properties
+transaction-processor/src/main/resources/db/migration/V1__init_schema.sql
+transaction-processor/src/test/java/com/tradestream/transaction_processor/TransactionProcessorApplicationTests.java
