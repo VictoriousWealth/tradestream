@@ -1,0 +1,5 @@
+docs/architecture-diagram.drawio.png
+docs/architecture-diagram.png
+docs/high-level-architecture-diagram.png
+docs/tradestream-prd.md
+README.md
