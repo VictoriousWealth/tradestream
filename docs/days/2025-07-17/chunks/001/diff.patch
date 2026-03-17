@@ -1,0 +1,93 @@
+
+===== COMMIT bfc40269cc2b944e80e3a13b86cc0b3fa20da76e =====
+commit bfc40269cc2b944e80e3a13b86cc0b3fa20da76e
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Thu Jul 17 09:32:15 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Thu Jul 17 09:32:15 2025 +0100
+
+    Update tradestream-prd.md
+---
+ docs/tradestream-prd.md | 20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
+
+diff --git a/docs/tradestream-prd.md b/docs/tradestream-prd.md
+index af1d512..4ac3d0d 100644
+--- a/docs/tradestream-prd.md
++++ b/docs/tradestream-prd.md
+@@ -479,10 +479,6 @@ This section outlines an estimated high-level timeline for delivering TradeStrea
+ 
+ ---
+ 
+-✅ Done\! Here's the **finalized version** of your References & Resources section with both the **HackTheBox Certified Bug Bounty Hunter** and the **IT and Cybersecurity Foundations \- Learn from Cybrary** course included.
+-
+----
+-
+ # **10\. References & Resources (Finalized)** [↑ Top](#table-of-contents)
+ 
+ This section lists key technical references, tools, and learning resources that support the design and development of TradeStream. These resources provide guidance on industry standards, relevant technologies, and best practices.
+@@ -607,7 +603,7 @@ For demonstration and testing purposes only. These are non-production, hardcoded
+ | -------- | ------------- | ------------------------------------------------------------- |
+ | `admin`  | `password123` | Example user with basic access for testing API functionality. |
+ 
+-⚠️ **Note:** In a real-world production system, credentials would be securely stored, encrypted, and managed using appropriate security best practices.
++**Note:** In a real-world production system, credentials would be securely stored, encrypted, and managed using appropriate security best practices.
+ 
+ ---
+ 
+@@ -642,12 +638,12 @@ For demonstration and testing purposes only. These are non-production, hardcoded
+ 
+ Planned enhancements for future project phases include:
+ 
+-✅ Kubernetes Deployment
+-✅ Terraform Infrastructure Management
+-✅ Prometheus & Grafana Observability
+-✅ Advanced API Security (e.g., Rate Limiting, RBAC)
+-✅ Full CI/CD Pipeline with Docker Image Publishing
+-✅ Market Data Generator Component
++Kubernetes Deployment
++Terraform Infrastructure Management
++Prometheus & Grafana Observability
++Advanced API Security (e.g., Rate Limiting, RBAC)
++Full CI/CD Pipeline with Docker Image Publishing
++Market Data Generator Component
+ 
+ ---
+ 
+@@ -670,4 +666,4 @@ Planned enhancements for future project phases include:
+ **Role:** Author, Architect, and Developer of TradeStream
+ **Contact:** \[Your preferred contact method, e.g., email, GitHub profile]
+ 
+----
+\ No newline at end of file
++---
+
+===== COMMIT e198fd2516877632f4905827f1fa7207dde6ce3e =====
+commit e198fd2516877632f4905827f1fa7207dde6ce3e
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Thu Jul 17 09:33:10 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Thu Jul 17 09:33:10 2025 +0100
+
+    Update tradestream-prd.md
+---
+ docs/tradestream-prd.md | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/docs/tradestream-prd.md b/docs/tradestream-prd.md
+index 4ac3d0d..cd61858 100644
+--- a/docs/tradestream-prd.md
++++ b/docs/tradestream-prd.md
+@@ -434,12 +434,6 @@ This section identifies potential technical and project-related risks that may i
+ 
+ ---
+ 
+-✅ **Risks & Mitigations locked in.**
+-
+-Here’s a clean, realistic draft for **Section 9: Timeline & Milestones** for your TradeStream PRD, tailored to a self-driven, learning-focused project.
+-
+----
+-
+ # **9\. Timeline & Milestones** [↑ Top](#table-of-contents)
+ 
+ This section outlines an estimated high-level timeline for delivering TradeStream, including key development phases and milestones. The timeline reflects realistic learning objectives, resource availability, and project scope.
