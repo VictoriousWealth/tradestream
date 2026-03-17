@@ -1,0 +1,1994 @@
+
+===== COMMIT c97870a974d36be0ce099db5d5676bbb6c620e1d =====
+commit c97870a974d36be0ce099db5d5676bbb6c620e1d
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Tue Mar 17 04:09:48 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Tue Mar 17 04:09:48 2026 +0000
+
+    docs: update documentation with new resources
+    
+    Added several new documentation links to the README.
+    
+    These resources cover known risks, security models, and test strategies.
+    
+    This enhances clarity on project limitations and operational procedures.
+---
+ README.md | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/README.md b/README.md
+index 882e5c5..dbc172c 100644
+--- a/README.md
++++ b/README.md
+@@ -106,6 +106,12 @@ Start here depending on what you need:
+ * `docs/api-design.md` — gateway routes and service API behavior
+ * `docs/future-enhancements.md` — concrete roadmap for simulation bots, analytics UI, schema governance, observability, and platform hardening
+ * `docs/observability-stack-guide.md` — implementation guide for metrics, logs, traces, lag dashboards, and alerting
++* `docs/known-risks-and-non-goals.md` — explicit current limitations, deferred scope, and implementation risks confirmed in code
++* `docs/event-contracts.md` — topic-by-topic Kafka contract details, idempotency behavior, and contract gaps
++* `docs/security-model.md` — current auth, trust boundaries, token model, and known security gaps
++* `docs/test-strategy.md` — what the current scripts and CI actually validate, plus drift and coverage gaps
++* `docs/operational-runbook.md` — local runtime troubleshooting guide for gateway, Kafka, Redis, and downstream services
++* `docs/architecture-decisions.md` — concrete architecture choices visible in the repo and their consequences
+ * `docs/order-placement-matching-trade-execution-diagram.md` — order placement to trade execution flow
+ * `docs/trade-execution-market-data-&-portfolio-updates-+-order-status-diagram.md` — downstream projection/update flow
+ 
+
+===== COMMIT f2ba5fc553da36005ab85d8ad7d57ad9feb23eb5 =====
+commit f2ba5fc553da36005ab85d8ad7d57ad9feb23eb5
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Tue Mar 17 04:09:51 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Tue Mar 17 04:09:51 2026 +0000
+
+    docs: add architecture decisions document
+    
+    This commit introduces a new document capturing architectural decisions.
+    
+    It outlines the rationale behind key design choices and their implications.
+---
+ docs/architecture-decisions.md | 239 +++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 239 insertions(+)
+
+diff --git a/docs/architecture-decisions.md b/docs/architecture-decisions.md
+new file mode 100644
+index 0000000..6c33c4c
+--- /dev/null
++++ b/docs/architecture-decisions.md
+@@ -0,0 +1,239 @@
++# Architecture Decisions (Current State)
++
++Last reviewed against code/config on 2026-03-17.
++
++This is not a generic ADR collection. These entries capture the concrete architectural choices visible in the current repo and the trade-offs they impose.
++
++---
++
++## AD-001: Use a gateway as the only public HTTP entry point
++
++Status:
++- Implemented
++
++What the code does:
++- `api-gateway` is the only service exposed on host port `8080`.
++- Downstream services are on the private Compose network.
++- Gateway handles JWT validation, route rewriting, login rate limiting, and circuit-breaker fallbacks.
++
++Why this was chosen:
++- Centralizes auth and ingress behavior.
++- Keeps downstream services simpler.
++- Makes local demos and recruiter review easier because there is one entry point.
++
++Consequences:
++- Good: simpler downstream services, clear trust boundary, unified routing.
++- Bad: gateway becomes a policy bottleneck; downstream auth context is not strongly propagated beyond “request had a valid token”.
++
++---
++
++## AD-002: Use PS256-signed JWTs at the edge
++
++Status:
++- Implemented
++
++What the code does:
++- Auth service reads RSA private/public keys from mounted PEM files.
++- Auth service issues access and refresh tokens with PS256.
++- Gateway validates signatures with the public key.
++
++Why this was chosen:
++- Asymmetric signing keeps verification separate from signing.
++- Stronger and more realistic than unsigned or symmetric demo tokens.
++
++Consequences:
++- Good: realistic token issuance and edge validation.
++- Bad: refresh handling still depends on header-gated internal routing, and there is no rotation/revocation model yet.
++
++---
++
++## AD-003: Keep write path services separate and connect them with Kafka/Redpanda
++
++Status:
++- Implemented
++
++What the code does:
++- Orders emit `order.placed.v1` and `order.cancelled.v1`.
++- Matching emits `trade.executed.v1`.
++- Transaction processor emits `transaction.recorded.v1`.
++
++Why this was chosen:
++- The trading pipeline is naturally asynchronous and state transitions are meaningful events.
++- It also creates a better engineering story than a monolithic CRUD flow.
++
++Consequences:
++- Good: decoupled services, replay-friendly event flow, clear domain stages.
++- Bad: idempotency, DLT handling, schema evolution, and dual-write concerns move into application logic.
++
++---
++
++## AD-004: Use per-service PostgreSQL storage
++
++Status:
++- Implemented
++
++What the code does:
++- Auth/user-registration share `authdb`.
++- Orders, matching, market data, transaction processor, and portfolio each use separate Postgres databases.
++- Flyway migrations are enabled per service.
++
++Why this was chosen:
++- Keeps bounded data ownership clear.
++- Avoids one shared database becoming the de facto integration layer.
++
++Consequences:
++- Good: clear service ownership and local schema evolution.
++- Bad: joining state across services requires APIs or event projections instead of direct SQL.
++
++---
++
++## AD-005: Accept at-least-once delivery and enforce idempotency in consumers
++
++Status:
++- Implemented
++
++What the code does:
++- Orders service dedupes fills using a fill-ingest ledger.
++- Market data dedupes trades in `ingested_trades`.
++- Transaction processor dedupes by `(topic, tradeId)`.
++- Portfolio dedupes by `(topic, messageId)`.
++- Matching dedupes via `processed_messages`.
++
++Why this was chosen:
++- Considerably simpler than building around Kafka transactions/exactly-once claims.
++- More transparent for interview discussion because correctness logic is explicit in application code.
++
++Consequences:
++- Good: pragmatic, observable, portable across consumers.
++- Bad: message identity must be carefully designed, and the current event contracts are not yet fully uniform.
++
++---
++
++## AD-006: Match in memory, persist resting orders in Postgres
++
++Status:
++- Implemented
++
++What the code does:
++- Matching engine maintains one in-memory `OrderBook` per ticker.
++- Resting orders are also persisted in the matching database.
++- On restart, active orders can be reloaded into memory.
++
++Why this was chosen:
++- Fast matching behavior without requiring a specialized external engine.
++- Persistence gives some recovery capability.
++
++Consequences:
++- Good: simple, fast, and explainable.
++- Bad: correctness depends on partitioning and concurrency assumptions; the in-memory book is not a distributed matching system.
++
++---
++
++## AD-007: Key trading events by ticker
++
++Status:
++- Implemented for `order.placed.v1`, `order.cancelled.v1`, and `trade.executed.v1`
++
++What the code does:
++- Orders and trades are produced with `ticker` as the Kafka key.
++
++Why this was chosen:
++- Preserves per-symbol ordering within a partition.
++- Supports the intended single-threaded-per-ticker matching story.
++
++Consequences:
++- Good: intuitive and aligned with market microstructure reasoning.
++- Bad: “by ticker” is a convention, not yet a fully hardened concurrency contract.
++
++---
++
++## AD-008: Use Redis only where latency/control-plane value is obvious
++
++Status:
++- Implemented
++
++Current Redis uses:
++- Gateway login rate limiting.
++- Market-data “latest candle” cache.
++
++Why this was chosen:
++- Avoids adding Redis everywhere just because it exists in the stack.
++- Keeps cache/control-plane usage concrete and explainable.
++
++Consequences:
++- Good: focused use of infrastructure.
++- Bad: portfolio caching is not meaningfully implemented yet even though Redis settings exist there.
++
++---
++
++## AD-009: Keep the runtime target as Docker Compose
++
++Status:
++- Implemented
++
++What the repo does:
++- Compose defines the default runtime, health checks, secrets mount pattern, and local networking model.
++- CI runs end-to-end validation through Compose.
++
++Why this was chosen:
++- Faster iteration and easier verification for a portfolio project than Kubernetes/Terraform at this stage.
++
++Consequences:
++- Good: reliable local bring-up and concrete E2E validation.
++- Bad: production deployment concerns are intentionally deferred.
++
++---
++
++## AD-010: Use HTTP lookup from transaction processor to orders service for order ownership
++
++Status:
++- Implemented
++
++What the code does:
++- When a trade is consumed, transaction processor calls `orders-service /orders/{id}` twice to resolve buyer and seller `userId`.
++
++Why this was chosen:
++- Avoids duplicating user ownership in the trade event.
++- Keeps `trade.executed.v1` relatively compact.
++
++Consequences:
++- Good: fewer fields in trade events; source of truth stays in orders service.
++- Bad: transaction journaling now depends on orders-service availability and data correctness.
++
++---
++
++## AD-011: Keep internal sensitive routes “open” in Spring Security but gate them with interceptors
++
++Status:
++- Implemented
++
++Routes:
++- `authentication-service /refresh`
++- `user-registration-service /register`
++
++Why this was chosen:
++- Straightforward to implement in local/private-network conditions.
++- Makes the gateway responsible for the trusted hop.
++
++Consequences:
++- Good: simple and effective for a Compose demo.
++- Bad: not a strong long-term internal auth model.
++
++---
++
++## AD-012: Keep portfolio projection narrow and deterministic
++
++Status:
++- Implemented
++
++What the code does:
++- Projects quantity, weighted average cost, and realized PnL from `transaction.recorded.v1`.
++- Does not compute live marks, market value, or short positions.
++
++Why this was chosen:
++- Allows a deterministic read model with clean event inputs.
++- Avoids pretending the system already has a full pricing/risk engine.
++
++Consequences:
++- Good: stable and explainable projection logic.
++- Bad: summary data is intentionally incomplete for real portfolio analytics.
+
+===== COMMIT 4e84be3272eeb9fcb54654bb6fa4e442366e4e34 =====
+commit 4e84be3272eeb9fcb54654bb6fa4e442366e4e34
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Tue Mar 17 04:09:54 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Tue Mar 17 04:09:54 2026 +0000
+
+    docs: add event contracts documentation
+    
+    This commit introduces a comprehensive document detailing the current Kafka/Redpanda contracts used by TradeStream.
+    
+    It outlines the topic inventory, shared transport assumptions, and specific event contracts for orders and trades, providing clarity on the implementation and its nuances.
+---
+ docs/event-contracts.md | 306 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 306 insertions(+)
+
+diff --git a/docs/event-contracts.md b/docs/event-contracts.md
+new file mode 100644
+index 0000000..78f6d12
+--- /dev/null
++++ b/docs/event-contracts.md
+@@ -0,0 +1,306 @@
++# Event Contracts (Current Implementation)
++
++Last reviewed against code/config on 2026-03-17.
++
++This document describes the actual Kafka/Redpanda contracts currently used by TradeStream. It is not a future-state schema registry spec. Where the implementation is inconsistent, that inconsistency is called out explicitly.
++
++---
++
++## Topic inventory
++
++| Topic | Primary producer | Primary consumers | Key strategy in code | Notes |
++| --- | --- | --- | --- | --- |
++| `order.placed.v1` | `orders-service` | `matching-engine` | `ticker` | Drives new order ingestion into the in-memory books. |
++| `order.cancelled.v1` | `orders-service` | `matching-engine` | `ticker` | Removes resting orders from matching book + DB. |
++| `trade.executed.v1` | `matching-engine` | `orders-service`, `market-data-consumer`, `transaction-processor` | `ticker` | Drives fills, candle aggregation, and transaction journaling. |
++| `transaction.recorded.v1` | `transaction-processor` | `portfolio-service` | `tradeId:userId:side` | One trade produces two records: one BUY-side, one SELL-side. |
++
++DLT convention:
++- `matching-engine`, `transaction-processor`, and `portfolio-service` all route poison records to `<source-topic>.DLT` on the same partition.
++- `market-data-consumer` does not have checked-in DLT wiring in the files reviewed for this pass.
++
++---
++
++## Shared transport assumptions
++
++- Broker: Redpanda using Kafka-compatible APIs.
++- Payloads are JSON.
++- Most consumers disable type headers and set an explicit default value type.
++- At-least-once delivery is assumed.
++- Idempotency is handled in application code and database ledgers, not via Kafka exactly-once features.
++
++Observed serialization differences:
++- `matching-engine` emits `trade.executed.v1.timestamp` as `OffsetDateTime`.
++- `transaction-processor` consumes `trade.executed.v1.timestamp` as `Instant`.
++- This appears to rely on Jackson time parsing compatibility rather than a single canonical timestamp type.
++
++---
++
++## 1) `order.placed.v1`
++
++### Producer
++
++- Service: `orders-service`
++- Code path: `OrderService.place(...)` -> `OrderProducer.publish(...)`
++- Partition key: `evt.ticker()`
++
++### Consumer
++
++- Service: `matching-engine`
++- Consumer class: `OrderPlacedConsumer`
++- Consumer group: `matching-engine` in Compose (`KAFKA_CONSUMER_GROUP=matching-engine`)
++- Ack mode: manual
++
++### Payload fields currently produced
++
++Source class in `orders-service`: `com.tradestream.orders_service.events.OrderPlaced`
++
++Fields consumed by `matching-engine` DTO:
++- `orderId` : UUID
++- `userId` : UUID
++- `ticker` : String
++- `side` : enum (`BUY` or `SELL`)
++- `orderType` or `type` : enum (`LIMIT` or `MARKET`)
++- `timeInForce` : enum
++- `price` : decimal or `null` for MARKET
++- `quantity` : decimal
++- `timestamp` : Instant
++
++Implementation detail:
++- `matching-engine` explicitly accepts both `orderType` and `type` via `@JsonAlias`.
++- That is a compatibility shim in the consumer DTO, not a formal schema guarantee.
++
++### Idempotency behavior
++
++- `matching-engine` first looks for a Kafka header named `eventId`.
++- If no header exists, it falls back to a synthetic UUID derived from `topic|partition|offset`.
++- It stores `(topic, messageId)` in `processed_messages`.
++
++Important gap:
++- `orders-service` does not attach an `eventId` header here.
++- The fallback is therefore usually offset-derived, not business-stable.
++
++### Ordering assumption
++
++- Producer uses `ticker` as the Kafka key.
++- The intent is to keep all events for a given ticker in the same partition so matching can treat that ticker as effectively serialized.
++
++### Current failure handling
++
++- `matching-engine` retries with exponential backoff and then sends the record to `order.placed.v1.DLT`.
++- `IllegalArgumentException` is non-retryable and goes straight to DLT.
++
++---
++
++## 2) `order.cancelled.v1`
++
++### Producer
++
++- Service: `orders-service`
++- Code path: `OrderService.cancelOrder(...)`
++- Partition key: `saved.getTicker()`
++
++Emission rule:
++- A cancel event is only emitted when an order transitions from `NEW` to `CANCELED`.
++- Re-cancel on an already canceled order returns the order without emitting another event.
++- Only `NEW` orders can be canceled; other statuses raise an error.
++
++### Consumer
++
++- Service: `matching-engine`
++- Consumer class: `OrderCancelledConsumer`
++- Consumer group: `matching-engine`
++- Ack mode: manual
++
++### Payload fields currently produced/consumed
++
++Source class in `orders-service`: `OrderCancelledEvent`
++
++Fields:
++- `orderId` : UUID
++- `userId` : UUID
++- `ticker` : String
++- `quantity` : decimal
++- `price` : decimal, nullable
++- `timestamp` : Instant
++
++### Idempotency behavior
++
++- Same strategy as `order.placed.v1`:
++  - prefer `eventId` header if present
++  - otherwise synthesize from `topic|partition|offset`
++  - record in `processed_messages`
++
++Gap:
++- The producer does not add an `eventId` header here either.
++
++### Consumer-side semantic effect
++
++- `matching-engine` updates the resting-order row status to `CANCELED`.
++- It removes the order from the in-memory book for that ticker.
++- If the order is unknown, the consumer logs a warning.
++
++### Current failure handling
++
++- Same DLT/backoff policy as `order.placed.v1`.
++
++---
++
++## 3) `trade.executed.v1`
++
++### Producer
++
++- Service: `matching-engine`
++- Code path: `MatchingService.publishTrade(...)` -> `tradePublisher.publish(...)`
++- Partition key: ticker
++
++Emission rule:
++- One match creates one trade event with a newly generated `tradeId`.
++- The trade references one `buyOrderId` and one `sellOrderId`.
++
++### Consumers
++
++#### `orders-service`
++- Consumer class: `TradeExecutedConsumer`
++- Group: `orders-exec-consumer` by default
++- Idempotency key: `(orderId, tradeId, ticker, timestamp)` inserted through `IngestedFillRepository.tryInsert(...)`
++- Effect: update fill quantity, order status, last fill price
++
++#### `market-data-consumer`
++- Consumer class: `TradeExecutedListener`
++- Group: `md-consumer`
++- Idempotency key: `tradeId + ticker + timestamp` via `ingested_trades`
++- Effect: upsert OHLCV candles for `1m`, `5m`, `1h`, `1d`; evict Redis latest cache keys
++
++#### `transaction-processor`
++- Consumer class: `TradeExecutedConsumer`
++- Group: `txproc-journal` in Compose
++- Idempotency key: `(topic, tradeId)` in `processed_messages`
++- Effect: resolve users from `orders-service`, insert buyer and seller journal rows, emit two `transaction.recorded.v1` events
++
++### Payload fields currently produced
++
++Producer DTO in `matching-engine`: `TradeExecutedEvent`
++
++Fields:
++- `tradeId` : UUID
++- `buyOrderId` : UUID
++- `sellOrderId` : UUID
++- `ticker` : String
++- `price` : decimal
++- `quantity` : decimal
++- `timestamp` : `OffsetDateTime`
++
++Consumer DTOs expect broadly the same shape, but not always the same Java time type.
++
++### Contract caveats
++
++- No checked-in `eventId` field or required `eventId` header.
++- Downstream idempotency is therefore based on `tradeId`, not a distinct event ID.
++- This is workable because `tradeId` is generated once per match, but it conflates trade identity and message identity.
++
++### Current failure handling
++
++- `transaction-processor` has DLT/backoff wiring.
++- `orders-service` reviewed files do not expose explicit DLT wiring in this pass.
++- `market-data-consumer` reviewed files do not expose explicit DLT wiring in this pass.
++
++---
++
++## 4) `transaction.recorded.v1`
++
++### Producer
++
++- Service: `transaction-processor`
++- Code path: `TransactionService.processTrade(...)` -> `TransactionRecordedProducer.publish(...)`
++- Partition key: `tradeId:userId:side`
++
++Emission rule:
++- Every processed trade produces two events:
++  - one BUY-side transaction record
++  - one SELL-side transaction record
++
++### Consumer
++
++- Service: `portfolio-service`
++- Consumer class: `TransactionRecordedConsumer`
++- Consumer group: `portfolio-svc`
++- Ack mode: manual
++
++### Payload fields currently produced
++
++Producer DTO: `TransactionRecordedEvent`
++
++Fields:
++- `eventId` : UUID
++- `tradeId` : UUID
++- `orderId` : UUID
++- `userId` : UUID
++- `side` : String (`BUY` or `SELL`)
++- `ticker` : String
++- `quantity` : decimal
++- `price` : decimal
++- `executedAt` : Instant
++- `version` : int (currently set to `1`)
++
++### Idempotency behavior
++
++- `portfolio-service` prefers `evt.getEventId()`.
++- If absent in payload, it tries a Kafka `eventId` header.
++- If still absent, it synthesizes a UUID from `topic|partition|offset`.
++- It records `(topic, messageId)` in `processed_messages`.
++
++Important note:
++- This is the only reviewed event payload that already includes an explicit `eventId` field.
++
++### Consumer-side semantic effect
++
++- `BUY`:
++  - increase quantity
++  - recompute weighted average cost
++- `SELL`:
++  - clamp sell quantity to current long quantity
++  - add realized PnL based on `price - avgCost`
++  - reduce quantity
++  - reset `avgCost` to `null` when flat
++
++Non-goal implied by the current contract:
++- This event stream projects long-only positions; it does not currently model short inventory.
++
++### Current failure handling
++
++- `portfolio-service` retries with exponential backoff and then sends poison records to `transaction.recorded.v1.DLT`.
++- `IllegalArgumentException` is non-retryable.
++
++---
++
++## 5) Cross-topic design notes
++
++### Partitioning strategy is domain-meaningful but not universal
++
++- Orders and trades are keyed by `ticker`.
++- Transaction records are keyed by `tradeId:userId:side`.
++
++What that buys today:
++- Matching and market-data consumers benefit from ticker locality.
++- Portfolio projection benefits less from ticker ordering and more from per-user event uniqueness.
++
++### Business identity and message identity are mixed in different ways
++
++- `tradeId` acts as the dedupe key in several places.
++- `eventId` exists only on `transaction.recorded.v1`.
++- Other topics rely on missing-header fallbacks.
++
++That is the main reason the current event contract should be treated as a code contract, not yet as a formal schema-governed platform contract.
++
++---
++
++## 6) Recommended next contract hardening steps
++
++These are implementation recommendations, not statements about current behavior.
++
++1. Add a mandatory `eventId` field to every event payload.
++2. Stop relying on offset-derived fallback IDs except for telemetry/debug use.
++3. Standardize time fields to one canonical type/format across all event DTOs.
++4. Publish an explicit schema versioning policy per topic.
++5. Add CI contract tests before introducing more downstream consumers.
+
+===== COMMIT 6e96c0510eb4c64347149111a8cc5b6bc0a07d37 =====
+commit 6e96c0510eb4c64347149111a8cc5b6bc0a07d37
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Tue Mar 17 04:09:57 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Tue Mar 17 04:09:57 2026 +0000
+
+    docs: add known risks and non-goals document
+    
+    This commit introduces a new document detailing known risks and non-goals.
+    
+    It aims to provide clarity on security, eventing, and product limitations in the current codebase.
+---
+ docs/known-risks-and-non-goals.md | 259 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 259 insertions(+)
+
+diff --git a/docs/known-risks-and-non-goals.md b/docs/known-risks-and-non-goals.md
+new file mode 100644
+index 0000000..263eca0
+--- /dev/null
++++ b/docs/known-risks-and-non-goals.md
+@@ -0,0 +1,259 @@
++# Known Risks and Non-Goals (Current Codebase)
++
++Last reviewed against code/config on 2026-03-17.
++
++This document is intentionally narrow: it only lists risks and non-goals that are directly visible in the current implementation. If something is not confirmed in code, it is omitted rather than guessed.
++
++---
++
++## 1) Security and identity risks
++
++### Gateway auth does not bind request `userId` to JWT subject
++
++What exists now:
++- The API Gateway validates JWT signatures and requires authentication for non-whitelisted routes.
++- The Orders API still accepts `userId` in the request body.
++- `orders-service` persists whatever `userId` arrives in `PlaceOrderRequest`.
++
++Why this matters:
++- A client with any valid token can submit an order for a different `userId` if the caller knows or guesses another UUID.
++- This is a trust-boundary gap, not just a missing convenience feature.
++
++Current scope:
++- There is no code in the gateway or orders service that rewrites `userId` from the JWT subject or rejects mismatches.
++
++### Internal service trust is header-based, not identity-based
++
++What exists now:
++- `/refresh` in `authentication-service` is protected by a Spring MVC interceptor that requires `X-Internal-Caller: api-gateway`.
++- `/register` in `user-registration-service` uses the same pattern.
++- The gateway adds that header for the corresponding routes.
++
++Why this matters:
++- Any caller that can reach those services on the private network and set that header can impersonate the gateway.
++- This is acceptable for a local Compose portfolio environment, but it is not a strong production trust model.
++
++Current scope:
++- No mTLS.
++- No signed internal tokens.
++- No service identity system.
++
++### Refresh tokens are long-lived and not revocable
++
++What exists now:
++- Refresh tokens are PS256-signed JWTs with a 30-day expiry.
++- They are parsed and re-used to mint new access tokens.
++
++What does not exist:
++- Refresh token rotation.
++- Revocation list / denylist.
++- Server-side refresh-session persistence.
++
++Why this matters:
++- A stolen refresh token remains usable until expiry unless keys are rotated.
++
++### CORS is fully open in the gateway
++
++What exists now:
++- Gateway `globalcors` allows `allowedOrigins: "*"` with all methods and headers.
++- `allowCredentials` is false.
++
++Why this matters:
++- This is acceptable for dev convenience, but it is intentionally looser than a production policy.
++
++### Security scopes exist in tokens but are not enforced by route policy
++
++What exists now:
++- Auth service issues access and refresh tokens with `scopes`.
++- Gateway maps scopes into `GrantedAuthority` values.
++
++What does not exist:
++- Route-level authorization rules based on scopes or roles.
++
++Why this matters:
++- In practice, the system currently distinguishes between `authenticated` and `unauthenticated`, not between permission levels.
++
++---
++
++## 2) Eventing and consistency risks
++
++### No transactional outbox between DB writes and Kafka publishes
++
++Confirmed cases:
++- `orders-service` saves an order, then publishes `order.placed.v1`.
++- `orders-service` saves a cancel state change, then publishes `order.cancelled.v1`.
++- `transaction-processor` saves buyer/seller ledger rows and processed-message state, then publishes two `transaction.recorded.v1` events.
++
++Why this matters:
++- A process crash or broker failure after the DB commit but before the Kafka send can leave local state committed without the downstream event.
++
++What this means operationally:
++- Reconciliation would currently require manual investigation and replay logic.
++
++### Event identity is not uniform across topics
++
++What exists now:
++- `transaction.recorded.v1` payloads include `eventId`.
++- `order.placed.v1`, `order.cancelled.v1`, and `trade.executed.v1` do not have a uniformly enforced `eventId`.
++- Matching and portfolio consumers fall back to synthetic IDs derived from `topic|partition|offset` when necessary.
++
++Why this matters:
++- Offset-derived IDs are stable for a given record in Kafka, but they are not business-stable across republish or replay-to-new-topic scenarios.
++- This weakens true replay-safe idempotency.
++
++### Transaction Processor depends synchronously on Orders Service during trade journaling
++
++What exists now:
++- For every `trade.executed.v1`, `transaction-processor` resolves `buyOrderId` and `sellOrderId` via HTTP calls to `orders-service`.
++
++Why this matters:
++- If `orders-service` is unavailable or returns incomplete data, transaction journaling cannot complete even though the trade event already exists.
++
++Operational consequence:
++- This is a coupling point inside an otherwise event-driven path.
++
++### Matching engine correctness depends on concurrency assumptions
++
++What exists now:
++- Matching uses one in-memory `OrderBook` per ticker.
++- `OrderBook` uses plain `PriorityQueue`.
++- `MatchingService` stores books in a `ConcurrentHashMap`, but the queues themselves are not thread-safe.
++- Kafka listener ack mode is manual, and the intended design appears to rely on per-partition ordering keyed by ticker.
++
++Why this matters:
++- If listener concurrency changes, partitioning assumptions break, or the same ticker is processed concurrently, the book can race.
++
++Current scope:
++- This is acceptable for the current single-consumer-group, keyed-by-ticker design.
++- It is not yet a formally enforced concurrency model.
++
++---
++
++## 3) Domain and product non-goals
++
++### Portfolio projection is long-only
++
++What exists now:
++- `PortfolioProjector` clamps SELL quantity to the current long quantity.
++- If a user sells more than they hold, only the currently held long quantity is realized/projected.
++- The resulting position does not go negative.
++
++What this means:
++- Short positions are not modeled in the current portfolio projection.
++
++### Portfolio summary does not compute market value or unrealized PnL
++
++What exists now:
++- `/portfolio/{userId}/summary` returns `realizedPnl`.
++- `unrealizedPnl` and `marketValue` are returned as `null`.
++- Position responses also return `lastPrice` and `unrealizedPnl` as `null`.
++
++What this means:
++- The service is currently a realized-PnL and quantity projection, not a full mark-to-market portfolio engine.
++
++### Market data intervals are fixed
++
++Confirmed supported intervals:
++- `1m`
++- `5m`
++- `1h`
++- `1d`
++
++What this means:
++- There is no general interval engine exposed in the current implementation.
++
++### The runtime target is local Docker Compose
++
++What exists now:
++- Compose is the primary supported runtime.
++- Health checks and scripts assume Compose networking and container names/service DNS.
++
++What does not exist:
++- Kubernetes manifests.
++- Terraform.
++- Cloud secret management.
++- Multi-environment deployment automation.
++
++### This repo does not process real money or broker integrations
++
++What exists now:
++- A simulated trade processing stack with matching, journaling, portfolio projection, and candles.
++
++What does not exist:
++- Exchange connectivity.
++- Brokerage APIs.
++- Settlement flows.
++- Compliance, reporting, or custody integrations.
++
++---
++
++## 4) Testing and observability limitations
++
++### Tests are strong at scenario coverage, weaker at invariant proof
++
++What exists now:
++- Helpful end-to-end scripts cover partial fills, IOC/FOK, cancel flow, duplicate trade replay, recovery after restart, and DLT behavior.
++
++What does not exist:
++- A formal contract-test layer for event schemas.
++- A documented load/stress test suite.
++- A clearly automated reconciliation test for DB/Kafka dual-write failure windows.
++
++### Observability is still mostly Actuator-level
++
++What exists now:
++- Health endpoints and some metrics exposure.
++- Logging.
++- Documented observability plan.
++
++What does not exist:
++- Checked-in Prometheus/Grafana/Loki/Jaeger stack wiring in the root runtime.
++- Alert rules.
++- Trace propagation verification across the full pipeline.
++
++---
++
++## 5) Script and documentation drift already visible
++
++These are not architecture risks, but they are practical review notes worth keeping explicit.
++
++### `gateway_smoke.sh` uses a market-data path that does not match the gateway route map
++
++Current gateway route:
++- `/api/market-data/candles/{ticker}/latest`
++
++Path used in the script:
++- `/api/market-data/$TICKER/latest`
++
++Expected effect:
++- That step will not hit the configured gateway market-data route as written.
++
++### `e2e_portfolio_service.sh` assumes behaviors the current portfolio service does not implement
++
++Examples:
++- It comments on short-position expectations, but the projector is long-only.
++- It tries to create a synthetic `trade.executed.v1` as a price mark, but portfolio-service does not consume `trade.executed.v1`; it consumes `transaction.recorded.v1`.
++- That synthetic trade can also create noise for `transaction-processor`, because the random order IDs will not resolve in `orders-service`.
++
++### `manual_cancel_test.sh` is more environment-sensitive than the other scripts
++
++What exists now:
++- It defaults to a specific network name and container name pattern.
++
++Why this matters:
++- It is more likely to break if the Compose project name changes.
++
++---
++
++## 6) Deliberate non-goals for the current stage
++
++These are reasonable omissions for the repo’s current maturity and should be described as intentional scope limits, not accidents.
++
++- No exactly-once Kafka semantics claim.
++- No production-grade internal service identity system.
++- No cloud deployment/IaC in the repo.
++- No short-selling or derivatives model.
++- No live price marking in portfolio summary.
++- No refresh-token rotation or revocation.
++- No event-schema registry/compatibility gate yet.
++- No full observability stack wired into the default local runtime.
+
+===== COMMIT f6f2ac15b6050d896dc07bfb7acd1385e0cb3a38 =====
+commit f6f2ac15b6050d896dc07bfb7acd1385e0cb3a38
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Tue Mar 17 04:10:00 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Tue Mar 17 04:10:00 2026 +0000
+
+    docs(runbook): add operational runbook for local runtime
+    
+    This commit introduces a comprehensive operational runbook.
+    
+    It details the current local runtime setup, including services and health checks.
+---
+ docs/operational-runbook.md | 288 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 288 insertions(+)
+
+diff --git a/docs/operational-runbook.md b/docs/operational-runbook.md
+new file mode 100644
+index 0000000..218330c
+--- /dev/null
++++ b/docs/operational-runbook.md
+@@ -0,0 +1,288 @@
++# Operational Runbook (Current Local Runtime)
++
++Last reviewed against code/config on 2026-03-17.
++
++This runbook is written for the repo’s current operating model: local Docker Compose with Redpanda, Postgres, Redis, and the seven application services.
++
++---
++
++## 1) Runtime topology you should assume
++
++Public entry:
++- `api-gateway` on `localhost:8080`
++
++Private application services:
++- `user-registration-service` on `8081`
++- `auth-service` on `8082`
++- `market-data-consumer` on `8083`
++- `transaction-processor` on `8084`
++- `orders-service` on `8085`
++- `matching-engine` on `8086`
++- `portfolio-service` on `8087`
++
++Core dependencies:
++- Redpanda on `9092`
++- Redis on `6379`
++- Postgres instances per service group
++
++---
++
++## 2) First checks when something looks wrong
++
++1. Confirm the stack is up:
++   - `docker compose ps`
++2. Check gateway health:
++   - `curl -s http://localhost:8080/actuator/health`
++3. Check the downstream service health endpoints directly if a route is failing.
++4. Confirm Redpanda and Redis are healthy in Compose.
++5. Confirm the expected JWT keys exist under `secrets/`.
++
++If auth is failing everywhere, check keys first.
++If only one route family is failing, check the owning downstream service next.
++
++---
++
++## 3) Health endpoints
++
++Gateway:
++- `http://localhost:8080/actuator/health`
++
++Private services:
++- `http://localhost:8081/actuator/health`
++- `http://localhost:8082/actuator/health`
++- `http://localhost:8083/actuator/health`
++- `http://localhost:8084/actuator/health`
++- `http://localhost:8085/actuator/health`
++- `http://localhost:8086/actuator/health`
++- `http://localhost:8087/actuator/health`
++
++Useful note:
++- Compose health checks already use these routes, so a container that never becomes healthy usually points to config, dependency, migration, or startup failure.
++
++---
++
++## 4) Kafka topics and consumer groups that matter operationally
++
++Topics:
++- `order.placed.v1`
++- `order.cancelled.v1`
++- `trade.executed.v1`
++- `transaction.recorded.v1`
++
++Expected DLTs in current reviewed services:
++- `order.placed.v1.DLT`
++- `order.cancelled.v1.DLT`
++- `trade.executed.v1.DLT`
++- `transaction.recorded.v1.DLT`
++
++Consumer groups commonly used in Compose/default config:
++- `matching-engine`
++- `orders-exec-consumer`
++- `md-consumer`
++- `txproc-journal`
++- `portfolio-svc`
++
++When debugging lag:
++- `matching-engine` lag on `order.placed.v1` or `order.cancelled.v1` affects matching correctness.
++- `txproc-journal` lag on `trade.executed.v1` delays transaction journaling and therefore portfolio updates.
++- `portfolio-svc` lag on `transaction.recorded.v1` delays positions/PnL projection.
++
++---
++
++## 5) Symptom -> likely cause -> where to look
++
++## `401` from gateway on protected routes
++
++Likely causes:
++- Access token missing.
++- Access token expired.
++- Public key mismatch between gateway and auth service.
++
++Check:
++- `secrets/jwt_public.pem`
++- auth login still works
++- gateway logs for JWT validation failures
++
++## `403` on registration or refresh
++
++Likely causes:
++- Missing `X-Internal-Caller: api-gateway` header on the downstream hop.
++
++Check:
++- gateway route config for `/api/users/register` and `/api/auth/refresh`
++- `authentication-service` and `user-registration-service` interceptor wiring
++
++Important nuance:
++- These routes are publicly permitted at the gateway layer, but still blocked downstream without the header.
++
++## Login returns `429`
++
++Likely cause:
++- Gateway Redis rate limiter is working as designed.
++
++Check:
++- Redis health
++- whether a test script is hammering `/api/auth/login`
++
++## Orders are accepted but no trades occur
++
++Likely causes:
++- `matching-engine` unhealthy or lagging.
++- Orders do not cross by price/time-in-force semantics.
++- `order.placed.v1` not being consumed.
++
++Check:
++- `orders-service` health
++- `matching-engine` health
++- `matching-engine` consumer lag on `order.placed.v1`
++- emitted order payloads and ticker keys
++
++## Orders fill, but portfolio does not update
++
++Likely causes:
++- `transaction-processor` not consuming `trade.executed.v1`
++- HTTP lookup from `transaction-processor` to `orders-service` failing
++- `portfolio-service` lagging on `transaction.recorded.v1`
++
++Check:
++- `transaction-processor` health and logs
++- `orders-service /orders/{id}` works for referenced order IDs
++- `portfolio-svc` lag
++
++## Market data stays stale
++
++Likely causes:
++- No new `trade.executed.v1` events for that ticker
++- market-data consumer lag
++- Redis latest cache not being evicted because no new upsert happened
++
++Check:
++- `trade.executed.v1` contents
++- `market-data-consumer` health/logs
++- query the candle endpoint directly on `8083`
++
++## Cancel issued, but later BUY still matches
++
++Likely causes:
++- Matching engine had not yet consumed the `order.cancelled.v1` record when the crossing order arrived.
++
++Check:
++- `order.cancelled.v1` record exists
++- `matching-engine` group lag on `order.cancelled.v1`
++- use `manual_cancel_test.sh` or the cancel scenario in `e2e_scenarios.sh`
++
++## DLT starts growing
++
++Likely causes:
++- JSON payload shape drift
++- invalid enum values such as bad `side`
++- runtime exceptions in consumer logic
++
++Check:
++- consume `<topic>.DLT`
++- inspect the original payload
++- compare producer DTO vs consumer DTO expectations
++
++---
++
++## 6) Quick commands worth keeping handy
++
++Check compose state:
++```bash
++docker compose ps
++```
++
++Check gateway health:
++```bash
++curl -s http://localhost:8080/actuator/health
++```
++
++Check a downstream health endpoint:
++```bash
++curl -s http://localhost:8085/actuator/health
++```
++
++Inspect a consumer group:
++```bash
++docker compose exec -T redpanda rpk group describe matching-engine
++```
++
++Consume a DLT:
++```bash
++docker compose exec -T redpanda rpk topic consume trade.executed.v1.DLT --offset beginning
++```
++
++Watch the next trade:
++```bash
++docker compose exec -T redpanda rpk topic consume trade.executed.v1 --offset end -n 1
++```
++
++---
++
++## 7) Service-specific operational notes
++
++## Gateway
++
++Operationally important behaviors:
++- Removes `Cookie` header.
++- Injects `X-Internal-Caller` for refresh and registration routes.
++- Applies circuit breakers for orders, transactions, portfolio, and market-data routes.
++- Applies Redis IP rate limit only on login route.
++
++What to remember:
++- If a downstream service is down, the gateway may return fallback JSON instead of a transport error.
++
++## Orders Service
++
++Operationally important behaviors:
++- Accepts orders and emits order events.
++- Applies fills from `trade.executed.v1`.
++- Only allows cancel while status is `NEW`.
++
++What to remember:
++- It is both a command service and a fill-projection consumer.
++
++## Matching Engine
++
++Operationally important behaviors:
++- Maintains in-memory books plus persisted resting orders.
++- Uses manual Kafka ack and DLT wiring.
++
++What to remember:
++- Restart and warm-load behavior matters for correctness after downtime.
++
++## Transaction Processor
++
++Operationally important behaviors:
++- Resolves order owner user IDs over HTTP from `orders-service`.
++- Produces two `transaction.recorded.v1` events per trade.
++
++What to remember:
++- If `orders-service` is unhealthy, transaction journaling can fail even if Kafka is healthy.
++
++## Portfolio Service
++
++Operationally important behaviors:
++- Consumes only `transaction.recorded.v1`.
++- Projects long-only positions and realized PnL.
++
++What to remember:
++- It is not a mark-to-market engine today.
++
++## Market Data Consumer
++
++Operationally important behaviors:
++- Consumes `trade.executed.v1`.
++- Upserts candles for fixed supported intervals.
++- Evicts Redis latest-cache keys on each upsert.
++
++What to remember:
++- No new trades means “latest” may remain unchanged by design.
++
++---
++
++## 8) Known operational caveats
++
++- `gateway_smoke.sh` contains a market-data path mismatch and should not be treated as authoritative for that route.
++- `e2e_portfolio_service.sh` mixes current behavior with future-looking assumptions.
++- Some correctness issues, such as DB/Kafka dual-write gaps, are architectural and will not be fixed by restarts alone.
+
+===== COMMIT dcb85d53d1cc5b33d5bddafa3f79d779c025f918 =====
+commit dcb85d53d1cc5b33d5bddafa3f79d779c025f918
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Tue Mar 17 04:10:04 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Tue Mar 17 04:10:04 2026 +0000
+
+    docs: add security model documentation
+    
+    This commit introduces a comprehensive security model document.
+    
+    It outlines the current implementation, including security boundaries, token models, and internal protections.
+    
+    The goal is to provide clarity on existing security measures and identify gaps for future improvements.
+---
+ docs/security-model.md | 236 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 236 insertions(+)
+
+diff --git a/docs/security-model.md b/docs/security-model.md
+new file mode 100644
+index 0000000..b8310b1
+--- /dev/null
++++ b/docs/security-model.md
+@@ -0,0 +1,236 @@
++# Security Model (Current Implementation)
++
++Last reviewed against code/config on 2026-03-17.
++
++This document describes the current security model as implemented, not the ideal future model.
++
++---
++
++## 1) Security boundary overview
++
++### Public boundary
++
++The only public HTTP entry point in the default runtime is:
++- `api-gateway` on port `8080`
++
++The gateway is responsible for:
++- validating access-token signatures
++- deciding which routes require authentication
++- rate limiting login by IP via Redis
++- adding `X-Internal-Caller: api-gateway` on selected internal hops
++
++### Private boundary
++
++Downstream services live on the Compose private network.
++
++Sensitive internal routes:
++- `authentication-service /refresh`
++- `user-registration-service /register`
++
++Those routes are not protected by downstream JWT validation. They are protected by a Spring MVC interceptor requiring a specific header value.
++
++That is a real security model, but it is a weak one compared with mTLS or service-signed credentials.
++
++---
++
++## 2) Token model
++
++## Signing
++
++Algorithm:
++- PS256
++
++Key material:
++- Auth service reads private and public PEM files from mounted secrets.
++- Gateway validates using the public key.
++
++Current token types:
++- access token
++- refresh token
++
++## Access token contents
++
++Auth service sets:
++- `jti`
++- `sub` = user ID string
++- `typ` header = `JWT`
++- `alg` header = `PS256`
++- `iat`
++- `exp` = now + 15 minutes
++- `iss` = `authentication-service`
++- `aud` = `api-gateway`
++- `username`
++- `token_type` = `access`
++- `scopes`
++
++## Refresh token contents
++
++Auth service sets the same core claims, except:
++- `exp` = now + 30 days
++- `token_type` = `refresh`
++
++## Current refresh behavior
++
++- The refresh endpoint parses and validates the refresh token using the public key.
++- It confirms `token_type == refresh`.
++- It reuses the same refresh token and mints a new access token.
++
++What does not exist:
++- refresh rotation
++- revocation
++- server-side session store
++
++---
++
++## 3) Gateway enforcement
++
++## Public routes at the gateway
++
++Currently permitted without JWT:
++- `POST /api/auth/login`
++- `POST /api/auth/refresh`
++- `POST /api/users/register`
++- `GET /actuator/health`
++- `GET /actuator/info`
++
++Everything else:
++- requires authentication at the gateway
++
++Important nuance:
++- `refresh` and `register` are public only at the gateway layer.
++- They are still header-gated at the downstream service.
++
++## JWT validation
++
++The gateway is configured as a resource server:
++- public key location from `JWT_PUBLIC_KEY_LOCATION`
++- JWS algorithm `PS256`
++
++## Authorities/scopes
++
++The gateway maps `scopes` or `scope` claims into `SCOPE_*` authorities.
++
++Current limitation:
++- There are no route rules that require specific scopes.
++- Scope extraction exists, but scope-based authorization does not.
++
++---
++
++## 4) Internal route protection
++
++## `authentication-service /refresh`
++
++Spring Security behavior:
++- `POST /refresh` is permitted at the service level.
++
++Actual gate:
++- `InternalCallerInterceptor`
++- required header: `X-Internal-Caller: api-gateway`
++
++Where the header is added:
++- gateway route `auth-refresh`
++
++## `user-registration-service /register`
++
++Spring Security behavior:
++- `POST /register` is permitted at the service level.
++
++Actual gate:
++- `InternalCallerInterceptor`
++- required header: `X-Internal-Caller: api-gateway`
++
++Where the header is added:
++- gateway route `user-registration`
++
++Security consequence:
++- Anyone with private-network reachability to those services can bypass the gateway if they can forge that header.
++
++---
++
++## 5) Password handling
++
++Confirmed behavior:
++- User registration hashes passwords with BCrypt.
++- Login loads the stored hash and verifies with BCrypt.
++
++This is the right basic storage model for a service of this scope.
++
++What is not reviewed here:
++- password policy complexity rules beyond DTO validation
++- account lockout
++- password reset flows
++
++---
++
++## 6) Rate limiting and abuse control
++
++Current implementation:
++- Gateway rate limits only `POST /api/auth/login`.
++- Uses `RequestRateLimiter` with Redis-backed token bucket.
++- Replenish rate: `10`
++- Burst capacity: `20`
++- Key resolver: IP-based
++
++What does not exist:
++- Per-user rate limiting on authenticated routes
++- Separate write-path quotas for order placement/cancel
++- Refresh endpoint rate limiting
++
++---
++
++## 7) Current trust gaps
++
++### User identity is not propagated as an enforced command context
++
++What happens today:
++- Gateway validates the JWT.
++- Orders requests still carry `userId` in the JSON body.
++- Orders service trusts that field.
++
++What is missing:
++- Rewriting `userId` from the JWT subject.
++- Rejecting body/JWT mismatch.
++
++Impact:
++- Authenticated users can potentially act on behalf of another UUID.
++
++### Internal caller identity is only a shared header convention
++
++Impact:
++- Trust is network-local and convention-based, not cryptographically bound.
++
++### Authorization is coarse-grained
++
++What exists:
++- Authenticated vs unauthenticated separation.
++
++What does not exist:
++- role-based access control
++- scope enforcement
++- per-route permission policies
++
++### Token lifecycle is incomplete
++
++What exists:
++- signed access and refresh tokens with expiry
++
++What does not exist:
++- refresh rotation
++- logout/revocation model
++- key rotation workflow in runtime
++
++---
++
++## 8) Security-relevant operational notes
++
++- Gateway CORS is permissive: `allowedOrigins: "*"` and all methods/headers.
++- Gateway removes `Cookie` from proxied requests.
++- Security logging in the gateway is currently set to DEBUG for several Spring security categories.
++
++That logging level is useful while building, but it is too verbose for a production posture.
++
++---
++
++## 9) Security model in one sentence
++
++TradeStream currently uses a strong edge signature model for authentication, but only a weak internal trust model and a weak command-identity binding model beyond the gateway.
+
+===== COMMIT 9abbc5e8c1d3e7155a7aaace60508e7d2c6b5f6a =====
+commit 9abbc5e8c1d3e7155a7aaace60508e7d2c6b5f6a
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Tue Mar 17 04:10:08 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Tue Mar 17 04:10:08 2026 +0000
+
+    docs: add comprehensive test strategy documentation
+    
+    This commit introduces a new document outlining the current test strategy for the repository.
+    
+    It details existing test layers, their coverage, and identifies gaps in the testing approach.
+    
+    This will help improve understanding and guide future testing efforts.
+---
+ docs/test-strategy.md | 232 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 232 insertions(+)
+
+diff --git a/docs/test-strategy.md b/docs/test-strategy.md
+new file mode 100644
+index 0000000..74086b9
+--- /dev/null
++++ b/docs/test-strategy.md
+@@ -0,0 +1,232 @@
++# Test Strategy (Current Repo)
++
++Last reviewed against scripts/config on 2026-03-17.
++
++This document describes what the repo actually tests today, how those tests are intended to be run, and where the current gaps or script drifts are.
++
++---
++
++## 1) Test layers that exist today
++
++### Unit / application-start tests
++
++Visible in the repo:
++- `OrdersServiceApplicationTests`
++- `MarketDataConsumerApplicationTests`
++- `UserRegistrationServiceApplicationTests`
++- `PortfolioServiceApplicationTests`
++
++What these likely prove:
++- Basic Spring context startup for each service.
++
++What they do not prove:
++- End-to-end event correctness.
++- Cross-service contracts.
++- Failure recovery behavior.
++
++### End-to-end shell scripts
++
++Current root scripts:
++- `gateway_smoke.sh`
++- `e2e_trade_pipeline_test.sh`
++- `e2e_portfolio_service.sh`
++- `manual_cancel_test.sh`
++- `e2e_scenarios.sh`
++
++These are the highest-value tests in the repo because they exercise the integrated stack, Kafka topics, and service interactions.
++
++---
++
++## 2) What each script currently covers
++
++## `gateway_smoke.sh`
++
++Purpose:
++- Quick ingress check through the API Gateway.
++
++Confirmed covered behaviors:
++- Gateway health endpoint.
++- User registration through gateway.
++- Login through gateway.
++- Protected route rejected without token.
++- Protected transactions route accepted with token.
++- Refresh path through gateway.
++- Portfolio read through gateway.
++
++Known issue:
++- The script currently hits market data at `/api/market-data/$TICKER/latest`.
++- The configured gateway route expects `/api/market-data/candles/**`.
++- That step is therefore out of sync with the current gateway route map.
++
++Use it for:
++- Fast auth/routing smoke checks.
++
++Do not treat it as:
++- A full gateway regression suite.
++
++## `e2e_trade_pipeline_test.sh`
++
++Purpose:
++- Basic trade-flow validation from order placement to `trade.executed.v1` and market-data candle generation.
++
++Confirmed covered behaviors:
++- Compose startup for orders, matching, market-data, Redpanda, Redis, and backing Postgres services.
++- Health waiting for orders, matching, and market-data services.
++- Placement of a resting SELL and crossing BUY.
++- Observation of a `trade.executed.v1` record directly from Kafka.
++- Query of latest candle from market-data-consumer.
++
++Important limitation:
++- It does not bring up or validate `transaction-processor` or `portfolio-service`.
++- Despite the filename, this is not the full downstream pipeline.
++
++## `manual_cancel_test.sh`
++
++Purpose:
++- Focused cancel-path debugging script.
++
++Confirmed covered behaviors:
++- Place a resting SELL order.
++- Observe a single `order.cancelled.v1` record.
++- Check matching-engine group lag on `order.cancelled.v1`.
++- Post a crossing BUY after cancel.
++- Observe whether a trade still fires.
++
++Good for:
++- Narrow reproduction of cancel race/ordering issues.
++
++Weakness:
++- More environment-specific than the other scripts because it defaults to hard-coded network/container names.
++
++## `e2e_scenarios.sh`
++
++Purpose:
++- Most comprehensive integration script in the repo.
++
++Confirmed scenarios covered:
++1. Partial fill.
++2. IOC partial fill.
++3. IOC with no liquidity.
++4. FOK with insufficient liquidity.
++5. MARKET order against resting liquidity.
++6. Cancel flow with Kafka confirmation and matching-engine lag catch-up.
++7. Idempotency by re-publishing a previously observed trade.
++8. Matching-engine recovery after restart.
++9. DLT behavior by publishing a poison `order.placed.v1` payload.
++
++Additional validation:
++- Checks transaction-processor ledger effects for trade-producing scenarios.
++- Verifies no ledger rows appear for no-trade scenarios.
++
++This is currently the strongest regression script in the repo.
++
++## `e2e_portfolio_service.sh`
++
++Purpose:
++- Targeted portfolio read-model exploration.
++
++What it currently does:
++- Seeds trades through `orders-service`.
++- Watches `transaction.recorded.v1`.
++- Queries portfolio endpoints for resulting positions.
++
++Important drift / limitations:
++- The script comments mention potential short-position expectations, but the current projector is long-only.
++- It tries to create a synthetic `trade.executed.v1` as a price mark, but portfolio-service does not consume `trade.executed.v1`; it consumes `transaction.recorded.v1`.
++- That synthetic trade can create noise/failures in `transaction-processor` because the random order IDs do not exist in `orders-service`.
++
++Conclusion:
++- Useful as a manual exploration script, but it should not currently be treated as a precise specification of portfolio behavior.
++
++---
++
++## 3) What CI currently validates
++
++From the repo’s workflow/docs and current script set, CI is positioned around:
++- Compose bring-up
++- core health waiting
++- auth key generation for tests
++- end-to-end scenario execution
++
++The key practical benefit of the CI setup is that it validates integration timing and container orchestration issues, not just code compilation.
++
++---
++
++## 4) Current strengths of the test strategy
++
++- Real Kafka topics are exercised instead of only mocked producers/consumers.
++- Matching behavior is tested through realistic order sequences.
++- DLT behavior is exercised explicitly.
++- Restart/recovery is exercised at least once.
++- Transaction journaling is checked in integrated scenarios rather than assumed.
++
++---
++
++## 5) Current gaps
++
++### No event-contract test layer
++
++What is missing:
++- A producer/consumer contract suite that fails fast when JSON shape changes.
++
++Why it matters:
++- The system already has multiple independently evolving event DTOs.
++- Some consumers use compatibility shims such as `type` vs `orderType`.
++
++### No explicit test for JWT subject vs order `userId` mismatch
++
++What is missing:
++- A negative test proving whether a token holder can or cannot submit another user’s UUID in `POST /api/orders`.
++
++Why it matters:
++- That is one of the most important current security gaps.
++
++### No explicit failure-window test around DB commit vs Kafka publish
++
++What is missing:
++- A reproducible test for the dual-write hazard in orders or transaction-processor.
++
++Why it matters:
++- This is a real correctness risk in the current architecture.
++
++### Market-data and portfolio verification are asymmetric
++
++Current state:
++- Market-data validation exists in the trade pipeline script.
++- Portfolio validation exists, but the dedicated portfolio script contains documented drift and should be tightened.
++
++### Little evidence of load or contention testing
++
++What is missing:
++- Repeated same-ticker bursts.
++- High-cardinality ticker fan-out.
++- Partition-skew tests.
++- Consumer lag growth tests.
++
++---
++
++## 6) Recommended way to use the current test suite
++
++For a quick confidence pass:
++1. `gateway_smoke.sh`
++2. `e2e_trade_pipeline_test.sh`
++3. `e2e_scenarios.sh`
++
++For targeted debugging:
++- matching/cancel ordering issue -> `manual_cancel_test.sh`
++- portfolio projection issue -> `e2e_portfolio_service.sh`, but read its comments critically
++
++For CI:
++- Prefer `e2e_scenarios.sh` as the primary behavior gate because it covers the richest cross-service surface.
++
++---
++
++## 7) Concrete next additions that would materially improve confidence
++
++1. Add a gateway test that submits a valid JWT for user A and an order body for user B.
++2. Add schema/contract tests for all four event topics.
++3. Split `e2e_portfolio_service.sh` into:
++   - one script for current supported portfolio behavior
++   - one backlog/spec script for future mark-to-market features
++4. Add a scripted check for `transaction.recorded.v1.DLT` remaining empty during happy-path scenarios.
++5. Add one replay test for `transaction.recorded.v1` into portfolio-service, not just `trade.executed.v1` into orders/txproc.
+
+===== COMMIT 2ecd2008ee343bcdc32fb18892383ec291b54c86 =====
+commit 2ecd2008ee343bcdc32fb18892383ec291b54c86
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Tue Mar 17 04:10:10 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Tue Mar 17 04:10:10 2026 +0000
+
+    feat(repo): add script to generate development logs
+    
+    This script automates the creation of daily development logs.
+    
+    It collects commit data, generates an activity map, and formats the output for each day.
+    
+    This improves the documentation of development activities and enhances team visibility.
+---
+ generate_devlogs.sh | 231 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 231 insertions(+)
+
+diff --git a/generate_devlogs.sh b/generate_devlogs.sh
+new file mode 100755
+index 0000000..ec3e2a4
+--- /dev/null
++++ b/generate_devlogs.sh
+@@ -0,0 +1,231 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++# =========================
++# CONFIG DEFAULTS
++# =========================
++REPO="."
++OUT_DIR="docs"
++SKIP_EXISTING=false
++FORCE=false
++SINCE=""
++UNTIL=""
++NO_PATCH=false
++MAX_PATCH_BYTES=200000
++
++# Default exclude (noise reduction)
++DEVLOG_EXCLUDE_REGEX='(^package-lock\.json$|^yarn\.lock$|^pnpm-lock\.yaml$|^dist/|^build/|^coverage/|^\.next/|^node_modules/|\.min\.js$)'
++
++# Optional include filter (empty = include all)
++DEVLOG_INCLUDE_REGEX=""
++
++AI_COMMAND=""
++
++# =========================
++# ARG PARSING
++# =========================
++while [[ $# -gt 0 ]]; do
++  case "$1" in
++    --repo) REPO="$2"; shift 2 ;;
++    --out-dir) OUT_DIR="$2"; shift 2 ;;
++    --skip-existing) SKIP_EXISTING=true; shift ;;
++    --force) FORCE=true; shift ;;
++    --since) SINCE="$2"; shift 2 ;;
++    --until) UNTIL="$2"; shift 2 ;;
++    --no-patch) NO_PATCH=true; shift ;;
++    --max-patch-bytes) MAX_PATCH_BYTES="$2"; shift 2 ;;
++    --ai-command) AI_COMMAND="$2"; shift 2 ;;
++    *) echo "Unknown arg: $1"; exit 1 ;;
++  esac
++done
++
++cd "$REPO"
++
++DAYS_DIR="$OUT_DIR/days"
++PLAN_DIR="$OUT_DIR/_planning"
++
++mkdir -p "$DAYS_DIR"
++mkdir -p "$PLAN_DIR"
++
++echo "📅 Generating activity map..."
++
++# =========================
++# ACTIVITY MAP
++# =========================
++GIT_RANGE_ARGS=()
++[[ -n "$SINCE" ]] && GIT_RANGE_ARGS+=(--since="$SINCE")
++[[ -n "$UNTIL" ]] && GIT_RANGE_ARGS+=(--until="$UNTIL")
++
++mapfile -t DAYS < <(
++  git log "${GIT_RANGE_ARGS[@]}" \
++    --date=format:'%Y-%m-%d' \
++    --pretty='%ad' | sort -u
++)
++
++ACTIVITY_MD="$PLAN_DIR/activity-map.md"
++ACTIVITY_CSV="$PLAN_DIR/activity-map.csv"
++
++echo "# Activity Map" > "$ACTIVITY_MD"
++echo "date,commit_count" > "$ACTIVITY_CSV"
++
++for DAY in "${DAYS[@]}"; do
++  COUNT=$(git log "${GIT_RANGE_ARGS[@]}" \
++    --since="$DAY 00:00:00" \
++    --until="$DAY 23:59:59" \
++    --pretty=oneline | wc -l)
++
++  echo "- $DAY ($COUNT commits)" >> "$ACTIVITY_MD"
++  echo "$DAY,$COUNT" >> "$ACTIVITY_CSV"
++done
++
++echo "✅ Activity map written"
++
++# =========================
++# PROCESS EACH DAY
++# =========================
++for DAY in "${DAYS[@]}"; do
++  DAY_DIR="$DAYS_DIR/$DAY"
++  mkdir -p "$DAY_DIR"
++
++  DEVLOG_FILE="$DAY_DIR/devlog.md"
++
++  if [[ "$SKIP_EXISTING" == true && -f "$DEVLOG_FILE" ]]; then
++    echo "⏭️ Skipping $DAY (already exists)"
++    continue
++  fi
++
++  if [[ "$FORCE" == true ]]; then
++    rm -f "$DEVLOG_FILE"
++  fi
++
++  echo "⚙️ Processing $DAY..."
++
++  # =========================
++  # COMMITS
++  # =========================
++  git log "${GIT_RANGE_ARGS[@]}" \
++    --reverse \
++    --since="$DAY 00:00:00" \
++    --until="$DAY 23:59:59" \
++    --pretty=format:'%h %ad %an %s' \
++    --date=iso \
++    > "$DAY_DIR/commits.txt"
++
++  git log "${GIT_RANGE_ARGS[@]}" \
++    --reverse \
++    --since="$DAY 00:00:00" \
++    --until="$DAY 23:59:59" \
++    --pretty=format:'%H' \
++    > "$DAY_DIR/commit-hashes.txt"
++
++  mapfile -t HASHES < "$DAY_DIR/commit-hashes.txt"
++
++  if [[ "${#HASHES[@]}" -eq 0 ]]; then
++    echo "No commits for $DAY"
++    continue
++  fi
++
++  # =========================
++  # FILES
++  # =========================
++  : > "$DAY_DIR/changed-files.txt"
++
++  for H in "${HASHES[@]}"; do
++    git show --name-only --pretty="" "$H" >> "$DAY_DIR/changed-files.txt"
++  done
++
++  sort -u "$DAY_DIR/changed-files.txt" -o "$DAY_DIR/changed-files.txt"
++
++  # Apply filters
++  if [[ -n "$DEVLOG_EXCLUDE_REGEX" ]]; then
++    grep -Ev "$DEVLOG_EXCLUDE_REGEX" "$DAY_DIR/changed-files.txt" > "$DAY_DIR/tmp.txt" || true
++    mv "$DAY_DIR/tmp.txt" "$DAY_DIR/changed-files.txt"
++  fi
++
++  if [[ -n "$DEVLOG_INCLUDE_REGEX" ]]; then
++    grep -E "$DEVLOG_INCLUDE_REGEX" "$DAY_DIR/changed-files.txt" > "$DAY_DIR/tmp.txt" || true
++    mv "$DAY_DIR/tmp.txt" "$DAY_DIR/changed-files.txt"
++  fi
++
++  # =========================
++  # DIFF
++  # =========================
++  if [[ "$NO_PATCH" == false ]]; then
++    : > "$DAY_DIR/diff.patch"
++
++    for H in "${HASHES[@]}"; do
++      {
++        echo
++        echo "===== COMMIT $H ====="
++        git show --patch --stat "$H"
++      } >> "$DAY_DIR/diff.patch"
++
++      SIZE=$(wc -c < "$DAY_DIR/diff.patch")
++      if (( SIZE > MAX_PATCH_BYTES )); then
++        echo "⚠️ Patch truncated due to size limit"
++        break
++      fi
++    done
++  fi
++
++  # =========================
++  # CONTEXT
++  # =========================
++  {
++    echo "Date: $DAY"
++    echo "Commit count: ${#HASHES[@]}"
++    echo
++    echo "Commits:"
++    cat "$DAY_DIR/commits.txt"
++    echo
++    echo "Changed files:"
++    cat "$DAY_DIR/changed-files.txt"
++  } > "$DAY_DIR/context.txt"
++
++  # =========================
++  # PROMPT FILE
++  # =========================
++  PROMPT_FILE="$DAY_DIR/prompt.txt"
++
++  cat > "$PROMPT_FILE" <<EOF
++You are analysing ONE day of development.
++
++Date: $DAY
++
++Use ONLY the provided files:
++- context.txt
++- commits.txt
++- changed-files.txt
++- diff.patch (if present)
++
++STRICT RULES:
++- Do NOT invent anything
++- Do NOT summarise
++- Be detailed and chronological
++- Reference files and commits
++- Explain evolution (before → after)
++
++Write a full dev log.
++
++EOF
++
++  # =========================
++  # AI CALL
++  # =========================
++  if [[ -n "$AI_COMMAND" ]]; then
++    echo "🤖 Generating devlog for $DAY..."
++
++    export DAY DAY_DIR REPO
++    export CONTEXT_FILE="$DAY_DIR/context.txt"
++    export COMMITS_FILE="$DAY_DIR/commits.txt"
++    export CHANGED_FILES_FILE="$DAY_DIR/changed-files.txt"
++    export DIFF_FILE="$DAY_DIR/diff.patch"
++    export PROMPT_FILE
++    export DEVLOG_FILE
++
++    eval "$AI_COMMAND"
++  fi
++
++done
++
++echo "🎉 Done"
