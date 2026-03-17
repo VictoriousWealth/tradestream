@@ -1,0 +1,116 @@
+
+===== COMMIT 5a05860b4290241a7325e158a248d453bc068eee =====
+commit 5a05860b4290241a7325e158a248d453bc068eee
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 04:31:57 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:36 2026 +0000
+
+    chore(auth): update authentication flow diagram for deployment
+---
+ .../docs/authentication-flow.drawio.png            | Bin 324328 -> 359853 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+index 9b896b6..ebffb0a 100644
+Binary files a/authentication-service/docs/authentication-flow.drawio.png and b/authentication-service/docs/authentication-flow.drawio.png differ
+
+===== COMMIT 41a8762c9d912cb57317dc543b61efd13ff2c7bf =====
+commit 41a8762c9d912cb57317dc543b61efd13ff2c7bf
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 04:33:12 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:37 2026 +0000
+
+    chore(auth): update authentication flow diagram for deployment
+---
+ .../docs/authentication-flow.drawio.png            | Bin 359853 -> 360148 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+index ebffb0a..8463a17 100644
+Binary files a/authentication-service/docs/authentication-flow.drawio.png and b/authentication-service/docs/authentication-flow.drawio.png differ
+
+===== COMMIT f8945c2be71a221dc604194e04df50aa81dc41ec =====
+commit f8945c2be71a221dc604194e04df50aa81dc41ec
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 04:34:01 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:38 2026 +0000
+
+    chore(auth): remove unused api gateway flow diagram image
+---
+ .../docs/api-gateway-flow.drawio.png                   | Bin 359853 -> 0 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/api-gateway-flow.drawio.png b/authentication-service/docs/api-gateway-flow.drawio.png
+deleted file mode 100644
+index ebffb0a..0000000
+Binary files a/authentication-service/docs/api-gateway-flow.drawio.png and /dev/null differ
+
+===== COMMIT e8d24e17ad88c731fab368f009e6528a5d09987e =====
+commit e8d24e17ad88c731fab368f009e6528a5d09987e
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 04:35:18 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:39 2026 +0000
+
+    chore(auth): deploy updated authentication flow diagram
+---
+ .../docs/authentication-flow.drawio.png            | Bin 360148 -> 360249 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+index 8463a17..425617c 100644
+Binary files a/authentication-service/docs/authentication-flow.drawio.png and b/authentication-service/docs/authentication-flow.drawio.png differ
+
+===== COMMIT 37e108c1b4eb1f634a3615e1ea6633a42b4ef4c3 =====
+commit 37e108c1b4eb1f634a3615e1ea6633a42b4ef4c3
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 9 04:41:14 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:40 2026 +0000
+
+    chore(authentication-service): remove unused authentication flow diagram image
+---
+ .../docs/authentication-flow.drawio.png                | Bin 360249 -> 0 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+deleted file mode 100644
+index 425617c..0000000
+Binary files a/authentication-service/docs/authentication-flow.drawio.png and /dev/null differ
+
+===== COMMIT abc8ed1f95313d85398fc77f233116728bcef1c4 =====
+commit abc8ed1f95313d85398fc77f233116728bcef1c4
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 9 04:41:50 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:41 2026 +0000
+
+    feat(auth): add authentication flow diagram image
+---
+ authentication-service/authentication-flow.drawio.png | Bin 0 -> 360249 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/authentication-flow.drawio.png b/authentication-service/authentication-flow.drawio.png
+new file mode 100644
+index 0000000..425617c
+Binary files /dev/null and b/authentication-service/authentication-flow.drawio.png differ
+
+===== COMMIT 7b53a1a273ba2855402163db873c621ca0f2da58 =====
+commit 7b53a1a273ba2855402163db873c621ca0f2da58
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 04:43:11 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:42 2026 +0000
+
+    chore(auth): move authentication flow diagram to docs directory
+---
+ .../{ => docs}/authentication-flow.drawio.png               | Bin
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+similarity index 100%
+rename from authentication-service/authentication-flow.drawio.png
+rename to authentication-service/docs/authentication-flow.drawio.png

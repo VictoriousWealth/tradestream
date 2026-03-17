@@ -1,0 +1,608 @@
+
+===== COMMIT 56a60e8afd564834f5c980054b294bcb196d06bc =====
+commit 56a60e8afd564834f5c980054b294bcb196d06bc
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jul 5 04:22:46 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:01 2026 +0000
+
+    chore(gitignore): exclude build artifacts and editor files
+---
+ .env.example |  0
+ .gitignore   | 22 ++++++++++++++--------
+ 2 files changed, 14 insertions(+), 8 deletions(-)
+
+diff --git a/.env.example b/.env.example
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/.gitignore b/.gitignore
+index 28c1cf0..d992bcb 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,18 +1,24 @@
+-# Java
+-/target/
+-/*.iml
+-*.class
++# Java build artifacts
++**/target/
++**/*.class
++
++# Maven/Gradle specific
++**/*.iml
++**/.idea/
+ 
+ # Docker
+ *.env
++.env
++.env.*
+ 
+ # Logs
+ *.log
+ 
+-# OS
++# OS / Editor junk files
+ .DS_Store
+-
+-# IDEs
+-.idea/
+ .vscode/
++.idea/
++
++# System specific
++Thumbs.db
+ 
+
+===== COMMIT 1a1eca3e262d3c660241f2e7475ebb2b4118400a =====
+commit 1a1eca3e262d3c660241f2e7475ebb2b4118400a
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jul 5 04:27:55 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:02 2026 +0000
+
+    style(readme): correct minor typo in main documentation
+---
+ README.md | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index 506dbb2..9751d66 100644
+--- a/README.md
++++ b/README.md
+@@ -122,6 +122,4 @@ This project simulates financial system behavior for educational purposes only.
+ 
+ Inspired by architectural patterns and standards seen in organizations such as **JPMorgan Chase**, **AWS**, and **OWASP**.
+ 
+-```
+-
+ ---
+
+===== COMMIT 31a2635e485ae34bfea4c36792d2435c699b498b =====
+commit 31a2635e485ae34bfea4c36792d2435c699b498b
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jul 6 05:28:25 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:03 2026 +0000
+
+    docs(readme): enhance readme for clarity and professional presentation
+---
+ README.md | 178 +++++++++++++++++++++++++++++++++++++++++++++-----------------
+ 1 file changed, 129 insertions(+), 49 deletions(-)
+
+diff --git a/README.md b/README.md
+index 9751d66..d96b4e6 100644
+--- a/README.md
++++ b/README.md
+@@ -1,22 +1,51 @@
+-# TradeStream — Real-Time Financial Data Processor
++Here’s a **clean, recruiter-friendly, professional hybrid `README.md`** for your **TradeStream** project, blending the polished feel of popular GitHub templates with realistic backend portfolio expectations.
+ 
+-> A scalable, resilient microservice-based system that simulates real-time financial transaction processing, following engineering practices used in financial institutions like JPMorgan Chase.
++---
++
++# ✅ **Finalized README.md for TradeStream**
++
++````markdown
++<p align="center">
++  <h1 align="center">TradeStream — Real-Time Financial Data Processor</h1>
++  <p align="center">
++    Scalable, secure microservice-based system simulating real-time financial transaction processing.<br>
++    Inspired by architecture and engineering practices used in modern financial institutions like JPMorgan Chase.<br><br>
++    <a href="#project-overview"><strong>Explore the Project Overview »</strong></a>
++  </p>
++</p>
++
++---
++
++## 📑 Table of Contents
++
++- [Project Overview](#project-overview)
++- [Technology Stack](#technology-stack)
++- [System Architecture](#system-architecture)
++- [Getting Started](#getting-started)
++- [Usage](#usage)
++- [Roadmap](#roadmap)
++- [Security Considerations](#security-considerations)
++- [Documentation](#documentation)
++- [Learning Objectives](#learning-objectives)
++- [License](#license)
++- [Contact](#contact)
++- [Acknowledgements](#acknowledgements)
+ 
+ ---
+ 
+ ## 🚀 Project Overview
+ 
+-TradeStream demonstrates:
++TradeStream is a backend portfolio project that demonstrates:
+ 
+ - Secure, production-grade APIs using **Java Spring Boot**
+-- **Event-driven architecture** with Kafka or RabbitMQ
+-- Independent microservices with PostgreSQL & Redis per service
+-- Containerized, isolated deployment using Docker & Docker Compose
+-- Secure authentication with **JWT**
++- Event-driven architecture with **Kafka or RabbitMQ**
++- Decoupled microservices with independent **PostgreSQL & Redis** data stores
++- Containerized deployment with **Docker & Docker Compose**
++- Secure API authentication using **JWT**
+ - Real-time transaction processing simulation
+-- Cloud deployment using **AWS Lightsail**
++- Cloud deployment on **AWS Lightsail**
+ 
+-**Note:** This project is a self-initiated portfolio and learning exercise. It simulates real-world financial system patterns but does not process actual financial data.
++⚠️ **Note:** This project is for educational and portfolio purposes only. It does not process real financial transactions.
+ 
+ ---
+ 
+@@ -30,65 +59,100 @@ TradeStream demonstrates:
+ | Cache Layer          | Redis                              |
+ | Authentication       | JWT (JSON Web Tokens)              |
+ | Containerization     | Docker, Docker Compose             |
+-| CI                   | GitHub Actions                     |
++| CI/CD (MVP)          | GitHub Actions                     |
+ | Deployment           | AWS Lightsail                      |
+ 
+-Planned Future Enhancements:
++**Planned Future Enhancements:**
+ 
+-- Kubernetes for container orchestration
+-- Terraform for infrastructure as code
+-- Prometheus & Grafana for observability
+-- Advanced API security measures
+-- Introduce a CD pipeline 
++- Kubernetes for container orchestration  
++- Terraform for infrastructure as code  
++- Prometheus & Grafana for observability  
++- Advanced API security measures  
+ 
+ ---
+ 
+ ## 🏗️ System Architecture
+ 
+-> _See [`/docs/architecture-diagram.png`](docs/architecture-diagram.png) for full architecture overview._
++> _See [`/docs/architecture-diagram.png`](docs/architecture-diagram.png) for the full system diagram._
+ 
+ **Core Components:**
+ 
+-- **API Gateway:** Public entry point, request routing, token validation
+-- **Authentication Service:** Issues JWT tokens upon successful login
+-- **Transaction Processor:** Processes simulated transaction logic, publishes events
+-- **Market Data Consumer:** Placeholder for future real-time market data processing
+-- **Message Broker:** Kafka or RabbitMQ for decoupled, event-driven communication
+-- **PostgreSQL & Redis:** Each service owns its independent data stores
++- **API Gateway:** Public entry point, request routing, token validation  
++- **Authentication Service:** Issues JWT tokens after successful login  
++- **Transaction Processor:** Handles transaction logic, publishes events  
++- **Market Data Consumer:** Placeholder for future real-time market data processing  
++- **Message Broker:** Kafka or RabbitMQ for decoupled, event-driven communication  
++- **PostgreSQL & Redis:** Each microservice manages its own independent data stores  
+ 
+ ---
+ 
+-## ⚙️ Getting Started (MVP Setup)
++## ⚙️ Getting Started
+ 
+-### **Prerequisites**
++### Prerequisites
+ 
+-- Docker & Docker Compose installed
+-- Basic familiarity with running Java services in containers
++- Docker & Docker Compose installed  
++- Basic familiarity with Java, Spring Boot, and containers  
+ 
+-### **Steps**
++### Installation
+ 
+ ```bash
+-# Clone repository
+ git clone https://github.com/yourusername/tradestream.git
+ cd tradestream
+ 
+ # Build and run containers
+ docker-compose up --build
+-```
++````
++
++Access:
++
++* API Gateway at `http://localhost:8080`
++* Login, transaction, and health endpoints per the [API Design](docs/api-design.md)
++
++---
++
++## 💡 Usage
++
++This project simulates real-time transaction processing using microservices and event-driven patterns. Intended for:
++
++* Backend portfolio demonstrations
++* Learning microservice architecture principles
++* Experimenting with containerized deployments
++* Practicing secure API development for financial-like systems
+ 
+-Services exposed:
++---
++
++## 🛣️ Roadmap
++
++✅ MVP Core Features:
++
++* [x] Authentication Service
++* [x] Transaction Processor
++* [x] API Gateway
++* [x] Event publishing via Kafka or RabbitMQ
++* [x] Secure APIs with JWT
++* [x] Containerized deployment on Lightsail
+ 
+-* `http://localhost:8080` — API Gateway
+-* Authentication, transaction, and health endpoints accessible per Technical Design
++🔜 Future Enhancements:
++
++* [ ] Market Data Generator
++* [ ] Kubernetes deployment
++* [ ] Infrastructure as code with Terraform
++* [ ] Observability with Prometheus & Grafana
++* [ ] Advanced security hardening
+ 
+ ---
+ 
+-## 🔒 Security Notes
++## 🔒 Security Considerations
++
++* Secure coding practices applied from Day 1
++* JWT-based API authentication
++* Input validation throughout services
++* Future security roadmap includes:
+ 
+-* Follows secure coding practices from Day 1
+-* API authentication with JWT
+-* Secure service-to-service communication within private Docker network
+-* Future enhancements planned for: rate limiting, RBAC, secure headers, vulnerability scanning
++  * Rate limiting
++  * Role-Based Access Control (RBAC)
++  * Secure HTTP headers
++  * Vulnerability scanning
+ 
+ ---
+ 
+@@ -96,30 +160,46 @@ Services exposed:
+ 
+ * [Project Requirements & Design (PRD)](docs/tradestream-prd.pdf)
+ * [System Architecture Diagram](docs/architecture-diagram.png)
+-* [API Design Details](docs/api-design.md)
+-* [Planned Future Enhancements](docs/future-enhancements.md)
++* [API Design](docs/api-design.md)
++* [Planned Enhancements](docs/future-enhancements.md)
+ 
+ ---
+ 
+ ## 🎯 Learning Objectives
+ 
+-TradeStream aims to:
++TradeStream enables practical experience with:
+ 
+-* Demonstrate backend and system design aligned with fintech industry standards
+-* Gain practical experience with microservices, event-driven systems, and Docker
+-* Strengthen secure software development practices
+-* Explore realistic cloud deployment and scaling patterns
++* Secure backend and microservice design
++* Event-driven architectures for real-time data
++* Docker-based containerization
++* Cloud deployment fundamentals
++* Enterprise-grade system patterns for financial technology
+ 
+ ---
+ 
+-## 🛡️ Disclaimer
++## 📝 License
+ 
+-This project simulates financial system behavior for educational purposes only. It does not process real transactions or sensitive data.
++Distributed under a license of your choice (e.g., MIT, Apache 2.0). See `LICENSE` for details.
+ 
+ ---
+ 
+-## 🤝 Acknowledgements
++## 📬 Contact
++
++**Nick Efe Oni**
++[LinkedIn](https://www.linkedin.com/in/nick-oni)
++[GitHub](https://github.com/VictoriousWealth)
++
++---
++
++## 🙏 Acknowledgements
++
++* Architectural patterns inspired by real-world fintech systems such as JPMorgan
++* Security best practices influenced by **OWASP** guidelines
++* Deployment and infrastructure ideas from **AWS** resources
++
++---
+ 
+-Inspired by architectural patterns and standards seen in organizations such as **JPMorgan Chase**, **AWS**, and **OWASP**.
++✔ You may add a `LICENSE` file later  
++✔ You prefer clean, practical documentation links over flashy GitHub badges  
+ 
+ ---
+
+===== COMMIT 94477699fcd9315b39166f59247d9a3d99c5d4c1 =====
+commit 94477699fcd9315b39166f59247d9a3d99c5d4c1
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jul 6 05:31:22 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:04 2026 +0000
+
+    chore(readme): update README for deployment clarity
+---
+ README.md | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/README.md b/README.md
+index d96b4e6..04bb49c 100644
+--- a/README.md
++++ b/README.md
+@@ -1,10 +1,3 @@
+-Here’s a **clean, recruiter-friendly, professional hybrid `README.md`** for your **TradeStream** project, blending the polished feel of popular GitHub templates with realistic backend portfolio expectations.
+-
+----
+-
+-# ✅ **Finalized README.md for TradeStream**
+-
+-````markdown
+ <p align="center">
+   <h1 align="center">TradeStream — Real-Time Financial Data Processor</h1>
+   <p align="center">
+
+===== COMMIT 4d51109e4f04f7ce3dc5cee885d9ec1f2a784b9f =====
+commit 4d51109e4f04f7ce3dc5cee885d9ec1f2a784b9f
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jul 6 05:34:05 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:05 2026 +0000
+
+    chore(readme): update header formatting and improve alignment
+---
+ README.md | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/README.md b/README.md
+index 04bb49c..8c65665 100644
+--- a/README.md
++++ b/README.md
+@@ -1,12 +1,12 @@
++<h1 align="center">TradeStream — Real-Time Financial Data Processor</h1>
++
+ <p align="center">
+-  <h1 align="center">TradeStream — Real-Time Financial Data Processor</h1>
+-  <p align="center">
+-    Scalable, secure microservice-based system simulating real-time financial transaction processing.<br>
+-    Inspired by architecture and engineering practices used in modern financial institutions like JPMorgan Chase.<br><br>
+-    <a href="#project-overview"><strong>Explore the Project Overview »</strong></a>
+-  </p>
++  Scalable, secure microservice-based system simulating real-time financial transaction processing.<br>
++  Inspired by architecture and engineering practices used in modern financial institutions like JPMorgan Chase.<br><br>
++  <a href="#project-overview"><strong>Explore the Project Overview »</strong></a>
+ </p>
+ 
++
+ ---
+ 
+ ## 📑 Table of Contents
+
+===== COMMIT b15b5c763fc5acde8edd2093479df6c3653f6173 =====
+commit b15b5c763fc5acde8edd2093479df6c3653f6173
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jul 6 05:34:49 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:06 2026 +0000
+
+    docs(readme): add project overview section to documentation
+---
+ README.md | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/README.md b/README.md
+index 8c65665..2a18590 100644
+--- a/README.md
++++ b/README.md
+@@ -26,6 +26,8 @@
+ 
+ ---
+ 
++<a name="project-overview"></a>
++
+ ## 🚀 Project Overview
+ 
+ TradeStream is a backend portfolio project that demonstrates:
+
+===== COMMIT 06c6bf906975daa91c2225a78b65594329c7508f =====
+commit 06c6bf906975daa91c2225a78b65594329c7508f
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jul 6 05:58:08 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:08 2026 +0000
+
+    chore(docs): update README with new sections and anchors for navigation
+---
+ README.md | 26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/README.md b/README.md
+index 2a18590..0b62e15 100644
+--- a/README.md
++++ b/README.md
+@@ -6,7 +6,6 @@
+   <a href="#project-overview"><strong>Explore the Project Overview »</strong></a>
+ </p>
+ 
+-
+ ---
+ 
+ ## 📑 Table of Contents
+@@ -27,7 +26,6 @@
+ ---
+ 
+ <a name="project-overview"></a>
+-
+ ## 🚀 Project Overview
+ 
+ TradeStream is a backend portfolio project that demonstrates:
+@@ -44,6 +42,7 @@ TradeStream is a backend portfolio project that demonstrates:
+ 
+ ---
+ 
++<a name="technology-stack"></a>
+ ## 🛠️ Technology Stack
+ 
+ | Category             | Technology                         |
+@@ -66,6 +65,7 @@ TradeStream is a backend portfolio project that demonstrates:
+ 
+ ---
+ 
++<a name="system-architecture"></a>
+ ## 🏗️ System Architecture
+ 
+ > _See [`/docs/architecture-diagram.png`](docs/architecture-diagram.png) for the full system diagram._
+@@ -81,6 +81,7 @@ TradeStream is a backend portfolio project that demonstrates:
+ 
+ ---
+ 
++<a name="getting-started"></a>
+ ## ⚙️ Getting Started
+ 
+ ### Prerequisites
+@@ -105,6 +106,8 @@ Access:
+ 
+ ---
+ 
++<a name="usage"></a>
++
+ ## 💡 Usage
+ 
+ This project simulates real-time transaction processing using microservices and event-driven patterns. Intended for:
+@@ -116,6 +119,8 @@ This project simulates real-time transaction processing using microservices and
+ 
+ ---
+ 
++<a name="roadmap"></a>
++
+ ## 🛣️ Roadmap
+ 
+ ✅ MVP Core Features:
+@@ -137,6 +142,8 @@ This project simulates real-time transaction processing using microservices and
+ 
+ ---
+ 
++<a name="security-considerations"></a>
++
+ ## 🔒 Security Considerations
+ 
+ * Secure coding practices applied from Day 1
+@@ -151,6 +158,8 @@ This project simulates real-time transaction processing using microservices and
+ 
+ ---
+ 
++<a name="documentation"></a>
++
+ ## 📚 Documentation
+ 
+ * [Project Requirements & Design (PRD)](docs/tradestream-prd.pdf)
+@@ -160,6 +169,8 @@ This project simulates real-time transaction processing using microservices and
+ 
+ ---
+ 
++<a name="learning-objectives"></a>
++
+ ## 🎯 Learning Objectives
+ 
+ TradeStream enables practical experience with:
+@@ -172,12 +183,16 @@ TradeStream enables practical experience with:
+ 
+ ---
+ 
++<a name="license"></a>
++
+ ## 📝 License
+ 
+ Distributed under a license of your choice (e.g., MIT, Apache 2.0). See `LICENSE` for details.
+ 
+ ---
+ 
++<a name="contact"></a>
++
+ ## 📬 Contact
+ 
+ **Nick Efe Oni**
+@@ -186,6 +201,8 @@ Distributed under a license of your choice (e.g., MIT, Apache 2.0). See `LICENSE
+ 
+ ---
+ 
++<a name="acknowledgements"></a>
++
+ ## 🙏 Acknowledgements
+ 
+ * Architectural patterns inspired by real-world fintech systems such as JPMorgan
+@@ -193,8 +210,3 @@ Distributed under a license of your choice (e.g., MIT, Apache 2.0). See `LICENSE
+ * Deployment and infrastructure ideas from **AWS** resources
+ 
+ ---
+-
+-✔ You may add a `LICENSE` file later  
+-✔ You prefer clean, practical documentation links over flashy GitHub badges  
+-
+----
+
+===== COMMIT 63d6f37c835e3285d9c6f625ad3a2a5292150d2a =====
+commit 63d6f37c835e3285d9c6f625ad3a2a5292150d2a
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jul 6 06:01:54 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:09 2026 +0000
+
+    chore(license): add Creative Commons Attribution-NonCommercial 4.0 license
+---
+ LICENSE | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/LICENSE b/LICENSE
+new file mode 100644
+index 0000000..02e6274
+--- /dev/null
++++ b/LICENSE
+@@ -0,0 +1,18 @@
++Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
++
++Copyright (c) 2025 Nick Efe Oni
++
++You are free to:
++
++- Share — copy and redistribute the material in any medium or format  
++- Adapt — remix, transform, and build upon the material  
++
++Under the following terms:
++
++- Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made.  
++- NonCommercial — You may not use the material for commercial purposes.  
++
++No additional restrictions — You may not apply legal terms or technological measures that legally restrict others from doing anything the license permits.
++
++Full License Text: https://creativecommons.org/licenses/by-nc/4.0/
++

@@ -1,0 +1,338 @@
+
+===== COMMIT c8031b66dfa99a3e9f7ebd3342a0464903ec2a64 =====
+commit c8031b66dfa99a3e9f7ebd3342a0464903ec2a64
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 05:02:33 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:44 2026 +0000
+
+    docs(authentication): add authentication flow diagram to README.md
+---
+ authentication-service/README.md | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/authentication-service/README.md b/authentication-service/README.md
+index 8d865ec..6e18b8d 100644
+--- a/authentication-service/README.md
++++ b/authentication-service/README.md
+@@ -31,8 +31,12 @@ This microservice handles user authentication and secure token issuance in the *
+ ---
+ 
+ ### 📊 Architecture Diagram
++<details>
++  <summary>Click to view authentication flow diagram</summary>
+ 
+-> See [`docs/authentication-flow.drawio.png`](./docs/authentication-flow.drawio.png) for a visual overview of the login and token generation process.
++  ![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
++
++</details>
+ 
+ ---
+ 
+
+===== COMMIT 9b4bc140a9821db0d3c02a61b8188641309b2c4a =====
+commit 9b4bc140a9821db0d3c02a61b8188641309b2c4a
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 9 05:27:08 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:45 2026 +0000
+
+    docs(authentication-service): update architecture diagram section in README
+---
+ authentication-service/README.md | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/authentication-service/README.md b/authentication-service/README.md
+index 6e18b8d..d6790e5 100644
+--- a/authentication-service/README.md
++++ b/authentication-service/README.md
+@@ -31,12 +31,11 @@ This microservice handles user authentication and secure token issuance in the *
+ ---
+ 
+ ### 📊 Architecture Diagram
+-<details>
+-  <summary>Click to view authentication flow diagram</summary>
+ 
+-  ![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
++![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
+ 
+-</details>
++<br/>
++<em>This diagram shows the full login and token issuance process used by the Authentication Service.</em>
+ 
+ ---
+ 
+
+===== COMMIT 154530b1d1bf027b17df2d1fdcbaeb8a09500eb2 =====
+commit 154530b1d1bf027b17df2d1fdcbaeb8a09500eb2
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 9 05:41:55 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:46 2026 +0000
+
+    docs(authentication-service): enhance README with badges and clarity
+---
+ authentication-service/README.md | 17 +++++++++--------
+ 1 file changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/authentication-service/README.md b/authentication-service/README.md
+index d6790e5..9feef47 100644
+--- a/authentication-service/README.md
++++ b/authentication-service/README.md
+@@ -1,10 +1,12 @@
+-## 🛡️ Authentication Service
++![SECURITY: HIGH](https://img.shields.io/badge/SECURITY-HIGH-brightgreen) ![JWT](https://img.shields.io/badge/JWT-ENABLED-green) ![SIGNING: RSA-PSS](https://img.shields.io/badge/SIGNING-RSA--PSS%20\(PS256\)-blue) ![HTTPS ONLY](https://img.shields.io/badge/HTTPS-ENFORCED-green) ![AES-256-GCM](https://img.shields.io/badge/ENCRYPTION-AES--256--GCM-yellowgreen) ![JWS](https://img.shields.io/badge/ACCESS%20TOKEN-JWS-blue) ![JWE](https://img.shields.io/badge/REFRESH%20TOKEN-JWE-yellow) ![CONFIGURABLE](https://img.shields.io/badge/CONFIG-ENV--BASED-blue) ![WORK IN PROGRESS](https://img.shields.io/badge/MAINTENANCE-ACTIVE-blue) ![TESTS NEEDED](https://img.shields.io/badge/TESTS-MISSING-red)
++
++## Authentication Service ![SECURITY: HIGH](https://img.shields.io/badge/SECURITY-HIGH-brightgreen)
+ 
+ This microservice handles user authentication and secure token issuance in the **TradeStream** system. It generates **signed access tokens** and **encrypted refresh tokens**, using modern cryptographic standards to ensure confidentiality, integrity, and tamper-proof delivery across services.
+ 
+ ---
+ 
+-### 📌 Responsibilities
++### Responsibilities ![JWT](https://img.shields.io/badge/JWT-ENABLED-green) ![SIGNING: RSA-PSS](https://img.shields.io/badge/SIGNING-RSA--PSS%20\(PS256\)-blue)
+ 
+ * Verifies login credentials from users.
+ * Issues signed **access tokens** (JWS) for stateless, tamper-evident API authorization.
+@@ -14,7 +16,7 @@ This microservice handles user authentication and secure token issuance in the *
+ 
+ ---
+ 
+-### 🔐 Security Highlights
++### Security Highlights ![HTTPS ONLY](https://img.shields.io/badge/HTTPS-ENFORCED-green) ![AES-256-GCM](https://img.shields.io/badge/ENCRYPTION-AES--256--GCM-yellowgreen)
+ 
+ * **Private RSA Key Usage**
+ 
+@@ -30,16 +32,15 @@ This microservice handles user authentication and secure token issuance in the *
+ 
+ ---
+ 
+-### 📊 Architecture Diagram
++### Architecture Diagram
+ 
+ ![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
+ 
+-<br/>
+ <em>This diagram shows the full login and token issuance process used by the Authentication Service.</em>
+ 
+ ---
+ 
+-### 🧠 How It Works
++### How It Works ![JWS](https://img.shields.io/badge/ACCESS%20TOKEN-JWS-blue) ![JWE](https://img.shields.io/badge/REFRESH%20TOKEN-JWE-yellow)
+ 
+ #### Login Flow:
+ 
+@@ -58,7 +59,7 @@ This microservice handles user authentication and secure token issuance in the *
+ 
+ ---
+ 
+-### 🔧 Configuration
++### Configuration ![CONFIGURABLE](https://img.shields.io/badge/CONFIG-ENV--BASED-blue)
+ 
+ * `PRIVATE_KEY`: RSA private key for signing.
+ * `JWT_EXPIRATION`: Access token expiration window.
+@@ -66,7 +67,7 @@ This microservice handles user authentication and secure token issuance in the *
+ 
+ ---
+ 
+-### 🧪 TODO / Future Improvements
++### TODO / Future Improvements ![WORK IN PROGRESS](https://img.shields.io/badge/MAINTENANCE-ACTIVE-blue) ![TESTS NEEDED](https://img.shields.io/badge/TESTS-MISSING-red)
+ 
+ * Add unit and integration tests for token validation logic.
+ * Add metrics for login success/failure tracking.
+
+===== COMMIT 41c524cc908ed14a7719d7ad298d4e766dd5bfcb =====
+commit 41c524cc908ed14a7719d7ad298d4e766dd5bfcb
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 05:44:37 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:47 2026 +0000
+
+    chore(api-gateway): update api-gateway flow diagram image
+---
+ api-gateway/docs/api-gateway-flow.drawio.png | Bin 296740 -> 301122 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/api-gateway/docs/api-gateway-flow.drawio.png b/api-gateway/docs/api-gateway-flow.drawio.png
+index ca7748b..97885d5 100644
+Binary files a/api-gateway/docs/api-gateway-flow.drawio.png and b/api-gateway/docs/api-gateway-flow.drawio.png differ
+
+===== COMMIT f69f23133130ae3682bbad924dc5c299155ffac6 =====
+commit f69f23133130ae3682bbad924dc5c299155ffac6
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 07:04:01 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:48 2026 +0000
+
+    chore(auth): update documentation and diagrams for authentication service
+---
+ api-gateway/docs/api-gateway-flow.drawio.png       | Bin 301122 -> 310520 bytes
+ authentication-service/README.md                   |  28 ++++++++++++---------
+ .../docs/authentication-flow.drawio.png            | Bin 360249 -> 396086 bytes
+ 3 files changed, 16 insertions(+), 12 deletions(-)
+
+diff --git a/api-gateway/docs/api-gateway-flow.drawio.png b/api-gateway/docs/api-gateway-flow.drawio.png
+index 97885d5..7d5db74 100644
+Binary files a/api-gateway/docs/api-gateway-flow.drawio.png and b/api-gateway/docs/api-gateway-flow.drawio.png differ
+diff --git a/authentication-service/README.md b/authentication-service/README.md
+index 9feef47..626291f 100644
+--- a/authentication-service/README.md
++++ b/authentication-service/README.md
+@@ -8,7 +8,7 @@ This microservice handles user authentication and secure token issuance in the *
+ 
+ ### Responsibilities ![JWT](https://img.shields.io/badge/JWT-ENABLED-green) ![SIGNING: RSA-PSS](https://img.shields.io/badge/SIGNING-RSA--PSS%20\(PS256\)-blue)
+ 
+-* Verifies login credentials from users.
++* Verifies login credentials from users via secure database lookup.
+ * Issues signed **access tokens** (JWS) for stateless, tamper-evident API authorization.
+ * Issues **encrypted refresh tokens** (JWE) for secure re-authentication.
+ * Signs tokens using **PS256 (RSA-PSS + SHA-256)** to avoid algorithm substitution attacks.
+@@ -32,24 +32,28 @@ This microservice handles user authentication and secure token issuance in the *
+ 
+ ---
+ 
+-### Architecture Diagram
++### 📊 Architecture Diagram
+ 
+-![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
++<details>
++  <summary>Click to view authentication flow diagram</summary>
+ 
+-<em>This diagram shows the full login and token issuance process used by the Authentication Service.</em>
++  ![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
++
++</details>
+ 
+ ---
+ 
+-### How It Works ![JWS](https://img.shields.io/badge/ACCESS%20TOKEN-JWS-blue) ![JWE](https://img.shields.io/badge/REFRESH%20TOKEN-JWE-yellow)
++### 🧠 How It Works
+ 
+ #### Login Flow:
+ 
+ 1. Client sends login request with credentials over HTTPS.
+-2. If credentials are valid:
+-
+-   * Access token is generated and signed (JWS using `PS256`).
+-   * Refresh token payload is also signed (JWS), then encrypted by the API Gateway (JWE).
+-   * Tokens are returned to the client via API Gateway.
++2. Credentials are validated using a secure DB lookup:
++   * If valid:
++     * Access token is generated and signed (JWS using PS256).
++     * Refresh token is generated as a signed JWS.
++     * Refresh token is sent to API Gateway, which encrypts it (JWE).
++     * Both tokens are returned to the client via API Gateway.
+ 
+ #### Refresh Flow:
+ 
+@@ -59,7 +63,7 @@ This microservice handles user authentication and secure token issuance in the *
+ 
+ ---
+ 
+-### Configuration ![CONFIGURABLE](https://img.shields.io/badge/CONFIG-ENV--BASED-blue)
++### 🔧 Configuration
+ 
+ * `PRIVATE_KEY`: RSA private key for signing.
+ * `JWT_EXPIRATION`: Access token expiration window.
+@@ -67,7 +71,7 @@ This microservice handles user authentication and secure token issuance in the *
+ 
+ ---
+ 
+-### TODO / Future Improvements ![WORK IN PROGRESS](https://img.shields.io/badge/MAINTENANCE-ACTIVE-blue) ![TESTS NEEDED](https://img.shields.io/badge/TESTS-MISSING-red)
++### 🧪 TODO / Future Improvements
+ 
+ * Add unit and integration tests for token validation logic.
+ * Add metrics for login success/failure tracking.
+diff --git a/authentication-service/docs/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+index 425617c..728d942 100644
+Binary files a/authentication-service/docs/authentication-flow.drawio.png and b/authentication-service/docs/authentication-flow.drawio.png differ
+
+===== COMMIT 52e25e100b481b518891161bcc91a2146339ea38 =====
+commit 52e25e100b481b518891161bcc91a2146339ea38
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 9 07:32:03 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Feb 28 01:47:48 2026 +0000
+
+    docs(api-gateway): enhance README with detailed API gateway overview
+---
+ api-gateway/README.md | 66 ++++++++++++++++++++++++++++++++++++++++++---------
+ 1 file changed, 55 insertions(+), 11 deletions(-)
+
+diff --git a/api-gateway/README.md b/api-gateway/README.md
+index 9a86c28..922ec5e 100644
+--- a/api-gateway/README.md
++++ b/api-gateway/README.md
+@@ -1,17 +1,61 @@
+-## 🔐 Authentication & Token Validation Flow
++## API Gateway – Secure Request Routing & Token Validation
+ 
+-The API Gateway acts as the central access point for all client requests. It manages:
++The **API Gateway** is the central gatekeeper for all client requests in the **TradeStream** platform. It enforces security at the edge, intercepts and verifies tokens, and routes valid requests to internal microservices.
+ 
+-- Secure HTTPS communication from client-side apps.
+-- Token issuance requests forwarded to the Authentication Service.
+-- Access token validation and routing to internal microservices.
+-- Refresh token processing (securely handled over HTTPS).
+-- Rejection of malformed, expired, or tampered tokens.
++---
+ 
+-This diagram illustrates the full authentication lifecycle, including how access and refresh tokens are processed, validated, and routed:
++### Core Responsibilities
+ 
+-![Token Authentication Flow](docs/api-gateway-flow.drawio.png)
++* Terminates and enforces **HTTPS** for all incoming client requests.
++* Forwards **login and refresh requests** to the Authentication Service.
++* **Validates access tokens** (JWS) for protected routes.
++* **Decrypts and verifies refresh tokens** (JWE with inner JWS) securely.
++* Sets and reads refresh tokens via **Secure, SameSite, HttpOnly cookies**.
++* Rejects expired, tampered, or unauthorized tokens with appropriate status codes.
+ 
+-🛡️ All security-sensitive communication is encrypted using HTTPS, and refresh tokens are never exposed in URLs. Access tokens are expected to be sent via Bearer token in the `Authorization` header. Refresh tokens are recommended to be stored in `HttpOnly` secure cookies or passed in the request body over HTTPS.
++---
+ 
+-> ℹ️ For security best practices and detailed architecture boundaries, see [docs/tradestream-prd.md](../docs/tradestream-prd.md).
++### Token Handling Flow
++
++#### Access Tokens (JWS)
++
++* Received via the `Authorization` header as a **Bearer token**.
++* Verified using the **RSA public key** (paired with the Authentication Service's private signing key).
++* If valid, request is routed to the correct internal microservice.
++
++#### Refresh Tokens (JWE)
++
++* Received via secure HTTP-only cookie or body.
++* **Decrypted using AES-256-GCM** with a randomly generated CEK.
++* CEK is encrypted using the **API Gateway’s RSA public key**.
++* Inner payload (JWS) is validated to ensure integrity before requesting a new access token.
++
++---
++
++### Security Practices
++
++* All communication is **HTTPS only** — no token transmission over HTTP.
++* Refresh tokens are **never sent via URL** (query string).
++* **Access tokens are short-lived** and tamper-evident via signature checks.
++* **Refresh tokens are doubly protected** through JWE + JWS wrapping.
++* Security touchpoints are indicated in the architecture diagram via lock icons 🔒.
++
++---
++
++### Architecture Overview
++
++![API Gateway Flow Diagram](docs/api-gateway-flow.drawio.png)
++
++---
++
++### Key Concepts Reflected in Diagram
++
++* **Authentication delegation**: API Gateway forwards login requests and token refresh requests to the Authentication Service.
++* **Access control**: Only valid tokens allow access to downstream microservices (e.g., Market Data, Trade Executor).
++* **Granular rejections**: Handles malformed, expired, or mismatched tokens with status codes like `401`, `403`.
++
++---
++
++> ℹ️ For security principles and architecture breakdown, see [docs/tradestream-prd.md](../docs/tradestream-prd.md).
++
++---

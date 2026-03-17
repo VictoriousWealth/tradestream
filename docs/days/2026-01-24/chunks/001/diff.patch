@@ -1,0 +1,681 @@
+
+===== COMMIT a026f036bc7441698f71a5d2eaaa05e541faf1bb =====
+commit a026f036bc7441698f71a5d2eaaa05e541faf1bb
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jan 24 17:07:33 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jan 24 17:07:33 2026 +0000
+
+    fix: update CVREADME for clarity on README purpose
+---
+ CVREADME.md | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/CVREADME.md b/CVREADME.md
+index a7ffd3a..9ac9633 100644
+--- a/CVREADME.md
++++ b/CVREADME.md
+@@ -1,6 +1,6 @@
+ # TradeStream — High-Performance Trading Microservices Platform
+ 
+-> A production-minded, event-driven trading platform built with Java/Spring, Kafka/Redpanda, PostgreSQL, Redis, and Docker. This **root README** is the entry point for recruiters and engineers: architecture, how to run, critical routes, and links into each service’s source of truth.
++> A production-minded, event-driven trading platform built with Java/Spring, Kafka/Redpanda, PostgreSQL, Redis, and Docker. This **recruiter-facing README** is the entry point for architecture, how to run, critical routes, and links into each service’s source of truth.
+ 
+ ---
+ 
+@@ -129,7 +129,7 @@ AUTH     USER-REG   ORDERS (8085)          TRANSACTION PROC    MARKET DATA
+ | Security         | Spring Security, **JWT (PS256)**                           | Centralized authentication/authorization at the edge |
+ | Resilience       | Resilience4j, DLQ pattern                                  | Circuit breakers, retries, dead-letter queues        |
+ | Packaging        | Docker, Docker Compose                                     | Consistent, isolated environments                    |
+-| Build & Ops      | Maven, Gradle, Spring Actuator                             | Dependency mgmt, builds, health/metrics endpoints    |
++| Build & Ops      | Maven, Gradle, Spring Actuator, GitHub Actions             | Dependency mgmt, builds, health/metrics endpoints    |
+ 
+ ---
+ 
+@@ -280,4 +280,3 @@ curl -sS -H "Authorization: Bearer $ACCESS" \
+ ## License
+ 
+ See [`LICENSE`](LICENSE).
+-
+
+===== COMMIT 35ff5052693ba39e61c39ad2089709236b307713 =====
+commit 35ff5052693ba39e61c39ad2089709236b307713
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jan 24 17:07:33 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jan 24 17:07:33 2026 +0000
+
+    fix: correct CVREADME reference and add GitHub Actions to CI
+---
+ README.md | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/README.md b/README.md
+index c86feb9..8f9dc4f 100644
+--- a/README.md
++++ b/README.md
+@@ -45,7 +45,8 @@
+ | **Transaction Processor**   | `services/transaction-processor/`     |    ✅   | Journals `trade.executed.v1` → emits `transaction.recorded.v1`, REST queries             |
+ | **Portfolio Service**       | `services/portfolio-service/`         |    ✅   | Projects transactions → positions & realized PnL; pessimistic locking + ledger           |
+ | **Market Data Consumer**    | `services/market-data-consumer/`      |    ✅   | Kafka→Postgres OHLCV; Redis-cached “latest” with precise eviction                        |
+-| **Docs: recruiter summary** | `cvreadme.md`                         |    ✅   | Hybrid, recruiter-friendly project overview                                              |
++| **Docs: recruiter summary** | `CVREADME.md`                         |    ✅   | Hybrid, recruiter-friendly project overview                                              |
++| **CI (GitHub Actions)**     | `.github/workflows/ci.yml`            |    ✅   | Docker Compose E2E checks for core flows                                                 |
+ | **Kubernetes/Terraform**    | —                                     |   🔜   | Planned future work; not present in this repo                                            |
+ | **RabbitMQ option**         | —                                     |    ❌   | **Not used**—message bus is **Kafka/Redpanda only**                                      |
+ | **JWE (encrypted JWTs)**    | —                                     |    ❌   | **Not used**—project uses **signed JWT (PS256)** only                                    |
+@@ -84,7 +85,7 @@ Kafka/Redpanda (9092)
+ * **Resilience/Obs:** Resilience4j circuit breakers, Spring **Actuator**
+ * **Packaging:** Docker & **Docker Compose** (local dev)
+ * **Auth:** **JWT (PS256)** at the gateway; private key in Auth service; public key at Gateway
+-* **CI/CD/Cloud:** local-first; cloud/IaC (Kubernetes/Terraform) are **planned**, not in-repo
++* **CI/CD/Cloud:** GitHub Actions (E2E via Docker Compose); cloud/IaC (Kubernetes/Terraform) are **planned**, not in-repo
+ 
+ ---
+ 
+@@ -241,4 +242,3 @@ curl -sS -H "Authorization: Bearer $ACCESS" \
+ This project is licensed under **CC BY-NC 4.0**. See [`LICENSE`](LICENSE).
+ 
+ ---
+-
+
+===== COMMIT 79574e4ea9bc8f1c03de316b24a46c91d33e1927 =====
+commit 79574e4ea9bc8f1c03de316b24a46c91d33e1927
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jan 24 17:07:33 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jan 24 17:07:33 2026 +0000
+
+    feat: add API design documentation
+---
+ docs/api-design.md | 61 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 61 insertions(+)
+
+diff --git a/docs/api-design.md b/docs/api-design.md
+index e69de29..697ba10 100644
+--- a/docs/api-design.md
++++ b/docs/api-design.md
+@@ -0,0 +1,61 @@
++# API Design (Current Implementation)
++
++This document mirrors the live service routes and gateway behavior as implemented.
++
++---
++
++## Gateway Routes (External)
++
++| Area         | Gateway Route                                    | Auth | Rewrites to…                                 |
++| ------------ | ------------------------------------------------ | :--: | -------------------------------------------- |
++| Auth         | `POST /api/auth/login`                           |  No  | `/login` → authentication-service (8082)     |
++| Auth         | `POST /api/auth/refresh`                         |  No  | `/refresh` → authentication-service (8082)   |
++| Users        | `POST /api/users/register`                       |  No  | `/register` → user-registration (8081)       |
++| Orders       | `POST /api/orders`                               |  Yes | `/orders` → orders-service (8085)            |
++| Orders       | `GET /api/orders/{id}`                           |  Yes | `/orders/{id}`                               |
++| Orders       | `POST /api/orders/{id}/cancel`                   |  Yes | `/orders/{id}/cancel`                        |
++| Transactions | `GET /api/transactions/**`                       |  Yes | (no rewrite) → transaction-processor (8084)  |
++| Portfolio    | `GET /api/portfolio/{userId}/positions[...]`     |  Yes | `/portfolio/...` → portfolio-service (8087)  |
++| Market Data  | `GET /api/market-data/candles/{ticker}[/latest]` |  Yes | `/candles/...` → market-data-consumer (8083) |
++
++Notes:
++* **Login** is IP rate-limited via Redis (10 r/s, burst 20).
++* **`/api/auth/refresh`** and **`/api/users/register`** are **internal-only** at the downstream services via `X-Internal-Caller: api-gateway`.
++
++---
++
++## Service Endpoints (Internal)
++
++### Authentication Service (8082)
++* `POST /login` → issues access + refresh tokens (PS256).
++* `POST /refresh` → requires `X-Internal-Caller: api-gateway`.
++
++### User Registration Service (8081)
++* `POST /register` → requires `X-Internal-Caller: api-gateway`.
++
++### Orders Service (8085)
++* `POST /orders` → place order (accepted).
++* `GET /orders/{id}` → order status.
++* `POST /orders/{id}/cancel` → cancel order.
++
++### Transaction Processor (8084)
++* `GET /api/transactions/{userId}`
++* `GET /api/transactions/{userId}/ticker/{ticker}`
++* `GET /api/transactions/{userId}/since?iso=...`
++
++### Portfolio Service (8087)
++* `GET /portfolio/{userId}/positions`
++* `GET /portfolio/{userId}/positions/{ticker}`
++* `GET /portfolio/{userId}/summary`
++
++### Market Data Consumer (8083)
++* `GET /candles/{ticker}?interval=1m&limit=100`
++* `GET /candles/{ticker}/latest?interval=1m`
++
++---
++
++## Events (Kafka/Redpanda)
++
++* `order.placed.v1` → emitted by Orders Service.
++* `trade.executed.v1` → emitted by Matching Engine.
++* `transaction.recorded.v1` → emitted by Transaction Processor.
+
+===== COMMIT 0df0b10bfe31d42467515d2e624998d943317fc0 =====
+commit 0df0b10bfe31d42467515d2e624998d943317fc0
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jan 24 17:07:33 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jan 24 17:07:33 2026 +0000
+
+    docs: outline future enhancements and features
+---
+ docs/future-enhancements.md | 63 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 63 insertions(+)
+
+diff --git a/docs/future-enhancements.md b/docs/future-enhancements.md
+index e69de29..d65e3fb 100644
+--- a/docs/future-enhancements.md
++++ b/docs/future-enhancements.md
+@@ -0,0 +1,63 @@
++# Future Enhancements (Planned)
++
++These are not implemented in the current codebase; they are candidate roadmap items.
++
++## Bot Market Simulation (Full Set)
++
++Common guardrails (applied to all bots by default):
++* **Cash reserve**: keep 10-20% unspent to avoid deadlock.
++* **Auto-deleveraging**: sell a small slice when budget is maxed.
++* **Rotation sell**: if a new buy signal appears, sell lowest-confidence holding first.
++
++| Bot | Category | Functionality | ML Stack | ML Type | Mode | Scheduler | Guardrails |
++| --- | --- | --- | --- | --- | --- | --- | --- |
++| Random Retail | Retail | Small random buys/sells | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++| Buy-and-Hold | Retail | Buy once, rare trades | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++| Trend Chaser | Retail | Follows short trends | sklearn | simple classifier | infer_only | Prefect | Reserve + Deleverage + Rotation |
++| News-Reactive (sim) | Retail | Trades on simulated spikes | XGBoost | gradient boosting | infer_only | Prefect | Reserve + Deleverage + Rotation |
++| Passive Market Maker | Market Maker | Bid/ask around mid | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++| Adaptive Market Maker | Market Maker | Spread widens on vol | sklearn | random forest | infer_only | Prefect | Reserve + Deleverage + Rotation |
++| Inventory-Aware Maker | Market Maker | Reduce quotes if heavy | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++| TWAP Executor | Institutional | Sliced execution | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++| VWAP Executor | Institutional | Volume-weighted execution | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++| Mean Reversion | Hedge | Z-score mean reversion | sklearn | logistic regression | train_infer | Airflow | Reserve + Deleverage + Rotation |
++| Momentum | Hedge | MA cross + trend | XGBoost | gradient boosting | train_infer | Airflow | Reserve + Deleverage + Rotation |
++| Stat Arb (Pairs) | Hedge | Divergence trading | XGBoost | gradient boosting | train_infer | Airflow | Reserve + Deleverage + Rotation |
++| Breakout | Hedge | Volume breakout entries | sklearn | random forest | infer_only | Prefect | Reserve + Deleverage + Rotation |
++| Liquidity Taker | HFT | Aggressive on signal | XGBoost | gradient boosting | infer_only | Prefect | Reserve + Deleverage + Rotation |
++| Spoof/Cancel Sim | HFT | Rapid place/cancel noise | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++| Latency-Sensitive | HFT | Fast polling, micro orders | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++| Risk-Parity | Portfolio | Volatility-weighted allocation | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++| Stop-Loss Bot | Portfolio | Exits on drawdown | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++| Rebalancer | Portfolio | Periodic target weights | None | n/a | n/a | None | Reserve + Deleverage + Rotation |
++
++## Confluent Schema Registry + Contract Testing
++
++* **Schema Registry** stores event schemas for Kafka topics (`order.placed.v1`, `trade.executed.v1`, `transaction.recorded.v1`, `signal.generated.v1`).
++* **Compatibility checks** prevent breaking changes (e.g., BACKWARD compatibility).
++* **Contract tests** in CI validate producer and consumer schemas match before deploy.
++* **Benefit**: safe evolution of event payloads across services.
++
++## Streamlit Analytics Console
++
++* Live dashboard for **PnL, positions, signals, and order flow**.
++* Reads from existing REST APIs and optional Kafka topics.
++* Tech: Streamlit + Plotly + Pandas.
++
++## Observability Stack
++
++* **Metrics**: Prometheus + Grafana (scrape `/actuator/prometheus` from Java).
++* **Logs**: Loki + Grafana.
++* **Tracing**: OpenTelemetry SDK/agent + Jaeger.
++
++## Platform/Infra
++
++* Kubernetes + Terraform for cloud deployment.
++* Redpanda on EKS (StatefulSet with PVs).
++* MLflow for model registry + experiment tracking.
++* Airflow (scheduled training) and Prefect (ad-hoc retraining).
++* JWKS + key rotation; optional JWE for encrypted JWTs.
++* Refresh token rotation and revocation list.
++* Per-user rate limiting at the gateway (beyond login IP limits).
++* WebSocket/SSE for order/portfolio streaming.
++* Market data fan-out (quote/BarUpdated events).
+
+===== COMMIT 4731eac2461e344c181743e58a735d5b6efb0264 =====
+commit 4731eac2461e344c181743e58a735d5b6efb0264
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jan 24 17:07:33 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jan 24 17:07:33 2026 +0000
+
+    fix: correct event bus references in sequence diagram
+---
+ docs/order-placement-matching-trade-execution-diagram.md | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/docs/order-placement-matching-trade-execution-diagram.md b/docs/order-placement-matching-trade-execution-diagram.md
+index 45bd961..7428006 100644
+--- a/docs/order-placement-matching-trade-execution-diagram.md
++++ b/docs/order-placement-matching-trade-execution-diagram.md
+@@ -5,18 +5,18 @@ sequenceDiagram
+     autonumber
+     actor U as User
+     participant C as Client App
+-    participant G as API Gateway (JWT verify + rate limit)
++    participant G as API Gateway (JWT verify)
+     participant O as Orders Service
+     participant OBDB as Orders DB
+-    participant B as Event Bus (Kafka/RabbitMQ)
++    participant B as Event Bus (Redpanda/Kafka)
+     participant ME as Matching Engine
+     participant BOOK as In-Memory Order Book (per ticker)
+ 
+     Note over U,C: User is already authenticated (JWT in Authorization header)
+ 
+     U->>C: Place Order (ticker, side, type, qty, price)
+-    C->>G: POST /orders (JWT)
+-    G-->>C: 401 if invalid JWT / 429 if rate-limited
++    C->>G: POST /api/orders (JWT)
++    G-->>C: 401 if invalid JWT
+     G->>O: Forward request (userId propagated)
+ 
+     O->>O: Validate request (type/side/ticker/qty/price)
+
+===== COMMIT 7d73907041c728edd62ee8bf9bbc759b30acb7d0 =====
+commit 7d73907041c728edd62ee8bf9bbc759b30acb7d0
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jan 24 17:07:33 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jan 24 17:07:33 2026 +0000
+
+    fix: update trade execution diagram and clarify event bus
+---
+ ...a-&-portfolio-updates-+-order-status-diagram.md | 25 +++++++++++-----------
+ 1 file changed, 13 insertions(+), 12 deletions(-)
+
+diff --git a/docs/trade-execution-market-data-&-portfolio-updates-+-order-status-diagram.md b/docs/trade-execution-market-data-&-portfolio-updates-+-order-status-diagram.md
+index 918e7ff..f2eced7 100644
+--- a/docs/trade-execution-market-data-&-portfolio-updates-+-order-status-diagram.md
++++ b/docs/trade-execution-market-data-&-portfolio-updates-+-order-status-diagram.md
+@@ -3,34 +3,35 @@
+ ```mermaid 
+ sequenceDiagram
+     autonumber
+-    participant B as Event Bus (Kafka/RabbitMQ)
+-    participant MD as Market Data Service
++    participant B as Event Bus (Redpanda/Kafka)
++    participant MD as Market Data Consumer
+     participant CDB as Candles DB (OHLC+Volume)
+-    participant Q as Redis Cache (quotes/candles)
++    participant Q as Redis Cache (market latest)
++    participant TP as Transaction Processor
++    participant TXDB as Transactions DB (journal)
+     participant PF as Portfolio Service
+     participant PDB as Portfolio DB (positions)
+-    participant TXDB as Transactions DB (fills)
+     participant O as Orders Service
+     participant OBDB as Orders DB
+     participant C as Client App
+ 
+-    Note over B: TradeExecuted{tradeId, orderId, userId, ticker, price, qty, side, ts}
++    Note over B: TradeExecuted{tradeId, buyOrderId, sellOrderId, ticker, price, qty, ts}
+ 
+     B-->>MD: TradeExecuted
+     MD->>CDB: Upsert candle for ts.date(ticker):<br/>open(if first), high=max, low=min, close=price,<br/>volume += qty
+-    MD->>Q: Cache update (quotes/top-of-book/last trade) [TTL 1–5s]
+-    MD-->>B: (optional) Publish QuoteUpdated / BarUpdated
++    MD->>Q: Cache latest candle [TTL 10m]
+ 
+-    B-->>PF: TradeExecuted
++    B-->>TP: TradeExecuted
++    TP->>TXDB: Append transaction history (buyer + seller)
++    TP-->>B: Publish TransactionRecorded
++
++    B-->>PF: TransactionRecorded
+     PF->>PDB: Upsert position (qty, avg_cost) per userId+ticker
+-    PF->>TXDB: Append transaction history
+-    PF-->>B: (optional) Publish PortfolioUpdated
+ 
+     B-->>O: TradeExecuted
+     O->>OBDB: Update order (filled_qty += qty, status=PARTIALLY_FILLED/FILLED)
+     OBDB-->>O: OK
+-    O-->>C: (if WebSocket/SSE) Push order status & fills
+-    Note over C: If polling, C hits GET /orders/{id} via Gateway
++    Note over C: If polling, C hits GET /api/orders/{id} via Gateway
+ ```
+ 
+ ---
+
+===== COMMIT d3a2bb5ee8c421c10bddc158a0dec721f2305c39 =====
+commit d3a2bb5ee8c421c10bddc158a0dec721f2305c39
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jan 24 17:07:33 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jan 24 17:07:33 2026 +0000
+
+    chore: enhance project overview and update technologies used
+---
+ docs/tradestream-prd.md | 146 ++++++++++++++++++++++++------------------------
+ 1 file changed, 74 insertions(+), 72 deletions(-)
+
+diff --git a/docs/tradestream-prd.md b/docs/tradestream-prd.md
+index 1247a50..f88d518 100644
+--- a/docs/tradestream-prd.md
++++ b/docs/tradestream-prd.md
+@@ -44,25 +44,25 @@
+ Key upgrades in v2.0:
+ 
+ * **Matching Engine Service** with per-ticker in-memory order books.
+-* **Asynchronous trade propagation** using Kafka/RabbitMQ.
++* **Asynchronous trade propagation** using **Redpanda (Kafka API)**.
+ * **OHLC and volume updates** driven by actual trades.
+-* **Redis-backed API Gateway** for caching and per-user rate-limiting.
+-* **JWS + JWE JWT authentication** for API security.
++* **Redis-backed API Gateway** for **login** rate limiting.
++* **JWS (PS256) JWT authentication** for API security (no JWE).
+ 
+ ---
+ 
+ ## **2A. Technology Overview**
+ 
+-| Category          | Technology                         | Purpose                            |
+-| ----------------- | ---------------------------------- | ---------------------------------- |
+-| Backend Framework | Java Spring Boot                   | Microservice APIs                  |
+-| Stream Processing | Kafka or RabbitMQ                  | Event-driven trade & order updates |
+-| Database          | PostgreSQL                         | Service-specific storage           |
+-| Cache Layer       | Redis                              | Caching quotes & rate-limiting     |
+-| Authentication    | JWS & JWE (JWT signed & encrypted) | Secure API auth                    |
+-| Containerization  | Docker & Docker Compose            | Deployment packaging               |
+-| CI/CD             | GitHub Actions                     | Build/test/deploy automation       |
+-| Deployment        | AWS Lightsail                      | Cloud hosting                      |
++| Category          | Technology                      | Purpose                            |
++| ----------------- | ------------------------------- | ---------------------------------- |
++| Backend Framework | Java Spring Boot                | Microservice APIs                  |
++| Stream Processing | Redpanda (Kafka API)            | Event-driven trade & order updates |
++| Database          | PostgreSQL                      | Service-specific storage           |
++| Cache Layer       | Redis                           | Rate limiting + market latest      |
++| Authentication    | JWS (JWT signed, PS256)         | Secure API auth                    |
++| Containerization  | Docker & Docker Compose         | Deployment packaging               |
++| CI/CD             | GitHub Actions                  | Build/test automation              |
++| Deployment        | Local Docker Compose (dev)      | Local-first runtime                |
+ 
+ ---
+ 
+@@ -73,8 +73,8 @@ Key upgrades in v2.0:
+ * Implement market/limit order placement.
+ * Realistic matching with price-time priority and partial fills.
+ * OHLC/volume updates from trade events.
+-* JWT + Redis rate-limiting in API Gateway.
+-* Deploy MVP on AWS Lightsail with Docker Compose.
++* JWT + Redis **login** rate-limiting in API Gateway.
++* Run MVP locally via Docker Compose (cloud/IaC planned).
+ 
+ ### Learning Goals
+ 
+@@ -88,13 +88,14 @@ Key upgrades in v2.0:
+ 
+ ### MVP Deliverables
+ 
+-* API Gateway with JWT validation & Redis rate-limiting.
++* API Gateway with JWT validation & Redis login rate-limiting.
+ * Auth & User Registration services.
+ * Orders Service.
+ * Matching Engine Service.
+-* Market Data Service.
++* Market Data Consumer.
++* Transaction Processor.
+ * Portfolio Service.
+-* Kafka/RabbitMQ integration.
++* Redpanda (Kafka API) integration.
+ * PostgreSQL per service.
+ 
+ ---
+@@ -110,29 +111,33 @@ sequenceDiagram
+     participant G as API Gateway
+     participant O as Orders Service
+     participant ME as Matching Engine
+-    participant MD as Market Data Service
++    participant MD as Market Data Consumer
++    participant TP as Transaction Processor
+     participant PF as Portfolio Service
+-    participant B as Event Bus
++    participant B as Event Bus (Redpanda/Kafka)
+ 
+     U->>C: Place Order
+-    C->>G: POST /orders
++    C->>G: POST /api/orders
+     G->>O: Forward w/ userId
+     O->>B: Publish OrderPlaced
+     B->>ME: Deliver event
+     ME->>B: Publish TradeExecuted
+     B->>MD: Deliver trade
+-    B->>PF: Deliver trade
++    B->>TP: Deliver trade
++    TP->>B: Publish TransactionRecorded
++    B->>PF: Deliver transaction
+ ```
+ 
+ **Component Roles**
+ 
+-| Component           | Role                                       |
+-| ------------------- | ------------------------------------------ |
+-| API Gateway         | JWT verification, Redis caching/rate-limit |
+-| Orders Service      | Intake & store orders, emit events         |
+-| Matching Engine     | Match orders, emit trades                  |
+-| Market Data Service | Update OHLC & volume                       |
+-| Portfolio Service   | Update positions & transactions            |
++| Component              | Role                                                     |
++| ---------------------- | -------------------------------------------------------- |
++| API Gateway            | JWT verification, Redis login rate limiting              |
++| Orders Service         | Intake & store orders, emit events                       |
++| Matching Engine        | Match orders, emit trades                                |
++| Market Data Consumer   | Update OHLCV candles, cache latest in Redis              |
++| Transaction Processor  | Journal trades, emit `transaction.recorded.v1`           |
++| Portfolio Service      | Update positions from `transaction.recorded.v1`          |
+ 
+ ---
+ 
+@@ -142,30 +147,29 @@ sequenceDiagram
+ 
+ #### `OrderPlaced` Schema
+ 
+-| Field       | Type     | Required | Notes                  |
+-| ----------- | -------- | -------- | ---------------------- |
+-| orderId     | UUID     | Yes      | Unique per order       |
+-| userId      | UUID     | Yes      | Authenticated user     |
+-| ticker      | String   | Yes      | Uppercase, max 5 chars |
+-| side        | Enum     | Yes      | BUY / SELL             |
+-| type        | Enum     | Yes      | MARKET / LIMIT         |
+-| price       | Decimal  | Yes      | > 0 if LIMIT           |
+-| quantity    | Integer  | Yes      | > 0                    |
+-| timeInForce | Enum     | Yes      | DAY / GTC              |
+-| timestamp   | ISO-8601 | Yes      | UTC                    |
++| Field       | Type     | Required | Notes                         |
++| ----------- | -------- | -------- | ----------------------------- |
++| orderId     | UUID     | Yes      | Unique per order              |
++| userId      | UUID     | Yes      | Authenticated user            |
++| ticker      | String   | Yes      | Uppercase symbol              |
++| side        | Enum     | Yes      | BUY / SELL                    |
++| type        | Enum     | Yes      | MARKET / LIMIT                |
++| timeInForce | Enum     | Yes      | DAY / GTC                     |
++| price       | Decimal  | No       | `null` for MARKET             |
++| quantity    | Decimal  | Yes      | > 0 (BigDecimal)              |
++| timestamp   | ISO-8601 | Yes      | UTC instant (createdAt)       |
+ 
+ #### `TradeExecuted` Schema
+ 
+-| Field     | Type     | Required | Notes             |
+-| --------- | -------- | -------- | ----------------- |
+-| tradeId   | UUID     | Yes      | Unique per trade  |
+-| orderId   | UUID     | Yes      | Originating order |
+-| userId    | UUID     | Yes      | Trade owner       |
+-| ticker    | String   | Yes      | Stock symbol      |
+-| price     | Decimal  | Yes      | Execution price   |
+-| quantity  | Integer  | Yes      | Filled amount     |
+-| side      | Enum     | Yes      | BUY / SELL        |
+-| timestamp | ISO-8601 | Yes      | UTC               |
++| Field       | Type     | Required | Notes                          |
++| ----------- | -------- | -------- | ------------------------------ |
++| tradeId     | UUID     | Yes      | Unique per trade               |
++| buyOrderId  | UUID     | Yes      | Buy-side order id              |
++| sellOrderId | UUID     | Yes      | Sell-side order id             |
++| ticker      | String   | Yes      | Stock symbol                   |
++| price       | Decimal  | Yes      | Execution price                |
++| quantity    | Decimal  | Yes      | Filled amount (BigDecimal)     |
++| timestamp   | ISO-8601 | Yes      | UTC                            |
+ 
+ ---
+ 
+@@ -178,10 +182,9 @@ sequenceDiagram
+ 
+ ### 6.3 API Gateway Rate Limit Policy
+ 
+-| User Type     | Requests/sec | Burst | Notes                         |
+-| ------------- | ------------ | ----- | ----------------------------- |
+-| Authenticated | 50           | 100   | Per userId                    |
+-| Anonymous     | 0            | 0     | Blocked except login/register |
++| Endpoint              | Requests/sec | Burst | Notes                           |
++| --------------------- | ------------ | ----- | ------------------------------- |
++| `POST /api/auth/login`| 10           | 20    | IP-based token bucket via Redis |
+ 
+ ---
+ 
+@@ -190,18 +193,18 @@ sequenceDiagram
+ ```mermaid
+ flowchart LR
+   %% External
+-  User[Client / Browser\n(HTTPS)] -->|443/HTTPS| GW[(API Gateway\nJWT verify + Redis rate limit)]
++  User[Client / Browser\n(HTTP)] -->|8080| GW[(API Gateway\nJWT verify + Redis login rate limit)]
+ 
+-  %% Lightsail host
+-  subgraph LS[AWS Lightsail VM (Docker Compose)]
++  %% Local Docker Compose
++  subgraph DC[Local Docker Compose]
+     direction LR
+ 
+     %% Edge/Gateway and cache
+-    GW --> RDS[(Redis\nCache + Rate Limiter)]
++    GW --> RDS[(Redis\nLogin rate limit + market latest)]
+ 
+     %% Auth & user onboarding
+     GW --> URS[User Registration Service]
+-    GW --> AUTH[Auth Service\n(JWS+JWE issuance)]
++    GW --> AUTH[Auth Service\n(PS256 issuance)]
+     AUTH ---|secrets| KPRIV[(jwt_private.pem)]
+     AUTH ---|secrets| KPUB[(jwt_public.pem)]
+     URS --> P_AUTH[(Postgres: authdb)]
+@@ -210,21 +213,19 @@ flowchart LR
+     %% Orders & matching
+     GW --> ORD[Orders Service]
+     ORD --> P_ORD[(Postgres: ordersdb)]
+-    ORD --> BUS[(Kafka or RabbitMQ)]
++    ORD --> BUS[(Redpanda/Kafka)]
+ 
+     BUS --> ME[Matching Engine Service]
+     ME -->|TradeExecuted| BUS
+ 
+     %% Consumers
+-    BUS --> MDS[Market Data Service]
+-    BUS --> PFS[Portfolio Service]
++    BUS --> MDS[Market Data Consumer]
++    BUS --> TP[Transaction Processor]
+     MDS --> P_MKT[(Postgres: marketdb)]
+-    PFS --> P_TX[(Postgres: transactiondb)]
+-
+-    %% Optional real-time fanout later
+-    MDS -.optional.-> WS[(WebSocket/SSE Fanout)]
+-    ORD -.status updates.-> WS
+-    PFS -.portfolio updates.-> WS
++    TP --> P_TX[(Postgres: transactiondb)]
++    TP -->|TransactionRecorded| BUS
++    BUS --> PFS[Portfolio Service]
++    PFS --> P_PF[(Postgres: portfoliodb)]
+   end
+ 
+   %% Notes
+@@ -236,9 +237,10 @@ flowchart LR
+ 
+ ## **7. Assumptions & Constraints**
+ 
+-* Single Lightsail instance for MVP.
++* Local Docker Compose for MVP runtime.
+ * Each service has its own DB schema.
+-* Event communication via Kafka/RabbitMQ only.
++* Kafka broker is Redpanda (Kafka API compatible).
++* Event communication via Redpanda (Kafka API) only.
+ 
+ ---
+ 
+@@ -263,7 +265,7 @@ flowchart LR
+ 
+ ## **10. Security Mapping**
+ 
+-* ASVS 2.1.1: JWT signature validation.
+-* ASVS 3.2.2: HttpOnly cookie for refresh token.
++* ASVS 2.1.1: JWT signature validation (PS256).
++* ASVS 3.4.1: Internal-only refresh via `X-Internal-Caller` gate.
+ 
+ ---
+
+===== COMMIT 73d2844eea6458d624577dca2b1ed8601a5cd0ab =====
+commit 73d2844eea6458d624577dca2b1ed8601a5cd0ab
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jan 24 19:20:27 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jan 24 19:20:27 2026 +0000
+
+    Enhance future enhancements documentation with detailed descriptions and final product overview
+---
+ docs/future-enhancements.md | 37 ++++++++++++++++++++++++++++++++-----
+ 1 file changed, 32 insertions(+), 5 deletions(-)
+
+diff --git a/docs/future-enhancements.md b/docs/future-enhancements.md
+index d65e3fb..045c150 100644
+--- a/docs/future-enhancements.md
++++ b/docs/future-enhancements.md
+@@ -40,15 +40,42 @@ Common guardrails (applied to all bots by default):
+ 
+ ## Streamlit Analytics Console
+ 
+-* Live dashboard for **PnL, positions, signals, and order flow**.
+-* Reads from existing REST APIs and optional Kafka topics.
++* **UI inspiration:** https://trade-tapestry-view.lovable.app (screenshot reference for layout/feel).
++* Multi-tab console that mirrors a trading ops desk:
++  * **Overview:** KPI tiles (PnL, active bots, orders/min), health badges, recent alerts.
++  * **Market Data:** OHLC candles with trade markers + ML signal overlays.
++  * **Bot Performance:** leaderboard, win rate, drawdown, activity rate.
++  * **Portfolio & Risk:** positions table, exposure by ticker, VaR/drawdown.
++  * **Order Flow:** order timeline, fill rates, slippage heatmap.
++  * **ML Monitoring:** model registry view, drift indicators, recent accuracy/F1.
++* Data sources:
++  * `/api/market-data/candles/*`
++  * `/api/portfolio/*`
++  * `/api/transactions/*`
++  * `signal.generated.v1` (optional) for ML signals
+ * Tech: Streamlit + Plotly + Pandas.
+ 
+ ## Observability Stack
+ 
+-* **Metrics**: Prometheus + Grafana (scrape `/actuator/prometheus` from Java).
+-* **Logs**: Loki + Grafana.
+-* **Tracing**: OpenTelemetry SDK/agent + Jaeger.
++### Final product (what you see)
++* **Grafana dashboards**: latency, error rates, Kafka lag, orders/sec, PnL pipeline health.
++* **Jaeger tracing UI**: end-to-end traces from Gateway through downstream services.
++* **Loki log explorer**: logs searchable by `X-Request-Id` or trace ID.
++* **Alerts**: Slack/email on error spikes, lag, or service down.
++
++### How it works (data flow)
++1. Java services expose metrics via `/actuator/prometheus`.
++2. Prometheus scrapes metrics on an interval.
++3. Grafana visualizes metrics and logs.
++4. OpenTelemetry collects traces (Java + Python).
++5. Jaeger stores and visualizes traces.
++6. Logs stream to Loki (via promtail or Docker log driver).
++
++### Path from idea to product (phased)
++1. **Metrics first**: add Prometheus + Grafana; ship core dashboards.
++2. **Logs next**: add Loki + promtail; correlate by `X-Request-Id`.
++3. **Tracing**: add OpenTelemetry + Jaeger; validate trace propagation.
++4. **Alerting**: define Grafana alert rules and notifications.
+ 
+ ## Platform/Infra
+ 

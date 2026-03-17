@@ -1,0 +1,1679 @@
+
+===== COMMIT 4ae8ee00c44d2676358234a8215493bacd04f845 =====
+commit 4ae8ee00c44d2676358234a8215493bacd04f845
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Fri Sep 5 05:43:55 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Fri Sep 5 05:43:55 2025 +0100
+
+    Deploy
+---
+ api-gateway/README.md                              | 604 +++++++++++++++++++--
+ .../gateway/security/JwtDecoderConfig.java         |  32 ++
+ api-gateway/src/main/resources/application.yml     |  15 +-
+ copy_to_clipboard_all_readmes.sh                   |   3 +
+ docker-compose.yml                                 |   5 +-
+ gateway_smoke.sh                                   | 116 ++++
+ .../service/CandleQueryService.java                |   6 +-
+ .../.gradle/nb-cache/subprojects.ser               | Bin 759 -> 759 bytes
+ .../.gradle/nb-cache/subprojects.ser               | Bin 756 -> 756 bytes
+ 9 files changed, 744 insertions(+), 37 deletions(-)
+
+diff --git a/api-gateway/README.md b/api-gateway/README.md
+index 922ec5e..b422cd2 100644
+--- a/api-gateway/README.md
++++ b/api-gateway/README.md
+@@ -1,61 +1,601 @@
+-## API Gateway – Secure Request Routing & Token Validation
++# 📌 The Ultimate Source of Truth: API Gateway
+ 
+-The **API Gateway** is the central gatekeeper for all client requests in the **TradeStream** platform. It enforces security at the edge, intercepts and verifies tokens, and routes valid requests to internal microservices.
++---
++
++## 1. One-liner
++
++A secure, resilient, reactive API Gateway that centralizes routing, enforces PS256 JWT authentication, and safeguards all ingress traffic with rate limiting, circuit breakers, and unified observability for a trading microservices platform.
++
++---
++
++## 2. Executive Summary (for recruiters)
++
++* Built a **fault-tolerant API Gateway** (Spring Cloud Gateway, Java 21) that serves as the single entry point for 5+ trading microservices.
++* Centralized **JWT-based authentication** at the edge (PS256 enforcement), decoupling downstream services from cross-cutting security concerns.
++* Strengthened resilience by integrating **Resilience4j circuit breakers** with declarative fallbacks, preventing cascading failures.
++* Secured critical endpoints with **Redis-backed IP rate limiting**, mitigating brute-force abuse on login endpoints.
++* Delivered **operational visibility** with X-Request-Id tracing, Actuator metrics, and standardized JSON fallbacks.
++* Designed with **declarative YAML routing** → clean mapping of external APIs to internal services via path rewriting, header manipulation, and filters.
++
++---
++
++## 3. What this service does
++
++* ✅ **Acts as a single entry point** for all client traffic into the platform.
++* 🔐 **Secures downstream services** via PS256 JWT token validation (OAuth2 Resource Server).
++* 🔀 **Routes requests dynamically** using path predicates and filters (`RewritePath`, `StripPrefix`).
++* 🛡 **Protects the system** with Resilience4j circuit breakers, global fallback, and fast-fail behavior.
++* 🚦 **Applies IP-based rate limiting** (Redis token bucket) for login/refresh endpoints.
++* 🔧 **Injects `X-Request-Id` headers** for distributed tracing.
++* 🌐 **Manages CORS globally** with consistent policy across environments.
++* 📊 **Exposes operational telemetry** via Actuator endpoints (`/health`, `/metrics`, `/gateway`).
++
++---
++
++## 4. Tech Stack & Key Choices
++
++| Technology                        | Purpose                   | Why                                                           |
++| --------------------------------- | ------------------------- | ------------------------------------------------------------- |
++| Java 21 + Spring Boot 3           | Runtime & framework       | Reactive, modern ecosystem, long-term support                 |
++| Spring Cloud Gateway              | API gateway framework     | Reactive, declarative routing, first-class Spring integration |
++| Spring Security (OAuth2 Resource) | JWT validation            | Industry-standard, flexible, PS256 signature enforcement      |
++| Resilience4j                      | Circuit breakers          | Reactive, lightweight, isolates failures                      |
++| Spring Data Redis (Reactive)      | Rate limiting state store | Low-latency token bucket algo, distributed-safe               |
++| Docker                            | Containerization          | Consistent deployment across dev/stage/prod                   |
++| Maven                             | Build & dependency mgmt   | Standard for Spring ecosystem                                 |
++| Actuator                          | Observability             | Health, metrics, route introspection                          |
++| Lombok                            | Boilerplate reduction     | Cleaner filter/config classes                                 |
++
++**Design rationale highlights:**
++
++* **JWT validation at the edge** → Zero-trust boundary, downstreams don’t duplicate auth logic.
++* **Declarative routing in YAML** → Easy to evolve without redeploying.
++* **Circuit breakers per domain** → Isolates failures of orders, transactions, portfolio, and market data services.
++* **X-Request-Id injection** → Traceability across distributed logs.
++* **Rate limiting on auth endpoints** → Protects login service from brute-force or abuse.
++
++---
++
++## 5. Architecture at a glance
++
++### Flow 1: Authenticated Request (Place Order)
++
++1. Client sends `POST /api/orders` with `Authorization: Bearer <JWT>`.
++2. Gateway validates token signature (PS256) via public key.
++3. Route predicate matches `/api/orders/**`.
++4. Filters apply:
++
++   * `RewritePath` → `/orders/**`
++   * `RequestIdFilter` → injects `X-Request-Id`.
++5. Request proxied to `orders-service`.
++6. If failures breach threshold, `ordersCB` circuit breaker opens → `/fallback` returns degraded JSON response.
++
++### Flow 2: Public Request with Rate Limiting (Login)
++
++1. Client sends `POST /api/auth/login`.
++2. `permitAll` rule allows bypass of JWT validation.
++3. `RequestRateLimiter` uses Redis + `ipKeyResolver` to enforce quota (10 req/s, burst 20).
++4. On pass → request rewritten to `/login` → proxied to `auth-service`.
++5. On fail → gateway responds with `429 Too Many Requests`.
++
++---
++
++## 6. Rules & Invariants
++
++* All routes must pass JWT validation unless explicitly whitelisted (`/api/auth/login`, `/api/auth/refresh`, `/api/users/register`, `/actuator/health`).
++* JWTs must be PS256-signed.
++* `X-Request-Id` is always present (injected if missing).
++* Login endpoints are rate-limited per IP.
++* Circuit breakers always return fast-fail degraded JSON, never client timeouts.
++* Cookie headers are stripped from all inbound requests.
++
++---
++
++## 7. Data Model
++
++* **Stateless service** → no DB.
++* **Redis** → ephemeral store for rate limiting buckets.
++* **JWT Public Key** → loaded from mounted secrets for PS256 validation.
+ 
+ ---
+ 
+-### Core Responsibilities
++## 8. Configuration (env)
+ 
+-* Terminates and enforces **HTTPS** for all incoming client requests.
+-* Forwards **login and refresh requests** to the Authentication Service.
+-* **Validates access tokens** (JWS) for protected routes.
+-* **Decrypts and verifies refresh tokens** (JWE with inner JWS) securely.
+-* Sets and reads refresh tokens via **Secure, SameSite, HttpOnly cookies**.
+-* Rejects expired, tampered, or unauthorized tokens with appropriate status codes.
++| Key                       | Default                                                                        | Notes                          |
++| ------------------------- | ------------------------------------------------------------------------------ | ------------------------------ |
++| `SERVER_PORT`             | 8080                                                                           | Gateway HTTP port              |
++| `JWT_PUBLIC_KEY_LOCATION` | file:/run/secrets/jwt\_public.pem                                              | Path to PS256 public key       |
++| `AUTH_BASE_URL`           | [http://auth-service:8082](http://auth-service:8082)                           | Auth service base              |
++| `REG_BASE_URL`            | [http://user-registration-service:8081](http://user-registration-service:8081) | User registration service base |
++| `ORDERS_BASE_URL`         | [http://orders-service:8085](http://orders-service:8085)                       | Orders service base            |
++| `SPRING_DATA_REDIS_HOST`  | redis                                                                          | Redis host for rate limiting   |
++| `SPRING_DATA_REDIS_PORT`  | 6379                                                                           | Redis port                     |
+ 
+ ---
+ 
+-### Token Handling Flow
++## 9. Operations & Runbook
++
++**Build & run:**
++
++```bash
++./mvnw clean package -DskipTests
++docker build -t api-gateway .
++docker run -p 8080:8080 --env-file .env api-gateway
++```
+ 
+-#### Access Tokens (JWS)
++**Health & diagnostics:**
+ 
+-* Received via the `Authorization` header as a **Bearer token**.
+-* Verified using the **RSA public key** (paired with the Authentication Service's private signing key).
+-* If valid, request is routed to the correct internal microservice.
++```bash
++curl http://localhost:8080/actuator/health
++curl http://localhost:8080/actuator/gateway/routes
++curl http://localhost:8080/actuator/metrics
++```
+ 
+-#### Refresh Tokens (JWE)
++**Troubleshooting**
+ 
+-* Received via secure HTTP-only cookie or body.
+-* **Decrypted using AES-256-GCM** with a randomly generated CEK.
+-* CEK is encrypted using the **API Gateway’s RSA public key**.
+-* Inner payload (JWS) is validated to ensure integrity before requesting a new access token.
++| Symptom                    | Likely Cause                    | Fix                                   |
++| -------------------------- | ------------------------------- | ------------------------------------- |
++| 401 Unauthorized           | Invalid/expired JWT             | Refresh token, verify PS256 key       |
++| 429 Too Many Requests      | Rate limit exceeded             | Back off; expected behavior           |
++| 503 degraded JSON response | Circuit breaker open            | Check downstream service health       |
++| 404 for expected route     | Misconfigured `application.yml` | Verify `Path` + `RewritePath`         |
++| 500 JWT validation error   | Public key missing/invalid      | Check `JWT_PUBLIC_KEY_LOCATION` mount |
++| Missing `X-Request-Id`     | Filter misconfigured            | Ensure `RequestIdFilter` registered   |
+ 
+ ---
+ 
+-### Security Practices
++## 10. Extensibility
+ 
+-* All communication is **HTTPS only** — no token transmission over HTTP.
+-* Refresh tokens are **never sent via URL** (query string).
+-* **Access tokens are short-lived** and tamper-evident via signature checks.
+-* **Refresh tokens are doubly protected** through JWE + JWS wrapping.
+-* Security touchpoints are indicated in the architecture diagram via lock icons 🔒.
++* Add new routes declaratively in `application.yml` with no code changes.
++* Add RBAC enforcement via a custom filter inspecting JWT `scope`/`roles`.
++* Support **per-user rate limiting** by resolving JWT subject instead of IP.
++* Introduce request/response logging filters for observability.
++* Integrate OpenTelemetry tracing for distributed spans.
+ 
+ ---
+ 
+-### Architecture Overview
++## 11. Where this fits in the bigger system
+ 
+-![API Gateway Flow Diagram](docs/api-gateway-flow.drawio.png)
++The API Gateway is the **front door** of the trading platform.
++It sits between external clients and internal microservices (orders, portfolio, transactions, market data, auth).
++It standardizes ingress policy, **isolates failures**, and **enforces zero-trust security** at the perimeter, enabling downstream services to focus solely on business logic.
+ 
+ ---
+ 
+-### Key Concepts Reflected in Diagram
++## 12. Resume/CV Content (Copy-Paste Ready)
++
++**Impact Bullets**
++
++* Architected and implemented a **secure, reactive API Gateway** (Spring Cloud Gateway, Java 21) as the unified entry point for a trading platform.
++* Enforced **PS256 JWT validation** at the edge, decoupling authentication logic from downstream services.
++* Enhanced resilience with **Resilience4j circuit breakers and JSON fallbacks**, preventing cascading outages.
++* Secured login endpoints with **Redis-backed IP rate limiting**, mitigating brute-force abuse.
++* Delivered operational visibility with **X-Request-Id correlation, Actuator telemetry, and Dockerized deployments**.
++
++**Scope/Scale (fill in)**
++
++* Traffic volume: \~N requests/sec peak.
++* Latency overhead: \<X ms P99.
++* Routed services: Z+ downstream services.
++
++**Tech Stack Summary**
++Java 21, Spring Boot 3, Spring Cloud Gateway, Spring Security (OAuth2, JWT), Project Reactor, Redis, Resilience4j, Docker, Maven, Actuator
++
++---
++
++## 13. Cover-letter paragraph
++
++> I recently developed a **production-grade API Gateway** using Spring Cloud Gateway and Java 21 to secure and centralize ingress for a trading microservices platform. The gateway enforces PS256 JWT authentication, rate limiting, and circuit breaker protections, while exposing operational metrics and maintaining resilience under load. By handling these cross-cutting concerns at the edge, downstream services remain simpler, more focused, and more reliable. I bring this same rigor and system-level thinking to \<Company/Team>.
++
++---
++
++## 14. Interview Talking Points
++
++* Why Spring Cloud Gateway vs alternatives (NGINX, Kong, Envoy).
++* Reactive stack benefits (Project Reactor vs servlet stack).
++* JWT validation flow: PS256 enforcement, key management, scope mapping.
++* Circuit breaker states (CLOSED, OPEN, HALF-OPEN) and fallback strategies.
++* Route Predicates vs Filters in Spring Cloud Gateway.
++* Declarative YAML vs programmatic Java route configuration.
++* X-Request-Id filter → distributed tracing best practices.
++
++---
++
++## 15. Cheat Sheet (for yourself)
++
++**Login & grab access token**
++
++```bash
++ACCESS=$(curl -sS -X POST http://localhost:8080/api/auth/login \
++  -H 'Content-Type: application/json' \
++  -d '{"username":"alice","password":"S3cureP@ss!"}' | jq -r .access_token)
++```
++
++**Place order with JWT**
++
++```bash
++curl -X POST http://localhost:8080/api/orders \
++  -H "Authorization: Bearer $ACCESS" \
++  -H "Content-Type: application/json" \
++  -d '{"userId":"<uuid>","ticker":"AAPL","side":"BUY","type":"LIMIT","timeInForce":"GTC","quantity":10,"price":150.5}'
++```
++
++**Check routes and metrics**
++
++```bash
++curl http://localhost:8080/actuator/gateway/routes | jq .
++curl http://localhost:8080/actuator/metrics
++```
++
++**YAML route snippet (Orders)**
++
++```yaml
++- id: orders
++  uri: ${ORDERS_BASE_URL:http://orders-service:8085}
++  predicates:
++    - Path=/api/orders/**
++  filters:
++    - StripPrefix=1
++    - RewritePath=/api/orders/(?<p>.*),/orders/${p}
++    - CircuitBreaker=name=ordersCB,fallbackUri=forward:/fallback
++```
++
++---
++
++## 16. Routes & Usage (Expanded Reference)
++
++### Gateway Base URL (local)
++
++`http://localhost:8080`
++
++---
++
++### Quick map
++
++| Area         | Gateway route                                | Method(s) |   Auth  | Rewrites to                              | Backing service                    |
++| ------------ | -------------------------------------------- | --------: | :-----: | ---------------------------------------- | ---------------------------------- |
++| Auth         | `/api/auth/login`                            |      POST |    No   | `/login`                                 | `authentication-service` (8082)    |
++| Auth         | `/api/auth/refresh`                          |      POST |   No\*  | `/refresh`                               | `authentication-service`           |
++| Users        | `/api/users/register`                        |      POST |    No   | `/register`                              | `user-registration-service` (8081) |
++| Orders       | `/api/orders`                                |      POST | **Yes** | `/orders`                                | `orders-service` (8085)            |
++| Orders       | `/api/orders/{id}`                           |       GET | **Yes** | `/orders/{id}`                           | `orders-service`                   |
++| Orders       | `/api/orders/{id}/cancel`                    |      POST | **Yes** | `/orders/{id}/cancel`                    | `orders-service`                   |
++| Transactions | `/api/transactions/**`                       |       GET | **Yes** | (no rewrite)                             | `transaction-processor` (8084)     |
++| Portfolio    | `/api/portfolio/{userId}/positions`          |       GET | **Yes** | `/portfolio/{userId}/positions`          | `portfolio-service` (8087)         |
++| Portfolio    | `/api/portfolio/{userId}/positions/{ticker}` |       GET | **Yes** | `/portfolio/{userId}/positions/{ticker}` | `portfolio-service`                |
++| Portfolio    | `/api/portfolio/{userId}/summary`            |       GET | **Yes** | `/portfolio/{userId}/summary`            | `portfolio-service`                |
++| Market Data  | `/api/market-data/candles/{ticker}`          |       GET | **Yes** | `/candles/{ticker}`                      | `market-data-consumer` (8083)      |
++| Market Data  | `/api/market-data/candles/{ticker}/latest`   |       GET | **Yes** | `/candles/{ticker}/latest`               | `market-data-consumer`             |
++| Ops          | `/actuator/health`                           |       GET |    No   | –                                        | gateway itself                     |
++| Ops          | `/actuator/info`                             |       GET |    No   | –                                        | gateway itself                     |
++| Ops          | `/actuator/gateway`                          |       GET |    No   | –                                        | gateway itself                     |
++| Ops          | `/actuator/metrics`                          |       GET |    No   | –                                        | gateway itself                     |
++
++\* The refresh endpoint expects a valid refresh token in the body; it does not use the bearer token.
++
++---
++
++### Authentication
++
++Gateway is configured as a **JWT resource server** using your PS256 public key.
++
++* **Login** → exchange username/password for tokens.
++* **Refresh** → exchange refresh token for a new access token.
++* All protected routes require: `Authorization: Bearer <access_token>`.
++
++#### POST `/api/auth/login`
++
++**Body**
++
++```json
++{
++  "username": "alice",
++  "password": "S3cureP@ss!"
++}
++```
++
++**Response 200**
++
++```json
++{
++  "access_token": "<JWT>",
++  "refresh_token": "<JWT>",
++  "token_type": "Bearer",
++  "user_id": "<uuid>"
++}
++```
+ 
+-* **Authentication delegation**: API Gateway forwards login requests and token refresh requests to the Authentication Service.
+-* **Access control**: Only valid tokens allow access to downstream microservices (e.g., Market Data, Trade Executor).
+-* **Granular rejections**: Handles malformed, expired, or mismatched tokens with status codes like `401`, `403`.
++> Rate limited (Redis) to **10 req/s**, burst **20 per IP**.
+ 
+ ---
+ 
+-> ℹ️ For security principles and architecture breakdown, see [docs/tradestream-prd.md](../docs/tradestream-prd.md).
++#### POST `/api/auth/refresh`
++
++**Body**
++
++```json
++{
++  "refreshToken": "<JWT>"
++}
++```
++
++**Response 200**
++
++```json
++{
++  "access_token": "<new-JWT>",
++  "refresh_token": "<same-JWT>"
++}
++```
++
++---
++
++### User Registration
++
++#### POST `/api/users/register`
++
++**Body**
++
++```json
++{
++  "username": "alice",
++  "password": "S3cureP@ss!"
++}
++```
++
++**Responses**
++
++* `200 OK`: User created.
++* `409 Conflict`: Username already exists.
++
++---
++
++### Orders API
++
++Gateway → `orders-service`
++
++#### POST `/api/orders`
++
++**Body (`PlaceOrderRequest`)**
++
++```json
++{
++  "userId": "<uuid>",
++  "ticker": "AAPL",
++  "side": "BUY",
++  "type": "LIMIT",
++  "timeInForce": "GTC",
++  "quantity": 10,
++  "price": 150.50
++}
++```
++
++**Response 202 (`OrderResponse`)**
++
++```json
++{
++  "id": "<uuid>",
++  "userId": "<uuid>",
++  "ticker": "AAPL",
++  "side": "BUY",
++  "type": "LIMIT",
++  "timeInForce": "GTC",
++  "quantity": 10,
++  "price": 150.5,
++  "status": "NEW",
++  "filledQuantity": 0,
++  "remainingQuantity": 10,
++  "lastFillPrice": null,
++  "createdAt": "2025-09-05T00:27:51Z",
++  "updatedAt": "2025-09-05T00:27:51Z"
++}
++```
++
++#### GET `/api/orders/{id}`
++
++**Response 200:**
++
++```json
++{
++  "id": "<uuid>",
++  "ticker": "AAPL",
++  "side": "BUY",
++  "quantity": 10,
++  "status": "NEW",
++  "filledQuantity": 0
++}
++```
++
++#### POST `/api/orders/{id}/cancel`
++
++**Response 200:**
++
++```json
++{
++  "id": "<uuid>",
++  "status": "CANCELED",
++  "updatedAt": "2025-09-05T00:30:00Z"
++}
++```
++
++---
++
++### Transactions API
++
++Gateway → `transaction-processor`
++
++#### GET `/api/transactions`
++
++**Query params:** `page`, `size`, `sort`
++
++**Response 200**
++
++```json
++{
++  "content": [],
++  "pageable": { "pageNumber": 0, "pageSize": 1 },
++  "totalPages": 0,
++  "totalElements": 0,
++  "last": true,
++  "size": 1,
++  "number": 0,
++  "sort": { "sorted": true },
++  "first": true,
++  "empty": true
++}
++```
++
++---
++
++### Portfolio API
++
++Gateway → `portfolio-service`
++
++#### GET `/api/portfolio/{userId}/positions`
++
++**Response 200**
++
++```json
++[
++  {
++    "ticker": "AAPL",
++    "quantity": 10,
++    "avgCost": 150.5,
++    "realizedPnl": 0,
++    "lastPrice": null,
++    "unrealizedPnl": null,
++    "updatedAt": "2025-09-05T00:00:00Z"
++  }
++]
++```
++
++#### GET `/api/portfolio/{userId}/positions/{ticker}`
++
++**Response 200**
++
++```json
++{
++  "ticker": "AAPL",
++  "quantity": 10,
++  "avgCost": 150.5,
++  "realizedPnl": 0,
++  "lastPrice": 152.0,
++  "unrealizedPnl": 15.0,
++  "updatedAt": "2025-09-05T00:10:00Z"
++}
++```
++
++**404** if not found.
++
++#### GET `/api/portfolio/{userId}/summary`
++
++**Response 200**
++
++```json
++{
++  "realizedPnl": 0,
++  "unrealizedPnl": 15.0,
++  "marketValue": 1520.0,
++  "totalPnl": 15.0
++}
++```
++
++---
++
++### Market Data API
++
++Gateway → `market-data-consumer`
++
++#### GET `/api/market-data/candles/{ticker}`
++
++**Query params**
++
++* `interval` (default `1m`)
++* `limit` (default `100`, max `1000`)
++
++**Response 200**
++
++```json
++[
++  {
++    "ticker": "AAPL",
++    "interval": "1m",
++    "open": 150.0,
++    "high": 152.0,
++    "low": 149.5,
++    "close": 151.0,
++    "volume": 10000,
++    "timestamp": "2025-09-05T00:01:00Z"
++  }
++]
++```
++
++#### GET `/api/market-data/candles/{ticker}/latest`
++
++**Query params:** `interval` (default `1m`)
++
++**Response 200**
++
++```json
++{
++  "ticker": "AAPL",
++  "interval": "1m",
++  "open": 150.0,
++  "high": 152.0,
++  "low": 149.5,
++  "close": 151.0,
++  "volume": 10000,
++  "timestamp": "2025-09-05T00:01:00Z"
++}
++```
++
++**404** if no candle exists for `(ticker, interval)`.
++
++---
++
++### Curl Quick Start
++
++```bash
++# 1) register
++curl -sS -X POST http://localhost:8080/api/users/register \
++  -H 'Content-Type: application/json' \
++  -d '{"username":"alice","password":"S3cureP@ss!"}'
++
++# 2) login
++ACCESS=$(curl -sS -X POST http://localhost:8080/api/auth/login \
++  -H 'Content-Type: application/json' \
++  -d '{"username":"alice","password":"S3cureP@ss!"}' | jq -r .access_token)
++
++# 3) place an order
++curl -sS -X POST http://localhost:8080/api/orders \
++  -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
++  -d '{"userId":"<uuid>","ticker":"AAPL","side":"BUY","type":"LIMIT","timeInForce":"GTC","quantity":10,"price":150.5}' | jq .
++
++# 4) fetch latest candle
++curl -sS -H "Authorization: Bearer $ACCESS" \
++  "http://localhost:8080/api/market-data/candles/AAPL/latest?interval=1m" | jq .
++```
++
++---
++
++### Operational Notes
++
++* **Security:** JWT resource server, PS256.
++* **Headers:** `Cookie` removed by default.
++* **CORS:** Open in dev, tighten in prod.
++* **Rate limiting:** Login only, requires Redis.
++* **Circuit breakers:** `ordersCB`, `txCB`, `portfolioCB`, `mdCB`.
++* **Actuator:** `/actuator/health`, `/info`, `/gateway`, `/metrics`.
++
++---
++
++### Behind the Gateway (debugging)
++
++* `orders-service`: `http://orders-service:8085/orders`
++* `transaction-processor`: `http://transaction-processor:8084`
++* `portfolio-service`: `http://portfolio-service:8087/portfolio`
++* `market-data-consumer`: `http://market-data-consumer:8083/candles`
++* `authentication-service`: `http://auth-service:8082`
++* `user-registration-service`: `http://user-registration-service:8081`
+ 
+ ---
+diff --git a/api-gateway/src/main/java/com/tradestream/gateway/security/JwtDecoderConfig.java b/api-gateway/src/main/java/com/tradestream/gateway/security/JwtDecoderConfig.java
+new file mode 100644
+index 0000000..bacd4f1
+--- /dev/null
++++ b/api-gateway/src/main/java/com/tradestream/gateway/security/JwtDecoderConfig.java
+@@ -0,0 +1,32 @@
++// api-gateway/src/main/java/com/tradestream/gateway/security/JwtDecoderConfig.java
++package com.tradestream.gateway.security;
++
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Configuration;
++import org.springframework.core.io.Resource;
++import org.springframework.security.converter.RsaKeyConverters;
++import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
++import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
++import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
++
++import java.io.InputStream;
++import java.security.interfaces.RSAPublicKey;
++
++@Configuration
++public class JwtDecoderConfig {
++
++  @Bean
++  ReactiveJwtDecoder jwtDecoder(
++      @Value("${spring.security.oauth2.resourceserver.jwt.public-key-location}") Resource pubKeyLocation
++  ) throws Exception {
++    try (InputStream is = pubKeyLocation.getInputStream()) {
++      RSAPublicKey pub = (RSAPublicKey) RsaKeyConverters.x509().convert(is);
++      return NimbusReactiveJwtDecoder
++          .withPublicKey(pub)
++          .signatureAlgorithm(SignatureAlgorithm.PS256) // <— force PS256
++          .build();
++    }
++  }
++}
++
+diff --git a/api-gateway/src/main/resources/application.yml b/api-gateway/src/main/resources/application.yml
+index ab85a7e..15fbaf4 100644
+--- a/api-gateway/src/main/resources/application.yml
++++ b/api-gateway/src/main/resources/application.yml
+@@ -11,6 +11,7 @@ spring:
+         jwt:
+           # Mount the same secret as auth-service
+           public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:/run/secrets/jwt_public.pem}
++          jws-algorithm: PS256
+ 
+   cloud:
+     gateway:
+@@ -56,7 +57,8 @@ spring:
+           predicates:
+             - Path=/api/orders/**
+           filters:
+-            # orders-service already exposes /orders/**
++            - StripPrefix=1
++            - RewritePath=/api/orders/(?<p>.*),/orders/${p}
+             - CircuitBreaker=name=ordersCB,fallbackUri=forward:/fallback
+ 
+         # ---------- TRANSACTIONS (already /api/transactions/**) ----------
+@@ -80,10 +82,11 @@ spring:
+         - id: market-data
+           uri: http://market-data-consumer:8083
+           predicates:
+-            - Path=/api/market-data/**
++            - Path=/api/market-data/candles/**
+           filters:
+             # Rewrite to /candles/**
+-            - RewritePath=/api/market-data/(?<p>.*),/candles/${p}
++            # - StripPrefix=2
++            - RewritePath=/api/market-data/(?<p>.*),/${p}
+             - CircuitBreaker=name=mdCB,fallbackUri=forward:/fallback
+ 
+       globalcors:
+@@ -109,3 +112,9 @@ resilience4j:
+       portfolioCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
+       mdCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
+ 
++logging:
++  level:
++    org.springframework:security: DEBUG
++    org.springframework.security.oauth2: DEBUG
++    org.springframework.security.oauth2.server.resource: DEBUG
++
+diff --git a/copy_to_clipboard_all_readmes.sh b/copy_to_clipboard_all_readmes.sh
+new file mode 100755
+index 0000000..3722ead
+--- /dev/null
++++ b/copy_to_clipboard_all_readmes.sh
+@@ -0,0 +1,3 @@
++cd ~/tradestream 
++cat ./services/**/*.md | pbcopy
++echo "All Readmes except for api gateway one and general root one have been copied to clipboard"
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 852e911..a0bede6 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -22,7 +22,10 @@ services:
+       REG_BASE_URL: http://user-registration-service:8081
+       ORDERS_BASE_URL: http://orders-service:8085
+       JWT_PUBLIC_KEY_LOCATION: file:/run/secrets/jwt_public.pem
+-      REDIS_HOST: redis
++      SPRING_DATA_REDIS_HOST: redis
++      SPRING_DATA_REDIS_PORT: 6379
++      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_PUBLIC_KEY_LOCATION: file:/run/secrets/jwt_public.pem
++      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWS_ALGORITHM: PS256
+     restart: unless-stopped
+     healthcheck:
+       test: ["CMD","curl","-f","http://localhost:8080/actuator/health"]
+diff --git a/gateway_smoke.sh b/gateway_smoke.sh
+new file mode 100755
+index 0000000..4979f33
+--- /dev/null
++++ b/gateway_smoke.sh
+@@ -0,0 +1,116 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++BASE_URL="${BASE_URL:-http://localhost:8080}"
++USERNAME="${USERNAME:-alice}"
++PASSWORD="${PASSWORD:-S3cureP@ss!}"
++
++STATUS="" BODY=""
++
++have_jq() { command -v jq >/dev/null 2>&1; }
++say() { printf "\n==> %s\n" "$*"; }
++pp() {
++  # Print arg as JSON only if it looks like JSON; otherwise print raw.
++  local s="${1-}"
++  # Trim leading whitespace
++  s="${s#"${s%%[![:space:]]*}"}"
++  if have_jq && [[ "$s" == \{* || "$s" == \[* ]]; then
++    echo "$1" | jq .
++  else
++    # print raw (and don't fail the script)
++    printf "%s\n" "$1"
++  fi
++}
++
++
++# Curl wrapper that captures BODY and STATUS in the *parent* shell
++curl_json() {
++  local method="$1"; shift
++  local url="$1"; shift
++  local data="${1:-}" ; shift || true
++  local args=("$@")
++
++  if [[ -n "$data" ]]; then
++    resp=$(curl -sS -w $'\n%{http_code}' -X "$method" "$url" -H "Content-Type: application/json" -d "$data" "${args[@]}")
++  else
++    resp=$(curl -sS -w $'\n%{http_code}' -X "$method" "$url" "${args[@]}")
++  fi
++
++  STATUS="${resp##*$'\n'}"
++  BODY="${resp%$'\n'*}"
++}
++
++# 0) Health check
++say "Gateway health"
++curl_json GET "$BASE_URL/actuator/health"
++pp "$BODY"
++echo "HTTP $STATUS"
++
++# 1) Register (idempotent: 200 first run, 409 next)
++say "Register user via Gateway (/api/users/register)"
++REGISTER_PAYLOAD=$(jq -n --arg u "$USERNAME" --arg p "$PASSWORD" '{username:$u, password:$p}' 2>/dev/null || echo "{\"username\":\"$USERNAME\",\"password\":\"$PASSWORD\"}")
++curl_json POST "$BASE_URL/api/users/register" "$REGISTER_PAYLOAD"
++echo "HTTP $STATUS"
++pp "$BODY"
++
++# 2) Login → capture tokens and user_id
++say "Login to get access & refresh tokens"
++curl_json POST "$BASE_URL/api/auth/login" "$REGISTER_PAYLOAD"
++echo "HTTP $STATUS"
++pp "$BODY"
++
++if have_jq; then
++  ACCESS=$(echo "$BODY"   | jq -r '.access_token // empty')
++  REFRESH=$(echo "$BODY"  | jq -r '.refresh_token // empty')
++  USER_ID=$(echo "$BODY"  | jq -r '.user_id // empty')
++else
++  ACCESS=$(echo "$BODY"  | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
++  REFRESH=$(echo "$BODY" | sed -n 's/.*"refresh_token":"\([^"]*\)".*/\1/p')
++  USER_ID=$(echo "$BODY" | sed -n 's/.*"user_id":"\([^"]*\)".*/\1/p')
++fi
++
++if [[ -z "${ACCESS:-}" || -z "${REFRESH:-}" || -z "${USER_ID:-}" ]]; then
++  echo "ERROR: Could not parse tokens/user_id from login response."
++  exit 1
++fi
++
++# 3) Protected endpoint WITHOUT token → expect 401
++say "Protected endpoint without token should be 401"
++curl_json GET "$BASE_URL/api/transactions/$USER_ID"
++echo "HTTP $STATUS (expected 401)"
++
++# 4) Protected endpoint WITH token
++say "Protected endpoint with Bearer token (transactions page)"
++curl_json GET "$BASE_URL/api/transactions/$USER_ID?page=0&size=1" "" -H "Authorization: Bearer $ACCESS"
++echo "HTTP $STATUS"
++pp "$BODY"
++
++# 5) Refresh token via gateway
++say "Refresh access token via Gateway"
++REFRESH_PAYLOAD=$(jq -n --arg t "$REFRESH" '{refreshToken:$t}' 2>/dev/null || echo "{\"refreshToken\":\"$REFRESH\"}")
++curl_json POST "$BASE_URL/api/auth/refresh" "$REFRESH_PAYLOAD"
++echo "HTTP $STATUS"
++pp "$BODY"
++
++# 6) Market-data checks
++TICKER="${TICKER:-AAPL}"
++
++say "Market-data without token (expect 401)"
++curl_json GET "$BASE_URL/api/market-data/$TICKER/latest?interval=1m"
++echo "HTTP $STATUS (expected 401)"
++
++say "Market-data with token (expect 200 or 404 depending on data)"
++curl_json GET "$BASE_URL/api/market-data/$TICKER/latest?interval=1m" "" -H "Authorization: Bearer $ACCESS"
++echo "HTTP $STATUS"
++pp "$BODY"
++
++# 7) Portfolio
++say "Portfolio positions with token (expect 200)"
++curl_json GET "$BASE_URL/api/portfolio/$USER_ID/positions" "" -H "Authorization: Bearer $ACCESS"
++echo "HTTP $STATUS"
++pp "$BODY"
++
++# 8) Circuit-breaker hint
++say "Circuit-breaker fallback test: stop a downstream (e.g., orders-service) then curl /api/orders/not-real with token and look for fallback JSON."
++say "All done. ✅"
++
+diff --git a/services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/CandleQueryService.java b/services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/CandleQueryService.java
+index 763dd0a..41fe8b4 100644
+--- a/services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/CandleQueryService.java
++++ b/services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/CandleQueryService.java
+@@ -18,7 +18,11 @@ public class CandleQueryService {
+     private final CandleRepository repo;
+ 
+     // Cache the latest candle per (ticker, interval)
+-    @Cacheable(cacheNames = "latest", key = "T(java.lang.String).format('%s:%s', #interval, #ticker.toUpperCase())")
++    @Cacheable(
++        cacheNames = "latest", 
++        key = "T(java.lang.String).format('%s:%s', #interval, #ticker.toUpperCase())",
++        unless = "#result == null"   // don't cache null values
++    )
+     public Candle latest(String ticker, String interval) {
+         return repo.findFirstByTickerIgnoreCaseAndIntervalOrderByBucketStartDesc(ticker, interval)
+                    .orElse(null); // cache-null-values=false, so null not cached
+diff --git a/services/matching-engine/.gradle/nb-cache/subprojects.ser b/services/matching-engine/.gradle/nb-cache/subprojects.ser
+index b09ccf0..26a865f 100644
+Binary files a/services/matching-engine/.gradle/nb-cache/subprojects.ser and b/services/matching-engine/.gradle/nb-cache/subprojects.ser differ
+diff --git a/services/orders-service/.gradle/nb-cache/subprojects.ser b/services/orders-service/.gradle/nb-cache/subprojects.ser
+index 07aca34..84a183a 100644
+Binary files a/services/orders-service/.gradle/nb-cache/subprojects.ser and b/services/orders-service/.gradle/nb-cache/subprojects.ser differ
+
+===== COMMIT a81176b3253cfabcc61fbf9d6aeb77e945135c52 =====
+commit a81176b3253cfabcc61fbf9d6aeb77e945135c52
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Fri Sep 5 18:55:16 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Fri Sep 5 18:55:16 2025 +0100
+
+    Deploy
+---
+ CVREADME.md | 283 ++++++++++++++++++++++++++++++++++++++++++++
+ README.md   | 382 ++++++++++++++++++++++++++----------------------------------
+ 2 files changed, 447 insertions(+), 218 deletions(-)
+
+diff --git a/CVREADME.md b/CVREADME.md
+new file mode 100644
+index 0000000..a7ffd3a
+--- /dev/null
++++ b/CVREADME.md
+@@ -0,0 +1,283 @@
++# TradeStream — High-Performance Trading Microservices Platform
++
++> A production-minded, event-driven trading platform built with Java/Spring, Kafka/Redpanda, PostgreSQL, Redis, and Docker. This **root README** is the entry point for recruiters and engineers: architecture, how to run, critical routes, and links into each service’s source of truth.
++
++---
++
++## TL;DR
++
++* **Edge security:** Spring Cloud **API Gateway** validates **PS256 JWTs**, rate-limits login, injects `X-Request-Id`, and applies circuit-breaker fallbacks.
++* **Order flow:** **Orders Service** validates & persists → **Matching Engine** executes (price-time) → emits `trade.executed.v1`.
++* **Post-trade:** **Transaction Processor** journals trades → emits `transaction.recorded.v1`.
++* **Read model:** **Portfolio Service** projects positions (qty, WAC, realized PnL).
++* **Market data:** **Market Data Consumer** aggregates OHLCV; “latest” cached in Redis with precise eviction.
++
++All services have Flyway migrations, Actuator health, and Dockerized builds. **Gateway is the only public entry.**
++
++---
++
++## Architecture Overview (CQRS + Event-Driven)
++
++The platform follows **CQRS** and **event-driven** patterns. The **API Gateway** is the single, secure entry point.
++Write paths (place/cancel order) produce events on **Kafka (Redpanda)**; read-side services consume those events to maintain projections (portfolios, OHLCV). This decouples components, improves fault tolerance, and allows independent scaling.
++
++### High-Level Data Flow (Placing an Order)
++
++```mermaid
++sequenceDiagram
++    participant Client
++    participant API Gateway
++    participant Orders Service
++    participant Kafka
++    participant Matching Engine
++    participant Downstream Consumers
++
++    Client->>+API Gateway: POST /api/orders (with JWT)
++    API Gateway->>+Orders Service: Forward request
++    Orders Service-->>-API Gateway: 202 Accepted
++    API Gateway-->>-Client: 202 Accepted
++
++    Orders Service->>+Kafka: Publish(order.placed.v1)
++    Kafka-->>-Orders Service: Ack
++
++    Matching Engine->>+Kafka: Consume(order.placed.v1)
++    Note over Matching Engine: Price-time matching
++    Matching Engine->>+Kafka: Publish(trade.executed.v1)
++    Kafka-->>-Matching Engine: Ack
++
++    Downstream Consumers->>+Kafka: Consume(trade.executed.v1)
++    Note over Downstream Consumers: Tx Processor → Portfolio; Market Data aggregates candles
++    Kafka-->>-Downstream Consumers: Ack
++```
++
++### System Map (ASCII)
++
++```
++Internet / Clients
++        │
++        ▼
++┌──────────────────────────┐
++│     API GATEWAY (8080)   │  PS256 JWT, Circuit Breakers, RL, X-Request-Id
++└───────────┬──────────────┘
++            │
++   ┌────────┼──────────┬──────────────────────────┬───────────────┐
++   ▼        ▼          ▼                          ▼               ▼
++AUTH     USER-REG   ORDERS (8085)          TRANSACTION PROC    MARKET DATA
++(8082)   (8081)     POST/GET/CANCEL        (8084) journal      CONSUMER (8083)
++ /login    /register     │                 recorded.v1         OHLCV + Redis
++ /refresh (internal)     │                      │                  │
++                         ▼                      ▼                  │
++                    KAFKA / REDPANDA (9092)  ←────────────────────┘
++                         │
++                         ▼
++                  MATCHING ENGINE (8086)
++                  price-time priority → trade.executed.v1
++                         │
++                         ▼
++                   PORTFOLIO (8087)
++                   positions + realized PnL
++```
++
++---
++
++## Services & Ports
++
++| Service                   | Port | Purpose                                                                                       | README                                         |
++| ------------------------- | ---: | --------------------------------------------------------------------------------------------- | ---------------------------------------------- |
++| **API Gateway**           | 8080 | JWT validation (PS256), routing, Redis rate limiting (login), circuit breakers, observability | `api-gateway/README.md`                        |
++| **User Registration**     | 8081 | Internal-only `/register` with BCrypt; zero-trust via internal header                         | `services/user-registration-service/README.md` |
++| **Authentication**        | 8082 | `/login` issues access+refresh; `/refresh` (internal-only) mints new access (PS256 signing)   | `services/authentication-service/README.md`    |
++| **Market Data Consumer**  | 8083 | Aggregates trades → OHLCV; Redis-cached latest; REST reads                                    | `services/market-data-consumer/README.md`      |
++| **Transaction Processor** | 8084 | Journals executed trades into immutable ledger; publishes `transaction.recorded.v1`           | `services/transaction-processor/README.md`     |
++| **Orders Service**        | 8085 | Place/get/cancel orders; publishes `order.placed.v1`; applies fills idempotently              | `services/orders-service/README.md`            |
++| **Matching Engine**       | 8086 | Price-time priority matching; publishes `trade.executed.v1`                                   | `services/matching-engine/README.md`           |
++| **Portfolio Service**     | 8087 | Projects transactions → positions (qty, avgCost, realized PnL)                                | `services/portfolio-service/README.md`         |
++
++> Infra: Redpanda (Kafka), Postgres (per service), Redis (rate limit + market “latest”) via `docker-compose.yml`.
++
++---
++
++## Gateway Route Map (Quick Reference)
++
++| Area         | Gateway Route                                    | Auth | Rewrites to…                                 |
++| ------------ | ------------------------------------------------ | :--: | -------------------------------------------- |
++| Auth         | `POST /api/auth/login`                           |  No  | `/login` → authentication-service (8082)     |
++| Auth         | `POST /api/auth/refresh`                         |  No  | `/refresh` (internal header enforced)        |
++| Users        | `POST /api/users/register`                       |  No  | `/register` → user-registration (8081)       |
++| Orders       | `POST /api/orders`                               |  Yes | `/orders` → orders-service (8085)            |
++| Orders       | `GET /api/orders/{id}`                           |  Yes | `/orders/{id}`                               |
++| Orders       | `POST /api/orders/{id}/cancel`                   |  Yes | `/orders/{id}/cancel`                        |
++| Transactions | `GET /api/transactions/**`                       |  Yes | (no rewrite) → transaction-processor (8084)  |
++| Portfolio    | `GET /api/portfolio/{userId}/positions[...]`     |  Yes | `/portfolio/...` → portfolio-service (8087)  |
++| Market Data  | `GET /api/market-data/candles/{ticker}[/latest]` |  Yes | `/candles/...` → market-data-consumer (8083) |
++| Ops          | `/actuator/*`                                    |  No  | Gateway self                                 |
++
++* **Login is rate-limited per IP** (Redis).
++* **Circuit breakers** return JSON fallbacks (no client timeouts).
++* **`X-Request-Id`** is injected for traceability.
++
++---
++
++## Technology Stack
++
++| Category         | Technology                                                 | Purpose                                              |
++| ---------------- | ---------------------------------------------------------- | ---------------------------------------------------- |
++| Backend          | Java 17 & 21, Spring Boot 3, Spring Cloud, Project Reactor | Core application frameworks; reactive gateway        |
++| Messaging        | Apache Kafka (Redpanda)                                    | High-throughput, durable event bus                   |
++| Database         | PostgreSQL, Spring Data JPA, Flyway                        | ACID persistence, ORM, versioned migrations          |
++| Caching / Memory | Redis, Java PriorityQueue                                  | Market “latest” cache; in-memory order books         |
++| Security         | Spring Security, **JWT (PS256)**                           | Centralized authentication/authorization at the edge |
++| Resilience       | Resilience4j, DLQ pattern                                  | Circuit breakers, retries, dead-letter queues        |
++| Packaging        | Docker, Docker Compose                                     | Consistent, isolated environments                    |
++| Build & Ops      | Maven, Gradle, Spring Actuator                             | Dependency mgmt, builds, health/metrics endpoints    |
++
++---
++
++## Getting Started
++
++### Prerequisites
++
++* Docker & Docker Compose
++* Java 17+ (for local runs/IDE)
++* OpenSSL
++* `curl` & `jq` (handy)
++* (Optional) `kcat` for Kafka testing
++
++### Generate JWT Keys (PS256)
++
++```bash
++mkdir -p secrets
++openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/jwt_private.pem
++openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
++```
++
++### Bring Up Everything (Dev)
++
++```bash
++docker compose up -d --build
++```
++
++Check health:
++
++```bash
++curl http://localhost:8080/actuator/health
++# {"status":"UP"}
++```
++
++---
++
++## Quickstart (End-to-End via Gateway)
++
++1. **Register → Login**
++
++```bash
++curl -sS -X POST http://localhost:8080/api/users/register \
++  -H 'Content-Type: application/json' \
++  -d '{"username":"alice","password":"S3cureP@ss!"}'
++
++ACCESS=$(curl -sS -X POST http://localhost:8080/api/auth/login \
++  -H 'Content-Type: application/json' \
++  -d '{"username":"alice","password":"S3cureP@ss!"}' | jq -r .access_token)
++echo "ACCESS=$ACCESS"
++```
++
++2. **Place Order**
++
++```bash
++curl -sS -X POST http://localhost:8080/api/orders \
++  -H "Authorization: Bearer $ACCESS" \
++  -H 'Content-Type: application/json' \
++  -d '{"userId":"<uuid>","ticker":"AAPL","side":"BUY","type":"LIMIT","timeInForce":"GTC","quantity":10,"price":150.5}' | jq .
++```
++
++3. **Portfolio & Market Data**
++
++```bash
++curl -sS -H "Authorization: Bearer $ACCESS" \
++  http://localhost:8080/api/portfolio/<uuid>/positions | jq .
++
++curl -sS -H "Authorization: Bearer $ACCESS" \
++  "http://localhost:8080/api/market-data/candles/AAPL/latest?interval=1m" | jq .
++```
++
++> See helper scripts: `e2e_trade_pipeline_test.sh`, `e2e_portfolio_service.sh`, `gateway_smoke.sh`.
++
++---
++
++## Configuration (high-value envs)
++
++* **Gateway**
++
++  * `SERVER_PORT=8080`
++  * `JWT_PUBLIC_KEY_LOCATION=file:/run/secrets/jwt_public.pem`
++  * `SPRING_DATA_REDIS_HOST=redis` / `SPRING_DATA_REDIS_PORT=6379`
++* **Auth**
++
++  * `JWT_PRIVATE_KEY_PATH=/run/secrets/jwt_private.pem`
++  * `JWT_PUBLIC_KEY_PATH=/run/secrets/jwt_public.pem`
++  * `SPRING_DATASOURCE_URL=jdbc:postgresql://.../authdb`
++* Each service has Flyway-managed Postgres config in `application.yml` and `docker-compose.yml`.
++
++---
++
++## Rules & Invariants (core guarantees)
++
++* **Edge auth:** Gateway validates **PS256 JWT** for all non-whitelisted routes.
++* **Idempotency ledgers:** Consumers persist processed message IDs to guarantee once-only effects under at-least-once delivery.
++* **Orders state machine:** `NEW → PARTIALLY_FILLED → FILLED | CANCELED | REJECTED` (strict).
++* **Portfolio math:** BUY recomputes **WAC**; SELL clamps to long qty; `avgCost` resets to `null` when flat.
++* **Market data cache:** “Latest” candle cached in Redis; **each upsert evicts** the exact key → next read is fresh.
++* **Headers:** `Cookie` stripped by Gateway; `X-Request-Id` injected if missing.
++
++---
++
++## Troubleshooting
++
++| Symptom                               | Likely Cause                            | Fix                                             |
++| ------------------------------------- | --------------------------------------- | ----------------------------------------------- |
++| `401` at Gateway                      | Missing/expired/invalid JWT (PS256)     | Re-login; verify public key mount               |
++| `429` on `/api/auth/login`            | Rate limit triggered                    | Back off (expected)                             |
++| Gateway returns degraded JSON (`503`) | Circuit breaker open                    | Check downstream `/actuator/health`             |
++| Orders not executing                  | Matching Engine/Kafka not consuming     | Inspect Kafka topics & ME logs                  |
++| Duplicate fills or PnL drift          | Ledger/migrations missing               | Ensure Flyway applied; check unique constraints |
++| `/latest` candle seems stale          | Quiet market + TTL not expired          | Expected until next trade evicts cache          |
++| Registration returns `403`            | Missing internal header on internal hop | Ensure Gateway injects `X-Internal-Caller`      |
++
++---
++
++## Repository Layout (trimmed)
++
++```
++.
++├── api-gateway/
++├── services/
++│   ├── authentication-service/
++│   ├── user-registration-service/
++│   ├── orders-service/
++│   ├── matching-engine/
++│   ├── transaction-processor/
++│   └── market-data-consumer/
++├── docker-compose.yml
++├── secrets/                 # jwt_private.pem / jwt_public.pem
++├── e2e_*.sh / gateway_smoke.sh
++└── bench_out/
++```
++
++---
++
++## Deep Dives (Sources of Truth)
++
++* Gateway → `api-gateway/README.md`
++* Authentication → `services/authentication-service/README.md`
++* User Registration → `services/user-registration-service/README.md`
++* Orders → `services/orders-service/README.md`
++* Matching Engine → `services/matching-engine/README.md`
++* Transaction Processor → `services/transaction-processor/README.md`
++* Market Data Consumer → `services/market-data-consumer/README.md`
++
++---
++
++## License
++
++See [`LICENSE`](LICENSE).
++
+diff --git a/README.md b/README.md
+index f66fc48..c86feb9 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,6 @@
+-<h1 align="center">TradeStream — Real-Time Financial Data Processor</h1>
++# TradeStream — Distributed Trading Platform
++
++> Event-driven trading system with Spring/Java microservices, Kafka/Redpanda, PostgreSQL, Redis, and Docker. This root README is the entry for recruiters and engineers: what’s here **today**, how to run it, and where to look next.
+ 
+ <p align="center">
+   <a href="https://github.com/VictoriousWealth/tradestream">
+@@ -10,7 +12,7 @@
+   <a href="https://github.com/VictoriousWealth/tradestream/pulls">
+     <img src="https://img.shields.io/github/issues-pr/VictoriousWealth/tradestream" alt="Pull Requests">
+   </a>
+-  <a href="https://github.com/VictoriousWealth/tradestream/blob/main/LICENSE">
++  <a href="LICENSE">
+     <img src="https://img.shields.io/badge/LICENSE-CC%20BY--NC%204.0-blue.svg" alt="License">
+   </a>
+   <a href="https://github.com/VictoriousWealth/tradestream/commits/main">
+@@ -18,281 +20,225 @@
+   </a>
+ </p>
+ 
+-<p align="center">
+-  Scalable, secure microservice-based system simulating real-time financial transaction processing.<br>
+-  Inspired by architecture and engineering practices used in modern financial institutions like JPMorgan Chase.<br><br>
+-  <a href="#project-overview"><strong>Explore the Project Overview »</strong></a>
+-</p>
+-
+ ---
+ 
+-<a name="table-of-contents"></a>
+-## 📑 Table of Contents
+-
+-- [Project Overview](#project-overview)
+-- [Technology Stack](#technology-stack)
+-- [System Architecture](#system-architecture)
+-- [Getting Started](#getting-started)
+-- [Usage](#usage)
+-- [Roadmap](#roadmap)
+-- [Security Considerations](#security-considerations)
+-- [Documentation](#documentation)
+-- [Learning Objectives](#learning-objectives)
+-- [License](#license)
+-- [Contact](#contact)
+-- [Acknowledgements](#acknowledgements)
++## TL;DR
+ 
+----
++* **Edge security:** Spring Cloud **API Gateway** (Java 21) validates **PS256 JWT** at the perimeter, injects `X-Request-Id`, applies **Resilience4j** circuit breakers, and **Redis** IP rate limits **login**.
++* **Order → Trade pipeline:** **Orders Service** → **Matching Engine** (price–time priority) → **Transaction Processor** (immutable journal).
++* **Read models:** **Portfolio Service** projects positions & realized PnL. **Market Data Consumer** aggregates OHLCV and keeps “latest” hot in Redis.
++* **Everything is containerized**; **Flyway** manages schemas; **Actuator** provides health/metrics.
+ 
+-<a name="project-overview"></a>
+-## 🚀 Project Overview [↑ Top](#table-of-contents)
+-
+-TradeStream is a backend portfolio project that demonstrates:
+-
+-- Secure, production-grade APIs using **Java Spring Boot**
+-- Event-driven architecture with **Kafka or RabbitMQ**
+-- Decoupled microservices with independent **PostgreSQL & Redis** data stores
+-- Containerized deployment with **Docker & Docker Compose**
+-- Secure API authentication using **JWT**
+-- Real-time transaction processing simulation
+-- Cloud deployment on **AWS Lightsail**
+-
+-⚠️ **Note:** This project is for educational and portfolio purposes only. It does not process real financial transactions.
++> This repo is **educational/portfolio**—it simulates a trading stack; it does **not** process real money.
+ 
+ ---
+ 
+-<a name="technology-stack"></a> 
+-## 🛠️ Technology Stack [↑ Top](#table-of-contents)
+-
+-<p align="center">
+-
+-  <a href="https://www.java.com/" target="_blank">
+-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/java/java-original-wordmark.svg" title="Java" alt="Java" width="80px" />
+-  </a>
+-
+-  <a href="https://spring.io/projects/spring-boot" target="_blank">
+-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/spring/spring-original-wordmark.svg" title="Spring Boot" alt="Spring Boot" width="80px" />
+-  </a>
+-
+-  <a href="https://www.docker.com/" target="_blank">
+-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/docker/docker-plain-wordmark.svg" title="Docker" alt="Docker" width="80px" />
+-  </a>
+-
+-  <a href="https://kubernetes.io/" target="_blank">
+-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/kubernetes/kubernetes-plain-wordmark.svg" title="Kubernetes" alt="Kubernetes" width="80px" />
+-  </a>
+-
+-  <a href="https://www.postgresql.org/" target="_blank">
+-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/postgresql/postgresql-plain-wordmark.svg" title="PostgreSQL" alt="PostgreSQL" width="80px" />
+-  </a>
+-
+-  <a href="https://redis.io/" target="_blank">
+-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/redis/redis-original-wordmark.svg" title="Redis" alt="Redis" width="80px" />
+-  </a>
+-
+-  <a href="https://www.rabbitmq.com/" target="_blank">
+-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/rabbitmq/rabbitmq-original-wordmark.svg" title="RabbitMQ" alt="RabbitMQ" width="80px" />
+-  </a>
+-
+-  <a href="https://aws.amazon.com/" target="_blank">
+-    <img src="https://github.com/devicons/devicon/blob/v2.16.0/icons/amazonwebservices/amazonwebservices-plain-wordmark.svg" title="AWS" alt="AWS" width="80px" />
+-  </a>
+-
+-  <a href="https://www.terraform.io/" target="_blank">
+-    <img src="https://github.com/VictoriousWealth/VictoriousWealth/blob/main/terraform-icon-purple" title="Terraform" alt="Terraform" width="80px" />
+-  </a>
+-
+-</p>
+-
+-
+-
+-| Category             | Technology                              |
+-|----------------------|-----------------------------------------|
+-| Backend Framework    | Java Spring Boot                        |
+-| Stream Processing    | Kafka or RabbitMQ (configurable)        |
+-| Database             | PostgreSQL                              |
+-| Cache Layer          | Redis                                   |
+-| Authentication       | JWS & JWE (JWT Signed & JWT Encrypted)  |
+-| Containerization     | Docker, Docker Compose                  |
+-| CI/CD (MVP)          | GitHub Actions                          |
+-| Deployment           | AWS Lightsail                           |
+-
+-**Planned Future Enhancements:** 
+-
+-- Kubernetes for container orchestration  
+-- Terraform for infrastructure as code  
+-- Prometheus & Grafana for observability  
+-- Advanced API security measures  
++## What’s the current status?
++
++| Component                   | Path                                  | Status | Notes                                                                                    |
++| --------------------------- | ------------------------------------- | :----: | ---------------------------------------------------------------------------------------- |
++| **API Gateway**             | `api-gateway/`                        |    ✅   | PS256 JWT verification, Redis rate limit (login), circuit breakers, CORS, tracing header |
++| **User Registration**       | `services/user-registration-service/` |    ✅   | Internal-only `/register` gated by `X-Internal-Caller: api-gateway`, BCrypt, Postgres    |
++| **Authentication Service**  | `services/authentication-service/`    |    ✅   | `/login` issues **PS256**-signed access+refresh; `/refresh` is **internal-only**         |
++| **Orders Service**          | `services/orders-service/`            |    ✅   | REST + Kafka producer/consumer, pessimistic locks, idempotent fill tracking              |
++| **Matching Engine**         | `services/matching-engine/`           |    ✅   | Price–time priority, idempotency ledger, DLQ                                             |
++| **Transaction Processor**   | `services/transaction-processor/`     |    ✅   | Journals `trade.executed.v1` → emits `transaction.recorded.v1`, REST queries             |
++| **Portfolio Service**       | `services/portfolio-service/`         |    ✅   | Projects transactions → positions & realized PnL; pessimistic locking + ledger           |
++| **Market Data Consumer**    | `services/market-data-consumer/`      |    ✅   | Kafka→Postgres OHLCV; Redis-cached “latest” with precise eviction                        |
++| **Docs: recruiter summary** | `cvreadme.md`                         |    ✅   | Hybrid, recruiter-friendly project overview                                              |
++| **Kubernetes/Terraform**    | —                                     |   🔜   | Planned future work; not present in this repo                                            |
++| **RabbitMQ option**         | —                                     |    ❌   | **Not used**—message bus is **Kafka/Redpanda only**                                      |
++| **JWE (encrypted JWTs)**    | —                                     |    ❌   | **Not used**—project uses **signed JWT (PS256)** only                                    |
++
++Legend: ✅ present & working (dev), 🔜 planned, ❌ not applicable.
+ 
+ ---
+ 
+-<a name="system-architecture"></a>
+-## 🏗️ System Architecture [↑ Top](#table-of-contents)
+-
+-> _See [`./docs/high-level-architecture-diagram.png`](./docs/high-level-architecture-diagram.png) for a full high level system diagram._
++## Architecture at a glance
+ 
+-> _See [`./api-gateway/docs/api-gateway-flow.drawio.png`](./api-gateway/docs/api-gateway-flow.drawio.png) for a more detailed version focused on API Gateway._
+-
+-> _See [`./authentication-service/docs/authentication-flow.drawio.png`](./authentication-service/docs/authentication-flow.drawio.png) for a more detailed version focused on the Authentication Service._
+-
+-**Core Components:** 
+-
+-- **API Gateway:** Public entry point, request routing, token validation  
+-- **Authentication Service:** Issues JWT tokens after successful login  
+-- **Transaction Processor:** Handles transaction logic, publishes events  
+-- **Market Data Consumer:** Placeholder for future real-time market data processing  
+-- **Message Broker:** Kafka or RabbitMQ for decoupled, event-driven communication  
+-- **PostgreSQL & Redis:** Each microservice manages its own independent data stores  
++```
++Clients
++  │
++  ▼
++API Gateway (8080)  — PS256 JWT, Circuit Breakers, Redis Rate Limit (login), X-Request-Id
++  │
++  ├─ /api/users/register  → user-registration-service (8081) [internal header required]
++  ├─ /api/auth/*          → authentication-service (8082)    [/login public, /refresh internal-only]
++  ├─ /api/orders/*        → orders-service (8085)
++  ├─ /api/transactions/*  → transaction-processor (8084)
++  ├─ /api/portfolio/*     → portfolio-service (8087)
++  └─ /api/market-data/*   → market-data-consumer (8083)
++
++Kafka/Redpanda (9092)
++  ├─ order.placed.v1 → Matching Engine (8086) → trade.executed.v1
++  └─ trade.executed.v1 → Transaction Processor → transaction.recorded.v1 → Portfolio Service
++```
+ 
+-### 🔍 Service-Specific Docs
++---
+ 
+-Each microservice has its own documentation with setup notes, endpoints, and future plans:
++## Tech stack (actual)
+ 
+-- [API Gateway](api-gateway/README.md)
+-- [User Registration Service](user-registration-service/README.md)
+-- [Authentication Service](authentication-service/README.md)
+-- [Transaction Processor](transaction-processor/README.md)
+-- [Market Data Consumer](market-data-consumer/README.md)
++* **Language/Frameworks:** Java 17/21, Spring Boot 3, Spring Cloud Gateway, Project Reactor
++* **Messaging:** Kafka-compatible **Redpanda**
++* **Datastores:** PostgreSQL (per service, **Flyway** migrations), **Redis** (rate limit + market latest)
++* **Resilience/Obs:** Resilience4j circuit breakers, Spring **Actuator**
++* **Packaging:** Docker & **Docker Compose** (local dev)
++* **Auth:** **JWT (PS256)** at the gateway; private key in Auth service; public key at Gateway
++* **CI/CD/Cloud:** local-first; cloud/IaC (Kubernetes/Terraform) are **planned**, not in-repo
+ 
+ ---
+ 
+-<a name="getting-started"></a>
+-## ⚙️ Getting Started [↑ Top](#table-of-contents)
++## Run it locally
+ 
+-### Prerequisites
++### Prereqs
+ 
+-- Docker & Docker Compose installed  
+-- Basic familiarity with Java, Spring Boot, and containers  
++* Docker & Docker Compose
++* `openssl` (for JWT keypair)
++* `jq` (nice to have)
++* (optional) `kcat` for Kafka testing
+ 
+-### Installation
++### 1) Generate PS256 keys
+ 
+ ```bash
+-git clone https://github.com/VictoriousWealth/tradestream.git
+-cd tradestream
+-
+-# Build and run containers
+-docker-compose up --build
++mkdir -p secrets
++openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/jwt_private.pem
++openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
+ ```
+ 
+-Access:
+-
+-* API Gateway at `http://localhost:8080`
+-* Login, registration, transaction, and health endpoints per the [API Design](docs/api-design.md)
+-
+----
+-
+-<a name="usage"></a>
++### 2) Bring everything up
+ 
+-## 💡 Usage [↑ Top](#table-of-contents)
++```bash
++docker compose up -d --build
++```
+ 
+-This project simulates real-time transaction processing using microservices and event-driven patterns. Intended for:
++### 3) Health check
+ 
+-* Backend portfolio demonstrations
+-* Learning microservice architecture principles
+-* Experimenting with containerized deployments
+-* Practicing secure API development for financial-like systems
++```bash
++curl -s http://localhost:8080/actuator/health
++# {"status":"UP"}
++```
+ 
+ ---
+ 
+-<a name="roadmap"></a>
+-
+-## 🛣️ Roadmap [↑ Top](#table-of-contents)
++## Quickstart (Gateway-first)
+ 
+-✅ MVP Core Features:
++### Register → Login
+ 
+-* [x] User Registration Service
+-* [x] Authentication Service
+-* [x] Transaction Processor
+-* [x] API Gateway
+-* [x] Event publishing via Kafka or RabbitMQ
+-* [x] Secure APIs with JWT
+-* [x] Containerized deployment on Lightsail
+-
+-🔜 Future Enhancements:
++```bash
++curl -sS -X POST http://localhost:8080/api/users/register \
++  -H 'Content-Type: application/json' \
++  -d '{"username":"alice","password":"S3cureP@ss!"}'
++
++ACCESS=$(curl -sS -X POST http://localhost:8080/api/auth/login \
++  -H 'Content-Type: application/json' \
++  -d '{"username":"alice","password":"S3cureP@ss!"}' | jq -r .access_token)
++echo "ACCESS=$ACCESS"
++```
+ 
+-* [ ] Market Data Generator
+-* [ ] Kubernetes deployment
+-* [ ] Infrastructure as code with Terraform
+-* [ ] Observability with Prometheus & Grafana
+-* [ ] Advanced security hardening
++### Place an order
+ 
+----
++```bash
++curl -sS -X POST http://localhost:8080/api/orders \
++  -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
++  -d '{"userId":"<uuid>","ticker":"AAPL","side":"BUY","type":"LIMIT","timeInForce":"GTC","quantity":10,"price":150.5}' | jq .
++```
+ 
+-<a name="security-considerations"></a>
++### Portfolio & Market Data
+ 
+-## 🔒 Security Considerations [↑ Top](#table-of-contents)
++```bash
++curl -sS -H "Authorization: Bearer $ACCESS" \
++  http://localhost:8080/api/portfolio/<uuid>/positions | jq .
+ 
+-* Secure coding practices applied from Day 1
+-* JWT-based API authentication
+-* Special header(s) set by the API gateway that the other services will now check to double confirm origin of the request
+-* Future security roadmap includes:
++curl -sS -H "Authorization: Bearer $ACCESS" \
++  "http://localhost:8080/api/market-data/candles/AAPL/latest?interval=1m" | jq .
++```
+ 
+-  * Rate limiting
+-  * Secure HTTP headers
+-  * Vulnerability scanning
++> Handy scripts live at repo root: `e2e_trade_pipeline_test.sh`, `e2e_portfolio_service.sh`, `gateway_smoke.sh`.
+ 
+ ---
+ 
+-<a name="documentation"></a>
+-
+-## 📚 Documentation [↑ Top](#table-of-contents)
+-
+-* [Project Requirements & Design (PRD)](docs/tradestream-prd.pdf)
+-* [System Architecture Diagram](docs/architecture-diagram.png)
+-* [API Design](docs/api-design.md)
+-* [Planned Enhancements](docs/future-enhancements.md)
+-
+-> Note all these documentation misses the user registration service as it is something I decided to add last minute 
++## Gateway routes (reality-checked)
++
++| Area         | Route                                            | Auth | Rewrites to…                                 |
++| ------------ | ------------------------------------------------ | :--: | -------------------------------------------- |
++| Auth         | `POST /api/auth/login`                           |  No  | `/login` → authentication-service (8082)     |
++| Auth         | `POST /api/auth/refresh`                         |  No  | `/refresh` (internal-only header enforced)   |
++| Users        | `POST /api/users/register`                       |  No  | `/register` → user-registration (8081)       |
++| Orders       | `POST /api/orders`                               |  Yes | `/orders` → orders-service (8085)            |
++| Orders       | `GET /api/orders/{id}`                           |  Yes | `/orders/{id}`                               |
++| Orders       | `POST /api/orders/{id}/cancel`                   |  Yes | `/orders/{id}/cancel`                        |
++| Transactions | `GET /api/transactions/**`                       |  Yes | (no rewrite) → transaction-processor (8084)  |
++| Portfolio    | `GET /api/portfolio/{userId}/positions[...]`     |  Yes | `/portfolio/...` → portfolio-service (8087)  |
++| Market Data  | `GET /api/market-data/candles/{ticker}[/latest]` |  Yes | `/candles/...` → market-data-consumer (8083) |
++| Ops          | `/actuator/*`                                    |  No  | Gateway itself                               |
++
++* **Login is IP rate-limited via Redis** (token-bucket).
++* **Circuit breakers** return predictable JSON fallbacks.
++* **`X-Request-Id`** injected if missing; cookies stripped.
+ 
+ ---
+ 
+-<a name="learning-objectives"></a>
++## Security model (current)
+ 
+-## 🎯 Learning Objectives [↑ Top](#table-of-contents)
++* **JWT at edge:** Gateway is a **resource server** validating **PS256** signatures with the public key.
++* **Internal caller gates:**
+ 
+-TradeStream enables practical experience with:
+-
+-* Secure backend and microservice design
+-* Event-driven architectures for real-time data
+-* Docker-based containerization
+-* Cloud deployment fundamentals
+-* Enterprise-grade system patterns for financial technology
++  * `authentication-service` `/refresh` requires `X-Internal-Caller: api-gateway`.
++  * `user-registration-service` `/register` requires the same header (added by the Gateway).
++* **No JWE** (encryption) — **signed** JWTs only.
++* **Rate limiting:** Redis-backed rate limit on login endpoints.
++* **CORS:** permissive in dev; tighten in prod (config in Gateway).
+ 
+ ---
+ 
+-<a name="license"></a>
++## Troubleshooting (real problems you’ll see)
+ 
+-## 📝 License [↑ Top](#table-of-contents)
++| Symptom                          | Likely cause                           | Fix                                             |
++| -------------------------------- | -------------------------------------- | ----------------------------------------------- |
++| `401` at gateway                 | Missing/expired/invalid JWT (PS256)    | Re-login; verify public key mount               |
++| `429` on `/api/auth/login`       | Rate limit tripped                     | Back off; expected behavior                     |
++| Gateway degraded JSON (`503`)    | Circuit breaker open on downstream     | Check downstream `/actuator/health`             |
++| Orders don’t execute             | Matching Engine or Kafka not consuming | Inspect topics/consumer logs                    |
++| Duplicate fills / position drift | Ledger/migration missing               | Ensure Flyway applied; check unique constraints |
++| Stale market “latest”            | Quiet feed; TTL not expired            | Next trade will evict → fresh read              |
++| `/register` returns `403`        | Missing internal-caller header         | Ensure Gateway injects `X-Internal-Caller`      |
+ 
+-This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.
++---
+ 
+-You are free to:
++## Repo layout (trimmed)
+ 
+-* Share and adapt the project
+-* Use it for educational, personal, or research purposes
++```
++.
++├── api-gateway/
++├── services/
++│   ├── authentication-service/
++│   ├── user-registration-service/
++│   ├── orders-service/
++│   ├── matching-engine/
++│   ├── transaction-processor/
++│   └── market-data-consumer/
++├── docker-compose.yml
++├── secrets/                       # jwt_private.pem / jwt_public.pem
++├── cvreadme.md                    # recruiter-facing overview
++├── e2e_*.sh / gateway_smoke.sh
++└── bench_out/
++```
+ 
+-**Commercial use is not permitted.**
++**Per-service READMEs (sources of truth):**
+ 
+-See the full license [here](https://creativecommons.org/licenses/by-nc/4.0/) for details.
++* `api-gateway/README.md`
++* `services/authentication-service/README.md`
++* `services/user-registration-service/README.md`
++* `services/orders-service/README.md`
++* `services/matching-engine/README.md`
++* `services/transaction-processor/README.md`
++* `services/market-data-consumer/README.md`
+ 
+ ---
+ 
+-<a name="contact"></a>
+-
+-## 📬 Contact [↑ Top](#table-of-contents)
++## License
+ 
+-**Nick Efe Oni**
+-[LinkedIn](https://www.linkedin.com/in/nick-efe-oni)
+-[GitHub](https://github.com/VictoriousWealth)
++This project is licensed under **CC BY-NC 4.0**. See [`LICENSE`](LICENSE).
+ 
+ ---
+ 
+-<a name="acknowledgements"></a>
+-
+-## 🙏 Acknowledgements [↑ Top](#table-of-contents)
+-
+-* Architectural patterns inspired by real-world fintech systems such as JPMorgan and BNY
+-* Security best practices influenced by **OWASP** guidelines
+-* Deployment and infrastructure ideas from **AWS** resources
+-
+----

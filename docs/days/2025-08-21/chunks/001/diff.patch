@@ -1,0 +1,1138 @@
+
+===== COMMIT 538f9a694ec75dd98640778c4a152777c5bfe518 =====
+commit 538f9a694ec75dd98640778c4a152777c5bfe518
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Thu Aug 21 04:30:57 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Thu Aug 21 04:30:57 2025 +0100
+
+    Deploy
+---
+ e2e_portfolio_service.sh                           | 143 ++++++++++
+ services/authentication-service/build.gradle       |   1 +
+ .../tradestream/auth/config/SecurityConfig.java    |   5 +-
+ .../auth/controller/UserController.java            |   4 +-
+ .../com/tradestream/auth/service/TokenService.java |   2 +-
+ .../src/main/resources/application.yml             |   7 +-
+ .../db/migration/V2__rename_email_to_username.sql  |  16 ++
+ .../.gradle/nb-cache/subprojects.ser               | Bin 759 -> 759 bytes
+ .../.gradle/nb-cache/subprojects.ser               | Bin 756 -> 756 bytes
+ services/portfolio-service/README.md               | 317 +++++++++++++++++++++
+ .../config/ListenerFactoryConfig.java              |   1 -
+ services/user-registration-service/README.md       | 260 ++++++++++++++---
+ services/user-registration-service/build.gradle    |   6 +
+ .../config/SecurityConfig.java                     |  33 ++-
+ .../controller/UserController.java                 |  24 +-
+ .../user_registration_service/dto/UserDTO.java     |   4 +
+ .../user_registration_service/model/User.java      |   7 +-
+ .../db/migration/V2__rename_email_to_username.sql  |  16 ++
+ 18 files changed, 777 insertions(+), 69 deletions(-)
+
+diff --git a/e2e_portfolio_service.sh b/e2e_portfolio_service.sh
+new file mode 100755
+index 0000000..1d02408
+--- /dev/null
++++ b/e2e_portfolio_service.sh
+@@ -0,0 +1,143 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++# --- Config / endpoints ---
++NET=tradestream_private_net
++BROKER=redpanda
++ORDERS=http://orders-service:8085
++PORTFOLIO=http://portfolio-service:8087
++
++# Fresh identities each run
++BUYER=$(uuidgen)
++SELLER=$(uuidgen)
++CP=$(uuidgen)
++PRICE_MAKER_BUYER=$(uuidgen)
++PRICE_MAKER_SELLER=$(uuidgen)
++TICKER="PT$(date +%s)"
++
++# Helper: tail N new records from a topic (starting at end)
++consume_new () {
++  local topic="$1" n="$2" out="$3"
++  docker compose exec -T "$BROKER" rpk topic consume "$topic" --offset end -n "$n" > "$out" &
++  echo $!
++}
++
++# Helper: produce a single-line JSON to a topic with key=ticker
++produce_trade_executed () {
++  local ticker="$1" price="$2" qty="$3"
++  # Use UUIDs so this synthetic trade doesn’t collide with anything
++  local tid=$(uuidgen) bo=$(uuidgen) so=$(uuidgen)
++  docker compose exec -T "$BROKER" bash -lc \
++    "printf '%s\n' '{\"tradeId\":\"$tid\",\"buyOrderId\":\"$bo\",\"sellOrderId\":\"$so\",\"ticker\":\"$ticker\",\"price\":$price,\"quantity\":$qty,\"timestamp\":\"'\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"'\"}' \
++     | rpk topic produce trade.executed.v1 -k $ticker" >/dev/null
++}
++
++echo "BUYER=$BUYER"
++echo "SELLER=$SELLER"
++echo "CP=$CP"
++echo "TICKER=$TICKER"
++echo
++
++echo "==> 0) Health check"
++docker run --rm --network "$NET" curlimages/curl:8.9.1 -sS "$PORTFOLIO/actuator/health" ; echo
++
++echo "==> 1) Seed trade: BUYER BUY 10 @100 then SELLER SELL 10 @100 (should cross)"
++# BUY
++docker run --rm -i --network "$NET" curlimages/curl:8.9.1 -sS \
++  -H 'Content-Type: application/json' --data @- "$ORDERS/orders" <<EOF
++{"userId":"$BUYER","ticker":"$TICKER","side":"BUY","type":"LIMIT","timeInForce":"GTC","price":100.00,"quantity":10}
++EOF
++echo
++
++# Start watcher BEFORE counter-order so we definitely capture the 2 ledger rows
++FIRST_LEDGER=/tmp/port_e2e_first.$$.log
++W1=$(consume_new transaction.recorded.v1 2 "$FIRST_LEDGER")
++
++# SELL (crosses)
++docker run --rm -i --network "$NET" curlimages/curl:8.9.1 -sS \
++  -H 'Content-Type: application/json' --data @- "$ORDERS/orders" <<EOF
++{"userId":"$SELLER","ticker":"$TICKER","side":"SELL","type":"LIMIT","timeInForce":"GTC","price":100.00,"quantity":10}
++EOF
++echo
++
++# Soft wait for watcher
++for i in {1..20}; do kill -0 "$W1" 2>/dev/null || break; sleep 0.5; done
++kill -0 "$W1" 2>/dev/null && { echo "(timeout waiting first 2 ledger rows)"; kill "$W1" || true; }
++echo "==> First trade ledger rows:"
++cat "$FIRST_LEDGER"
++
++echo
++echo "==> 2) Check positions:"
++echo "   2a) BUYER (expect qty=10, avgCost=100, realized=0)"
++docker run --rm --network "$NET" curlimages/curl:8.9.1 -sS \
++  "$PORTFOLIO/portfolio/$BUYER/positions" ; echo
++
++echo "   2b) SELLER (expect SHORT qty=-10, avgCost ~100, realized=0) — if shorts supported"
++docker run --rm --network "$NET" curlimages/curl:8.9.1 -sS \
++  "$PORTFOLIO/portfolio/$SELLER/positions" ; echo
++
++echo "   2c) Optional single-ticker endpoint (if implemented) — BUYER @$TICKER"
++if docker run --rm --network "$NET" curlimages/curl:8.9.1 -fsS \
++  "$PORTFOLIO/portfolio/$BUYER/positions/$TICKER" >/tmp/pos_one.$$.json 2>/dev/null; then
++  cat /tmp/pos_one.$$.json; echo
++else
++  echo "(positions/{userId}/positions/{ticker} not implemented — skipping)"; echo
++fi
++
++echo "==> 3) Realize PnL: BUYER SELL 4 @110; CP BUY 4 @110"
++SECOND_LEDGER=/tmp/port_e2e_second.$$.log
++W2=$(consume_new transaction.recorded.v1 2 "$SECOND_LEDGER")
++
++# SELL 4 from BUYER @110
++docker run --rm -i --network "$NET" curlimages/curl:8.9.1 -sS \
++  -H 'Content-Type: application/json' --data @- "$ORDERS/orders" <<EOF
++{"userId":"$BUYER","ticker":"$TICKER","side":"SELL","type":"LIMIT","timeInForce":"GTC","price":110.00,"quantity":4}
++EOF
++echo
++# CP BUY 4 @110 (cross)
++docker run --rm -i --network "$NET" curlimages/curl:8.9.1 -sS \
++  -H 'Content-Type: application/json' --data @- "$ORDERS/orders" <<EOF
++{"userId":"$CP","ticker":"$TICKER","side":"BUY","type":"LIMIT","timeInForce":"GTC","price":110.00,"quantity":4}
++EOF
++echo
++
++for i in {1..20}; do kill -0 "$W2" 2>/dev/null || break; sleep 0.5; done
++kill -0 "$W2" 2>/dev/null && { echo "(timeout waiting realization ledger rows)"; kill "$W2" || true; }
++echo "==> Realization trade ledger rows:"
++cat "$SECOND_LEDGER"
++
++echo
++echo "==> 4) Post-realization positions:"
++echo "   4a) BUYER (expect qty=6, avgCost=100, realizedPnL≈40)"
++docker run --rm --network "$NET" curlimages/curl:8.9.1 -sS \
++  "$PORTFOLIO/portfolio/$BUYER/positions" ; echo
++
++echo "   4b) CP (expect qty=4 @110, realized=0)"
++docker run --rm --network "$NET" curlimages/curl:8.9.1 -sS \
++  "$PORTFOLIO/portfolio/$CP/positions" ; echo
++
++echo
++echo "==> 5) Unrealized PnL scenario (set last price via synthetic trade.executed to act as 'mark')"
++echo "      Target last price = 125.00. This will NOT change positions/realized PnL."
++echo "      If portfolio-service consumes trade.executed.v1 for marks, it should populate lastPrice & unrealized."
++produce_trade_executed "$TICKER" 125.00 1
++
++# small settle wait
++sleep 1.5
++
++echo "   5a) BUYER positions again (expect lastPrice≈125, unrealized≈(125-100)*6=150)"
++docker run --rm --network "$NET" curlimages/curl:8.9.1 -sS \
++  "$PORTFOLIO/portfolio/$BUYER/positions" ; echo
++
++echo "   5b) SELLER positions again (if short supported, unrealized≈(avgCost - 125)*10)"
++docker run --rm --network "$NET" curlimages/curl:8.9.1 -sS \
++  "$PORTFOLIO/portfolio/$SELLER/positions" ; echo
++
++echo
++echo "==> 6) Negative/sanity checks"
++echo "   6a) Unknown user should return empty []"
++docker run --rm --network "$NET" curlimages/curl:8.9.1 -sS \
++  "$PORTFOLIO/portfolio/00000000-0000-0000-0000-000000000000/positions" ; echo
++
++echo
++echo "==> Done."
+diff --git a/services/authentication-service/build.gradle b/services/authentication-service/build.gradle
+index 1c8e7b2..f097548 100644
+--- a/services/authentication-service/build.gradle
++++ b/services/authentication-service/build.gradle
+@@ -27,6 +27,7 @@ dependencies {
+ 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+ 	implementation 'org.springframework.boot:spring-boot-starter-security'
+ 	implementation 'org.springframework.boot:spring-boot-starter-web'
++	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+ 	compileOnly 'org.projectlombok:lombok'
+ 	runtimeOnly 'org.postgresql:postgresql'
+ 	annotationProcessor 'org.projectlombok:lombok'
+diff --git a/services/authentication-service/src/main/java/com/tradestream/auth/config/SecurityConfig.java b/services/authentication-service/src/main/java/com/tradestream/auth/config/SecurityConfig.java
+index 7f4746d..e812962 100644
+--- a/services/authentication-service/src/main/java/com/tradestream/auth/config/SecurityConfig.java
++++ b/services/authentication-service/src/main/java/com/tradestream/auth/config/SecurityConfig.java
+@@ -27,8 +27,9 @@ public class SecurityConfig {
+ 
+         // 🔹 Authorization
+         http.authorizeHttpRequests(auth -> {
+-            auth.requestMatchers(HttpMethod.GET, "/", "/error").permitAll();
+-            auth.requestMatchers("/login", "/refresh").permitAll();            
++            auth.requestMatchers(HttpMethod.GET, "/", "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll();
++            auth.requestMatchers("/error").permitAll();
++            auth.requestMatchers(HttpMethod.POST, "/login", "/refresh").permitAll();            
+             auth.anyRequest().denyAll(); // Protect all other routes by denying access
+         });
+ 
+diff --git a/services/authentication-service/src/main/java/com/tradestream/auth/controller/UserController.java b/services/authentication-service/src/main/java/com/tradestream/auth/controller/UserController.java
+index 086d520..22df411 100644
+--- a/services/authentication-service/src/main/java/com/tradestream/auth/controller/UserController.java
++++ b/services/authentication-service/src/main/java/com/tradestream/auth/controller/UserController.java
+@@ -34,8 +34,8 @@ public class UserController {
+     @PostMapping("/login")
+     public ResponseEntity<Map<String, String>> login(@RequestBody UserDTO userDTO) {
+         // we have the credentials, now we need to treat them to have no spaces
+-        String username = userDTO.getUsername().replace(" ", "");
+-        String password = userDTO.getPassword().replace(" ", "");
++        String username = userDTO.getUsername().trim();
++        String password = userDTO.getPassword().trim();
+ 
+         // validate the credentials
+         User user = userRepository.findByUsername(username)
+diff --git a/services/authentication-service/src/main/java/com/tradestream/auth/service/TokenService.java b/services/authentication-service/src/main/java/com/tradestream/auth/service/TokenService.java
+index 928dee4..95bc21c 100644
+--- a/services/authentication-service/src/main/java/com/tradestream/auth/service/TokenService.java
++++ b/services/authentication-service/src/main/java/com/tradestream/auth/service/TokenService.java
+@@ -10,9 +10,9 @@ import java.security.PublicKey;
+ import java.security.spec.InvalidKeySpecException;
+ import java.security.spec.PKCS8EncodedKeySpec;
+ import java.security.spec.X509EncodedKeySpec;
+-import java.sql.Date;
+ import java.time.Instant;
+ import java.util.Base64;
++import java.util.Date;
+ import java.util.List;
+ import java.util.UUID;
+ 
+diff --git a/services/authentication-service/src/main/resources/application.yml b/services/authentication-service/src/main/resources/application.yml
+index 21ee8c5..b4a1c4e 100644
+--- a/services/authentication-service/src/main/resources/application.yml
++++ b/services/authentication-service/src/main/resources/application.yml
+@@ -17,7 +17,7 @@ spring:
+     active: ${SPRING_PROFILES_ACTIVE:default}
+ 
+ server:
+-  port: ${SERVER_PORT:8080}
++  port: ${SERVER_PORT:8082}
+ 
+ management:
+   endpoints:
+@@ -45,5 +45,8 @@ auth:
+ 
+ # Optional: actuator info to confirm which keys loaded
+ info:
+-  app: auth-service
++  app:
++    name: auth-service
++    description: Authentication microservice
++    version: 0.0.1
+   jwtPublicKeyPath: ${JWT_PUBLIC_KEY_PATH:/run/secrets/jwt_public.pem}
+diff --git a/services/authentication-service/src/main/resources/db/migration/V2__rename_email_to_username.sql b/services/authentication-service/src/main/resources/db/migration/V2__rename_email_to_username.sql
+new file mode 100644
+index 0000000..264e9ea
+--- /dev/null
++++ b/services/authentication-service/src/main/resources/db/migration/V2__rename_email_to_username.sql
+@@ -0,0 +1,16 @@
++-- src/main/resources/db/migration/V2__rename_email_to_username.sql
++ALTER TABLE users RENAME COLUMN email TO username;
++
++-- ensure uniqueness on the new column name
++DO $$
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM pg_indexes WHERE tablename = 'users' AND indexname = 'users_username_key'
++    ) THEN
++        ALTER TABLE users ADD CONSTRAINT users_username_key UNIQUE (username);
++    END IF;
++END $$;
++
++-- give id a default generator so inserts from SQL work too
++CREATE EXTENSION IF NOT EXISTS "pgcrypto";
++ALTER TABLE users ALTER COLUMN id SET DEFAULT gen_random_uuid();
+diff --git a/services/matching-engine/.gradle/nb-cache/subprojects.ser b/services/matching-engine/.gradle/nb-cache/subprojects.ser
+index eb2c4b2..97f9881 100644
+Binary files a/services/matching-engine/.gradle/nb-cache/subprojects.ser and b/services/matching-engine/.gradle/nb-cache/subprojects.ser differ
+diff --git a/services/orders-service/.gradle/nb-cache/subprojects.ser b/services/orders-service/.gradle/nb-cache/subprojects.ser
+index b4e44e3..d4bd8dc 100644
+Binary files a/services/orders-service/.gradle/nb-cache/subprojects.ser and b/services/orders-service/.gradle/nb-cache/subprojects.ser differ
+diff --git a/services/portfolio-service/README.md b/services/portfolio-service/README.md
+new file mode 100644
+index 0000000..5eb73d0
+--- /dev/null
++++ b/services/portfolio-service/README.md
+@@ -0,0 +1,317 @@
++# 📌 The Ultimate Source of Truth: **Portfolio Service**
++
++---
++
++## 1) One-liner — A single, impactful sentence.
++
++Event-driven projection service that consumes **transaction records** from Kafka and maintains **authoritative portfolio positions & realized PnL** in Postgres with strict **idempotency** and **pessimistic concurrency control**.
++
++---
++
++## 2) Executive Summary (for recruiters) — High-level business value + key technical achievements
++
++* Built a **transactional core** that projects trade transactions into **per-user positions** (quantity, average cost, realized PnL) with **exactly-once effects** over an **at-least-once** Kafka pipeline.
++* Implements **message de-duplication** via a `(topic, message_id)` ledger and **manual acks** for deterministic processing; recovers cleanly with **exponential backoff** and **dead-letter topics**.
++* Enforces portfolio **calculation invariants** (weighted-average cost, clamped sells, null avgCost at flat) at both code and schema levels (NUMERIC precision, PKs).
++* Exposes **read APIs** for positions and portfolio summary, engineered for ops safety (Flyway migrations, health probes, containerized builds).
++
++---
++
++## 3) What this service does — Responsibilities
++
++* 🎧 **Consumes** `transaction.recorded.v1` events and applies BUY/SELL effects to positions.
++* 🧮 **Maintains**: position quantity, weighted average cost (WAC), realized PnL; resets avgCost when flat.
++* 🧱 **Guarantees idempotency** using `processed_messages` ledger keyed by `(topic, message_id)`; falls back to **synthetic stable IDs** when header missing.
++* 🔒 **Serializes writes per position** with **pessimistic row locks** to avoid race conditions.
++* 🌐 **Exposes REST read endpoints**:
++
++  * `GET /portfolio/{userId}/positions`
++  * `GET /portfolio/{userId}/positions/{ticker}`
++  * `GET /portfolio/{userId}/summary`
++* 🛟 **Operational robustness**: backoff + DLT on poison messages; health endpoints for k8s/docker.
++
++---
++
++## 4) Tech Stack & Key Choices — Table + design rationale
++
++| Technology                  | Purpose                        | Why this choice                                                              |
++| --------------------------- | ------------------------------ | ---------------------------------------------------------------------------- |
++| **Java 17 + Spring Boot**   | Service framework              | Mature ecosystem, records/validation, actuator, easy Kafka & JPA integration |
++| **Spring Kafka**            | Kafka consumer, error handling | Manual ack control, `DefaultErrorHandler` with backoff & DLT integration     |
++| **Apache Kafka / Redpanda** | Event backbone                 | Partitioned scalability, durable at-least-once delivery                      |
++| **PostgreSQL + Flyway**     | Persistence & schema evolution | ACID, precise `NUMERIC(18,8)`, versioned migrations                          |
++| **JPA/Hibernate**           | ORM with pessimistic locks     | `SELECT … FOR UPDATE` semantics via repository method                        |
++| **Docker**                  | Reproducible runtime           | One-step build & run in compose                                              |
++| **Actuator**                | Health & metrics               | Liveness/readiness probes enabled                                            |
++| **(Optional) Redis**        | Read caching                   | Hooked via Spring Cache if enabled (not required for correctness)            |
++
++**Design rationale highlights**
++
++* **Idempotency ledger**: `processed_messages(topic, message_id)` uniquely records processed events; safe replays and crash recovery.
++* **Manual acks + concurrency=1**: Deterministic ordering per consumer; ack only after commit for end-to-end exactly-once effect.
++* **Pessimistic locking over optimistic**: Avoids retry storms under concurrent fills for the same `(userId, ticker)`.
++* **WAC math**: BUY recalculates weighted average at 8-dp; SELL realizes PnL and **never increases quantity** beyond existing long (sell clamped).
++* **DLT by convention**: `topic.DLT` routing centralizes investigation of poison payloads.
++
++---
++
++## 5) Architecture at a glance — Primary flows (API calls, events, etc.)
++
++### Flow A: Apply a Transaction (Kafka → DB)
++
++1. Consumer receives `TransactionRecordedEvent` (may have `eventId` header or payload field).
++2. **Message ID resolution**: prefer `eventId`; else parse Kafka header; else synthesize stable UUID from `topic|partition|offset`.
++3. **Idempotency check**: `processed_messages` existence ⇒ **ignore** & ack.
++4. **Lock target position**: `SELECT … FOR UPDATE` on `(userId, ticker)` or initialize new row.
++5. **Project**:
++
++   * **BUY** → `newQty = qty + Δ`, `avg = (qty*avg + Δ*price)/newQty` (8 dp, HALF\_UP).
++   * **SELL** → `sellQty = min(Δ, max(qty,0))`, `realizedPnL += (price - avg)*sellQty`, `qty -= sellQty`, `avg=null` if flat.
++6. **Commit** `positions` & insert into `processed_messages`.
++7. **Ack** the Kafka message.
++
++### Flow B: Read Portfolio (API → DB)
++
++1. Client calls one of the `/portfolio` endpoints.
++2. Service returns JSON with positions and/or summarized realized PnL (unrealized/market value are `null` by design in MVP).
++
++### Flow C: Error Path (Retries → DLT)
++
++1. Transient exception ⇒ **ExponentialBackOff** (200ms → 5s, 5 retries).
++2. `IllegalArgumentException` or exhausted retries ⇒ publish to **`<source-topic>.DLT`** and ack to avoid hot-looping.
++
++---
++
++## 6) Rules & Invariants — Core business rules
++
++* **BUY** increases quantity and recomputes **weighted average cost**; precision **`NUMERIC(18,8)`**; rounding **HALF\_UP**.
++* **SELL** cannot exceed existing long quantity (shorting not yet supported); realizes PnL at `price - avgCost`.
++* **Flat position ⇒ `avgCost = null`** to avoid stale cost carryover.
++* Each Kafka message is **applied at most once per topic** (ledger uniqueness).
++* Unknown `side` or missing identifier ⇒ **not retryable** (sent to DLT).
++* `updated_at` is system-managed on every write.
++
++---
++
++## 7) Data Model — Main tables, keys, purpose
++
++**positions**
++
++* **PK**: `(user_id UUID, ticker VARCHAR(16))`
++* **Columns**: `quantity NUMERIC(18,8)`, `avg_cost NUMERIC(18,8) NULL`, `realized_pnl NUMERIC(18,8)`, `updated_at TIMESTAMPTZ`
++* **Indexes**: `ix_positions_user (user_id)`
++* **Purpose**: Authoritative per-user per-ticker position & realized PnL.
++
++**processed\_messages**
++
++* **PK**: `id BIGSERIAL`
++* **UK**: `uk_processed_topic_msgid (topic, message_id UUID)`
++* **Columns**: `topic VARCHAR(200)`, `message_id UUID`, `received_at TIMESTAMPTZ`
++* **Purpose**: Idempotency ledger to guarantee once-only projection per topic.
++
++---
++
++## 8) Configuration (env) — Critical environment variables
++
++| Key                                                         | Default                                        | Notes                                             |
++| ----------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------- |
++| `SERVER_PORT`                                               | `8087`                                         | REST port                                         |
++| `SPRING_DATASOURCE_URL`                                     | `jdbc:postgresql://localhost:5432/portfoliodb` | JDBC URL                                          |
++| `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` | `portfoliouser` / `portfoliopass`              | DB creds                                          |
++| `SPRING_JPA_HIBERNATE_DDL_AUTO`                             | `validate`                                     | Enforce Flyway over auto-DDL                      |
++| `SPRING_FLYWAY_ENABLED` / `SPRING_FLYWAY_LOCATIONS`         | `true` / `classpath:db/migration`              | Migrations                                        |
++| `KAFKA_BOOTSTRAP_SERVERS`                                   | `localhost:9092`                               | Broker                                            |
++| `KAFKA_CONSUMER_GROUP`                                      | `portfolio-svc`                                | Consumer group id                                 |
++| `KAFKA_TOPIC_TRANSACTION_RECORDED`                          | `transaction.recorded.v1`                      | Inbound events                                    |
++| `KAFKA_TOPIC_TRADE_EXECUTED`                                | `trade.executed.v1`                            | Present for ecosystem parity (not consumed here)  |
++| `SPRING_CACHE_TYPE`                                         | `none`                                         | Set to `redis` to enable optional caching         |
++| `REDIS_HOST` / `REDIS_PORT`                                 | `localhost` / `6379`                           | Only if caching is enabled                        |
++| `ORDERS_BASE_URL`                                           | `http://orders-service:8085`                   | Reserved for cross-service lookups (not required) |
++
++---
++
++## 9) Operations & Runbook — Run commands, health checks, troubleshooting
++
++**Build & run locally**
++
++```bash
++./gradlew clean build -x test
++java -jar build/libs/portfolio-service-0.0.1-SNAPSHOT.jar
++```
++
++**Docker**
++
++```bash
++docker build -t tradestream-portfolio-service .
++docker run -p 8087:8087 --env-file .env tradestream-portfolio-service
++```
++
++**Health checks**
++
++```bash
++curl -s http://localhost:8087/actuator/health
++```
++
++**Troubleshooting**
++
++| Symptom                          | Likely Cause                                       | Fix                                                                               |
++| -------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------- |
++| Positions don’t update           | Consumer not connected to Kafka / wrong topic      | Verify `KAFKA_BOOTSTRAP_SERVERS`, topic name; check logs for partitions assigned  |
++| Repeated PnL/qty drift           | Ledger table missing or unique constraint disabled | Ensure Flyway `V1__init.sql` applied; verify `uk_processed_topic_msgid` exists    |
++| Messages pile up, then DLT grows | Poison payload or unknown `side`                   | Inspect `<topic>.DLT`, correct producer, redeploy; these are marked non-retryable |
++| Stuck offsets / no commits       | Exception before ack                               | Check error logs; fix root cause or allow DLT flow; verify manual ack is invoked  |
++| Avg cost not resetting at zero   | App crash before commit                            | Reprocess after restart; ledger prevents double-apply; confirm successful commit  |
++| 404 on `positions/{ticker}`      | Position never created                             | Expected until first trade; use list endpoint or seed test data                   |
++
++---
++
++## 10) Extensibility — Future improvements & scaling
++
++* **Short selling & borrow accounting** (negative quantities, realized PnL rules).
++* **Unrealized PnL & market value** by integrating a **price feed** cache (Redis) and periodic marks.
++* **Corporate actions** (splits/dividends) via event-sourced adjustments.
++* **Partition-aware consumers** (key by `userId` or `ticker`) for horizontal scaling.
++* **Outbox/CDC** to emit `position.updated` events for downstream analytics.
++* **Multi-currency** positions with FX conversion layers.
++* **Backfill & replay tooling** with time-bounded reprocessing guarded by the ledger.
++
++---
++
++## 11) Where this fits in the bigger system — Broader role
++
++The **Portfolio Service** is the **read-side projection** for user holdings: upstream, the **Transaction Processor** turns trade executions into normalized **transaction.recorded** events; this service applies them into **authoritative positions** and exposes read APIs used by gateway/UI, reporting, and risk components.
++
++---
++
++## 12) Resume/CV Content (Copy-Paste Ready)
++
++### Impact Bullets (3–5)
++
++* Delivered an **event-driven portfolio projector** (Java 17, Spring Boot, Kafka, Postgres) that maintains authoritative positions & realized PnL with **idempotent processing**.
++* Implemented **manual-ack Kafka consumption** with **pessimistic row locks** and a `(topic, message_id)` ledger to guarantee once-only effects under at-least-once delivery.
++* Engineered **dead-letter routing** with **exponential backoff** and non-retryable classification for validation errors, improving MTTR for poison messages.
++* Exposed **REST portfolio APIs** and hardened ops with **Flyway migrations** and **Actuator health probes**; packaged for reproducible deployment via **Docker**.
++
++### Scope/Scale (placeholders)
++
++* Throughput: \~**N** tx/sec peak; sustained **M**/day
++* Latency: **P99 < X ms** from Kafka receipt to DB commit
++* Data: **Z** users, **T** tickers, **K** positions projected
++* Reliability: **0** duplicate effects across **R** replays/restarts
++
++### Tech Stack Summary (single line)
++
++**Java 17, Spring Boot, Spring Kafka, PostgreSQL, Flyway, JPA/Hibernate, Docker, Actuator (Redis optional)**
++
++### Cover-letter paragraph
++
++> I built a **portfolio projection service** that turns transaction events into authoritative positions with **strong idempotency and concurrency guarantees**. Using **Java 17, Spring Boot, Kafka, and Postgres**, I designed deterministic processing (manual acks, pessimistic locks), a clean idempotency ledger, and operational guardrails (DLT, backoff, Flyway, Actuator). The result is a reliable **read-side** that scales and simplifies downstream reporting—rigor I’m excited to apply at \<Company/Team>.
++
++### Interview Talking Points — Deep dives
++
++* **Idempotency strategy**: why `(topic, message_id)` beats payload-level heuristics; synthetic IDs for missing headers.
++* **Locking choice**: pessimistic vs optimistic for hot positions; avoiding retry storms.
++* **Numerics**: `NUMERIC(18,8)`, rounding, overflow considerations; resetting `avgCost` when flat.
++* **Error handling**: backoff, **DLT**, and non-retryable classification; avoiding consumer hot loops.
++* **Partitioning & ordering**: consumer concurrency=1 vs horizontal scaling by key.
++* **Replay safety**: how the ledger enables backfills and reprocessing without double-apply.
++* **Extensibility**: adding shorts, corporate actions, and unrealized PnL.
++
++---
++
++## 13) Cheat Sheet (for yourself) — Quick reference
++
++**Run service**
++
++```bash
++./gradlew clean build -x test
++java -jar build/libs/portfolio-service-0.0.1-SNAPSHOT.jar
++# or Docker
++docker build -t tradestream-portfolio-service .
++docker run -p 8087:8087 --env-file .env tradestream-portfolio-service
++```
++
++**Health**
++
++```bash
++curl -s http://localhost:8087/actuator/health
++```
++
++**List positions**
++
++```bash
++curl -s "http://localhost:8087/portfolio/<user-uuid>/positions" | jq
++```
++
++**Get a single position**
++
++```bash
++curl -s "http://localhost:8087/portfolio/<user-uuid>/positions/AAPL" | jq
++```
++
++**Portfolio summary**
++
++```bash
++curl -s "http://localhost:8087/portfolio/<user-uuid>/summary" | jq
++```
++
++**Produce a sample TransactionRecorded event (kcat)**
++
++```bash
++cat <<'JSON' > /tmp/tx.json
++{
++  "eventId": "11111111-1111-1111-1111-111111111111",
++  "tradeId": "22222222-2222-2222-2222-222222222222",
++  "orderId": "33333333-3333-3333-3333-333333333333",
++  "userId":  "44444444-4444-4444-4444-444444444444",
++  "side": "BUY",
++  "ticker": "AAPL",
++  "quantity":  "10.00000000",
++  "price":     "150.50000000",
++  "executedAt":"1755513800.000000000",
++  "version": 1
++}
++JSON
++
++kcat -b localhost:9092 -t transaction.recorded.v1 -P -l /tmp/tx.json
++```
++
++**Consume live (kcat)**
++
++```bash
++kcat -b localhost:9092 -t transaction.recorded.v1 -C -q
++kcat -b localhost:9092 -t transaction.recorded.v1.DLT -C -q   # inspect dead letters
++```
++
++**DB sanity checks**
++
++```sql
++-- positions
++SELECT user_id, ticker, quantity, avg_cost, realized_pnl, updated_at
++FROM positions
++WHERE user_id = '44444444-4444-4444-4444-444444444444';
++
++-- processed_messages ledger
++SELECT topic, message_id, received_at
++FROM processed_messages
++ORDER BY received_at DESC
++LIMIT 50;
++```
++
++**Reset consumer group to replay (dev only)**
++
++```bash
++kafka-consumer-groups --bootstrap-server localhost:9092 \
++  --group portfolio-svc --topic transaction.recorded.v1 --reset-offsets --to-earliest --execute
++```
++
++**Key classes (grep anchors)**
++
++* `TransactionRecordedConsumer` — listener, manual ack, message-ID resolution
++* `PortfolioProjector` — transactional projector, locking, math & ledger writes
++* `PositionRepository` — `lockByUserAndTicker` (pessimistic write)
++* `ProcessedMessageRepository` — idempotency existence check
++* `KafkaDlqConfig` / `ListenerFactoryConfig` — DLT & error handling wiring
++
++---
++
+diff --git a/services/portfolio-service/src/main/java/com/tradestream/portfolio_service/config/ListenerFactoryConfig.java b/services/portfolio-service/src/main/java/com/tradestream/portfolio_service/config/ListenerFactoryConfig.java
+index 15a16c5..b7f38cf 100644
+--- a/services/portfolio-service/src/main/java/com/tradestream/portfolio_service/config/ListenerFactoryConfig.java
++++ b/services/portfolio-service/src/main/java/com/tradestream/portfolio_service/config/ListenerFactoryConfig.java
+@@ -1,7 +1,6 @@
+ package com.tradestream.portfolio_service.config;
+ 
+ import com.tradestream.portfolio_service.dto.TransactionRecordedEvent;
+-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+ import org.springframework.context.annotation.*;
+ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+ import org.springframework.kafka.core.*;
+diff --git a/services/user-registration-service/README.md b/services/user-registration-service/README.md
+index 48bc607..d80ce97 100644
+--- a/services/user-registration-service/README.md
++++ b/services/user-registration-service/README.md
+@@ -1,74 +1,262 @@
+-# 🚀 User Registration Service
++# 📌 The Ultimate Source of Truth: **User Registration Service** (best-of-both combined)
+ 
+-* A simple user registration microservice
++---
++
++## One-liner — A single, impactful sentence.
++
++Internal-only Spring Boot microservice that validates and persists new users with BCrypt, enforcing a deny-by-default + zero-trust ingress model via an internal-caller contract.
++
++---
++
++## Executive Summary (for recruiters)
++
++* Built a **security-hardened, single-purpose registration service** that acts as the transactional core for identity onboarding; **API Gateway is the sole caller** (internal header contract) for a **zero-trust, defense-in-depth** posture.&#x20;
++* Guarantees **credential safety** (BCrypt) and **idempotent creates** using DB-enforced unique usernames; strict DTO validation on length/format.&#x20;
++* **Operationally sound**: versioned **Flyway** migrations (email→username rename, UUID defaults), **Actuator** health probes, **Docker/Compose** with private network segmentation.
++* Clean boundaries: write-only registration here; authentication/JWT issuance handled by a separate Auth service for least privilege and independent scaling.&#x20;
+ 
+ ---
+ 
+-## 📘 Overview
++## What this service does
+ 
++* ✅ **Registers users** via `POST /register` (internal only; gateway adds `X-Internal-Caller`).&#x20;
++* 🧾 Validates input (`username` 3–255, `password` 6–255).
++* 🔐 **Hashes** passwords with **BCrypt**; plaintext never stored.&#x20;
++* 🗄️ Persists to **PostgreSQL**; **unique(username)** prevents duplicates; returns **409** on conflict.&#x20;
++* 🩺 Exposes `GET /actuator/health` for liveness/readiness.
++* 🚫 **Deny-by-default** security policy; only `/`, `/register`, `/actuator/health|info`, and `OPTIONS` (CORS preflight) are allowed.
+ 
+-* It allows the registration of new users using a provided username and password
+-* I built it because I want to learn how to build microservices after reading so much about them - this will be used in tradestream 
+-* I used Java SpringBoot, Flyway, Docker, and Gradle
+-* Any unique twist or feature? 
+-  It has an internal caller interceptor that only forwards requests from my api gateway by checking the header of each request  
++---
+ 
++## Tech Stack & Key Choices
+ 
+-## 📸 Screenshots
++| Technology                          | Purpose                       | Rationale                                                                         |
++| ----------------------------------- | ----------------------------- | --------------------------------------------------------------------------------- |
++| **Java 17 + Spring Boot 3**         | Service framework             | Mature ecosystem, rapid delivery, production hardening                            |
++| **Spring Security 6**               | HTTP authz & filters          | Deny-all baseline, precise allowlist, CSRF disabled for APIs                      |
++| **Spring MVC `HandlerInterceptor`** | Internal-caller gate          | Enforces `X-Internal-Caller: api-gateway` at `/register` for zero-trust ingress.  |
++| **Spring Data JPA (Hibernate)**     | ORM / repositories            | Transactional persistence with concise repository pattern                         |
++| **BCryptPasswordEncoder**           | Credential hashing            | Industry standard, adaptive cost, salt handling.                                  |
++| **PostgreSQL 15 + Flyway**          | ACID store & schema evolution | Versioned migrations; email→username rename; server-side UUID default             |
++| **Actuator**                        | Health endpoints              | Simple container health checks                                                    |
++| **Docker + docker-compose**         | Packaging & runtime           | Reproducible deploy; **private network** isolation via compose.                   |
+ 
+-![](./docs/example-curl-request-to-microservice.png)
++**Design rationale highlights**
++
++* **Defense-in-depth / zero-trust**: network segmentation + Spring Security deny-all + app-level interceptor.&#x20;
++* **Idempotency via DB**: `unique(username)` is the idempotency key for create.
++* **Thin transactional core**: single atomic write per registration; minimal business logic on hot path.
++* **Forward-compatible schema**: migrations cover rename + UUID generation; DB maintains `created_at`.
+ 
+ ---
+ 
+-## 🧠 What I Learned
++## Architecture at a glance
++
++**Flow 1: Successful Registration (Gateway → Service → DB)**
+ 
+-* How to build a simple microservice 
+-* How to integrate Flyway to Spring Boot projects
+-* How to integrate interceptors into Spring Boot projects
+-* How to integrate Docker-compose.yml environment variables into Spring Boot projects
++1. End-user submits username/password to UI → **API Gateway** authenticates/validates and forwards on **private network**, adding `X-Internal-Caller: api-gateway`.
++2. `InternalCallerInterceptor` verifies header, then controller validates DTO.
++3. Repo checks for username; if taken → **409**.
++4. Hash with BCrypt; persist user; return **200 OK**.&#x20;
++
++**Flow 2: Rejected Registration (Direct External Caller)**
++
++1. Request hits service **without** the internal header.
++2. Interceptor blocks immediately → **403 FORBIDDEN**; controller not reached.&#x20;
+ 
+ ---
+ 
+-## 📦 Getting Started
++## Rules & Invariants
++
++* `username` **required**, **unique**, length **\[3..255]**; `password` **required**, length **\[6..255]**.
++* **Plaintext passwords are never stored**; only BCrypt hashes.&#x20;
++* `/register` requires `X-Internal-Caller: api-gateway`; otherwise **403**.&#x20;
++* Non-whitelisted routes are denied by default.
++
++---
+ 
+-Instructions to run it locally:
++## Data Model
++
++**Table: `users`**
++
++* **PK**: `id UUID` (server-side default `gen_random_uuid()` from migration)
++* **Columns**:
++
++  * `username VARCHAR(255) UNIQUE NOT NULL` (renamed from `email` in V2 migration)
++  * `password VARCHAR(255) NOT NULL` (BCrypt hash)
++  * `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
++* **Purpose**: system-wide **source of truth** for registered identities.&#x20;
++
++---
++
++## Configuration (env)
++
++| Key                             | Default / Example                        | Notes                                      |
++| ------------------------------- | ---------------------------------------- | ------------------------------------------ |
++| `SERVER_PORT`                   | `8081`                                   | Dockerfile exposes 8081; compose sets this |
++| `SPRING_DATASOURCE_URL`         | `jdbc:postgresql://postgres:5432/authdb` | JDBC URL                                   |
++| `SPRING_DATASOURCE_USERNAME`    | `authuser`                               | DB user                                    |
++| `SPRING_DATASOURCE_PASSWORD`    | `authpass`                               | DB pass                                    |
++| `SPRING_JPA_HIBERNATE_DDL_AUTO` | `validate`                               | Enforce schema correctness                 |
++| `SPRING_FLYWAY_ENABLED`         | `true`                                   | Apply migrations                           |
++| `SPRING_FLYWAY_LOCATIONS`       | `classpath:db/migration`                 | Migration path                             |
++| `MANAGEMENT_PORT`               | *(unset)*                                | Health served on same port                 |
++
++---
++
++## Operations & Runbook
++
++**Build & run (local):**
++
++```bash
++./gradlew clean build -x test
++java -jar build/libs/user-registration-service-0.0.1-SNAPSHOT.jar \
++  --server.port=8081 \
++  --spring.datasource.url=jdbc:postgresql://localhost:5432/authdb \
++  --spring.datasource.username=authuser \
++  --spring.datasource.password=authpass
++```
++
++**Docker:**
+ 
+ ```bash
+-# Clone the repository
+-git clone https://github.com/VictoriousWealth/tradestream.git
++docker build -t user-registration-service:dev .
++docker run -p 8081:8081 --env-file .env user-registration-service:dev
++```
+ 
+-# Navigate to the project directory
+-cd ./tradestream/user-registration-service
++**Compose (project root):**
+ 
+-# Run the application
+-./gradlew clean build -x test 
++```bash
++docker compose up -d user-registration-service postgres
+ ```
+ 
+-Access:
++**Health check:**
+ 
+-* User Registration Service at `http://localhost:8081`
++```bash
++curl -f http://localhost:8081/actuator/health
++```
++
++**Troubleshooting**
++
++| Symptom                                    | Likely Cause                                                                | Fix                                                               |
++| ------------------------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------- |
++| All registrations fail with **403**        | Missing/wrong `X-Internal-Caller` header at gateway                         | Ensure header name/value exactly match interceptor expectations.  |
++| **409 Conflict** when username “seems new” | Username already exists; possible case-sensitivity mismatch in expectations | Pick a different username; confirm DB collation & comparisons.    |
++| Service starts but health is **DOWN**      | DB unavailable/creds wrong; migration failed                                | Validate DB envs; inspect `flyway_schema_history` for errors.     |
+ 
+ ---
+ 
+-## 📄 License
++## Extensibility
+ 
+-This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.
++* **Email/phone verification** (event: `user.registered.v1` or gateway callback).&#x20;
++* **Rate limiting / anti-bot** at the gateway (e.g., IP throttling, CAPTCHA).&#x20;
++* **Richer profile fields** (email/full name) with validation.&#x20;
++* **SSO/OIDC handoff** via gateway → internal provisioning endpoint.&#x20;
+ 
+-You are free to:
++---
+ 
+-* Share and adapt the project
+-* Use it for educational, personal, or research purposes
++## Where this fits in the bigger system
+ 
+-**Commercial use is not permitted.**
++The service is the **write-only, transactional core** for user creation. **API Gateway** is the exclusive ingress. **Auth Service** reads the `users` table to verify credentials and issue JWTs; it **never writes**. This separation minimizes attack surface and decouples scaling/ownership boundaries.&#x20;
+ 
+-See the full license [here](https://creativecommons.org/licenses/by-nc/4.0/) for details.
++---
++
++## Resume/CV Content (Copy-Paste Ready)
++
++### Impact Bullets
++
++* Built a **secure, internal-only registration microservice** (Java 17, Spring Boot, Postgres) with **deny-by-default** policy and interceptor-gated zero-trust ingress.&#x20;
++* Implemented **BCrypt credential storage** and **idempotent creates** via DB uniqueness; enforced DTO validation and clear **409/403** semantics.&#x20;
++* Operationalized with **Flyway**, **Actuator**, and **Docker/Compose**; executed schema rename (email→username) and UUID default without downtime.
++* Established **clear service boundaries**: write-only registration vs. read-only authentication/JWT issuance.&#x20;
++
++### Scope/Scale (placeholders)
++
++* Throughput: \~**N** registrations/sec (peak)
++* p95 latency (`POST /register`): **X** ms
++* Availability: **99.9%** over **Y** months
++* Users onboarded: **Z**+
++
++### Tech Stack Summary (single line)
++
++Java 17, Spring Boot 3, Spring Security 6, Spring Data JPA (Hibernate), PostgreSQL 15, Flyway, Actuator, Docker.&#x20;
++
++### Cover-letter paragraph
++
++> I engineered a **security-hardened registration service** that acts as the transactional core for identity onboarding. Using **Spring Security + an internal-caller contract**, it implements a zero-trust ingress model, validates inputs, and persists credentials with **BCrypt** and database-enforced idempotency. With **PostgreSQL + Flyway**, I emphasized reliability, schema evolution, and clean boundaries—rigor I’m excited to bring to \<Company/Team>.&#x20;
++
++---
++
++## Interview Talking Points
++
++* **Defense-in-depth** vs. relying solely on network rules; why app-level checks matter.&#x20;
++* **Interceptor vs. Security Filter** trade-offs for this ingress contract.&#x20;
++* **BCrypt** (adaptive cost, salts) vs. fast hashes; operational cost-factor migration.&#x20;
++* **Schema evolution** with Flyway in shared DBs; idempotent scripts and baselining.&#x20;
++* **Failure modes**: DB outage, duplicate usernames, 403/409 mapping, logging redaction.
+ 
+ ---
+ 
+-## 📬 Contact [↑ Top](#table-of-contents)
++## Cheat Sheet (for yourself)
++
++**Register user (simulate gateway):**
++
++```bash
++curl -X POST http://localhost:8081/register \
++  -H "Content-Type: application/json" \
++  -H "X-Internal-Caller: api-gateway" \
++  -d '{"username":"alice","password":"S3cureP@ss!"}'
++# -> 200 OK  ("All good.")
++```
++
++**Common failure cases:**
++
++```bash
++# Missing internal header -> 403
++curl -X POST http://localhost:8081/register \
++  -H "Content-Type: application/json" \
++  -d '{"username":"bob","password":"short"}'
++
++# Duplicate username -> 409
++curl -X POST http://localhost:8081/register \
++  -H "Content-Type: application/json" \
++  -H "X-Internal-Caller: api-gateway" \
++  -d '{"username":"alice","password":"whatever"}'
++```
++
++**Health:**
++
++```bash
++curl -f http://localhost:8081/actuator/health
++```
++
++**DB quick checks (psql):**
++
++```sql
++-- Was the user created?
++SELECT id, username, created_at FROM users
++WHERE username = 'alice';
++
++-- Count users:
++SELECT COUNT(*) FROM users;
++
++-- Verify uniqueness path:
++EXPLAIN SELECT 1 FROM users WHERE username = 'alice';
++```
+ 
+-**Nick Efe Oni**
+-[LinkedIn](https://www.linkedin.com/in/nick-efe-oni)
+-[GitHub](https://github.com/VictoriousWealth)
++**`.env` template:**
++
++```dotenv
++SERVER_PORT=8081
++SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/authdb
++SPRING_DATASOURCE_USERNAME=authuser
++SPRING_DATASOURCE_PASSWORD=authpass
++SPRING_JPA_HIBERNATE_DDL_AUTO=validate
++SPRING_FLYWAY_ENABLED=true
++SPRING_FLYWAY_LOCATIONS=classpath:db/migration
++```
++
++**Useful cURL header reminder:** `-H "X-Internal-Caller: api-gateway"` (required)&#x20;
+ 
+ ---
++
+diff --git a/services/user-registration-service/build.gradle b/services/user-registration-service/build.gradle
+index f37768a..6300ec9 100644
+--- a/services/user-registration-service/build.gradle
++++ b/services/user-registration-service/build.gradle
+@@ -27,8 +27,14 @@ dependencies {
+ 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+ 	implementation 'org.springframework.boot:spring-boot-starter-security'
+ 	implementation 'org.springframework.boot:spring-boot-starter-web'
++	implementation 'org.springframework.boot:spring-boot-starter-validation'
++	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+ 	compileOnly 'org.projectlombok:lombok'
+ 	runtimeOnly 'org.postgresql:postgresql'
++	implementation 'org.flywaydb:flyway-core'
++    implementation 'org.flywaydb:flyway-database-postgresql'
++
++	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+ 	annotationProcessor 'org.projectlombok:lombok'
+ 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+ 	testImplementation 'org.springframework.security:spring-security-test'
+diff --git a/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/SecurityConfig.java b/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/SecurityConfig.java
+index f56246c..da75753 100644
+--- a/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/SecurityConfig.java
++++ b/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/SecurityConfig.java
+@@ -1,3 +1,4 @@
++// src/main/java/com/tradestream/user_registration_service/config/SecurityConfig.java
+ package com.tradestream.user_registration_service.config;
+ 
+ import org.springframework.context.annotation.Bean;
+@@ -7,28 +8,40 @@ import org.springframework.security.config.Customizer;
+ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+ import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+ import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
++import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
++import org.springframework.security.crypto.password.PasswordEncoder;
+ import org.springframework.security.web.SecurityFilterChain;
+ 
+ @Configuration
+ @EnableWebSecurity
+ public class SecurityConfig {
++
+     @Bean
+     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+-        // 🔹 Disable CSRF (only for APIs; keep it enabled for traditional web apps)
++        // APIs: disable CSRF
+         http.csrf(AbstractHttpConfigurer::disable);
+ 
+-        // 🔹 CORS configuration (enable if frontend is on a different origin)
++        // CORS (customize later if needed)
+         http.cors(Customizer.withDefaults());
+ 
+-        // 🔹 Authorization
+-        http.authorizeHttpRequests(auth -> {
+-            auth.requestMatchers(HttpMethod.GET, "/", "/error").permitAll();
+-            auth.requestMatchers("/register").permitAll();            
+-            auth.anyRequest().denyAll(); // Protect all other routes by denying access
+-        });
++        http.authorizeHttpRequests(auth -> auth
++            // public error
++            .requestMatchers("/error").permitAll()
++            // public root + actuator for healthchecks
++            .requestMatchers(HttpMethod.GET, "/", "/actuator/health", "/actuator/info").permitAll()
++            // OPTIONS for CORS preflights
++            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
++            // registration stays "open" – your interceptor enforces the internal header
++            .requestMatchers(HttpMethod.POST, "/register").permitAll()
++            // everything else denied
++            .anyRequest().denyAll()
++        );
+ 
+         return http.build();
+     }
+ 
+-
+-}
+\ No newline at end of file
++    @Bean
++    public PasswordEncoder passwordEncoder() {
++        return new BCryptPasswordEncoder();
++    }
++}
+diff --git a/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/controller/UserController.java b/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/controller/UserController.java
+index 4c2ac74..5ad062d 100644
+--- a/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/controller/UserController.java
++++ b/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/controller/UserController.java
+@@ -1,9 +1,9 @@
+ // src/main/java/com/tradestream/user_registration_service/controller/UserController.java
+ package com.tradestream.user_registration_service.controller;
+ 
+-
++import org.springframework.http.HttpStatus;
+ import org.springframework.http.ResponseEntity;
+-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
++import org.springframework.security.crypto.password.PasswordEncoder;
+ import org.springframework.web.bind.annotation.PostMapping;
+ import org.springframework.web.bind.annotation.RequestBody;
+ import org.springframework.web.bind.annotation.RequestMapping;
+@@ -13,29 +13,31 @@ import com.tradestream.user_registration_service.dto.UserDTO;
+ import com.tradestream.user_registration_service.model.User;
+ import com.tradestream.user_registration_service.repository.UserRepository;
+ 
++import jakarta.validation.Valid;
++
+ @RestController
+ @RequestMapping("")
+ public class UserController {
+ 
+     private final UserRepository userRepository;
++    private final PasswordEncoder passwordEncoder;
+ 
+-    public UserController(UserRepository userRepository) {
++    public UserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+         this.userRepository = userRepository;
++        this.passwordEncoder = passwordEncoder;
+     }
+ 
+     @PostMapping("/register")
+-    public ResponseEntity<String> register(@RequestBody UserDTO userDTO) {
+-        
+-        String encodedPassword = new BCryptPasswordEncoder().encode(userDTO.getPassword());
++    public ResponseEntity<String> register(@Valid @RequestBody UserDTO userDTO) {
++        if (userRepository.findByUsername(userDTO.getUsername()).isPresent()) {
++            return ResponseEntity.status(HttpStatus.CONFLICT)
++                                .body("Username already exists.");
++        }
++        String encodedPassword = passwordEncoder.encode(userDTO.getPassword());
+         User user = new User();
+         user.setUsername(userDTO.getUsername());
+         user.setPassword(encodedPassword);
+         userRepository.save(user);
+-
+         return ResponseEntity.ok("All good.");
+     }
+-
+-
+-    
+-    
+ }
+diff --git a/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/dto/UserDTO.java b/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/dto/UserDTO.java
+index a251fa1..46a26cb 100644
+--- a/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/dto/UserDTO.java
++++ b/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/dto/UserDTO.java
+@@ -1,11 +1,15 @@
+ package com.tradestream.user_registration_service.dto;
+ 
++import jakarta.validation.constraints.NotBlank;
++import jakarta.validation.constraints.Size;
+ import lombok.Data;
+ 
+ @Data
+ public class UserDTO {
+ 
++    @NotBlank @Size(min = 3, max = 255)
+     private String username;
++    @NotBlank @Size(min = 6, max = 255)
+     private String password;
+ 
+ }
+diff --git a/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/model/User.java b/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/model/User.java
+index 8691303..004d080 100644
+--- a/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/model/User.java
++++ b/services/user-registration-service/src/main/java/com/tradestream/user_registration_service/model/User.java
+@@ -6,6 +6,7 @@ import java.util.UUID;
+ import jakarta.persistence.Column;
+ import jakarta.persistence.Entity;
+ import jakarta.persistence.GeneratedValue;
++import jakarta.persistence.GenerationType;
+ import jakarta.persistence.Id;
+ import jakarta.persistence.Table;
+ import lombok.Getter;
+@@ -13,12 +14,11 @@ import lombok.Setter;
+ 
+ @Entity
+ @Table(name = "users")
+-@Getter
+-@Setter
++@Getter @Setter
+ public class User {
+ 
+     @Id
+-    @GeneratedValue
++    @GeneratedValue(strategy = GenerationType.UUID)
+     private UUID id;
+ 
+     @Column(nullable = false, unique = true)
+@@ -26,5 +26,4 @@ public class User {
+ 
+     @Column(nullable = false)
+     private String password;
+-
+ }
+diff --git a/services/user-registration-service/src/main/resources/db/migration/V2__rename_email_to_username.sql b/services/user-registration-service/src/main/resources/db/migration/V2__rename_email_to_username.sql
+new file mode 100644
+index 0000000..264e9ea
+--- /dev/null
++++ b/services/user-registration-service/src/main/resources/db/migration/V2__rename_email_to_username.sql
+@@ -0,0 +1,16 @@
++-- src/main/resources/db/migration/V2__rename_email_to_username.sql
++ALTER TABLE users RENAME COLUMN email TO username;
++
++-- ensure uniqueness on the new column name
++DO $$
++BEGIN
++    IF NOT EXISTS (
++        SELECT 1 FROM pg_indexes WHERE tablename = 'users' AND indexname = 'users_username_key'
++    ) THEN
++        ALTER TABLE users ADD CONSTRAINT users_username_key UNIQUE (username);
++    END IF;
++END $$;
++
++-- give id a default generator so inserts from SQL work too
++CREATE EXTENSION IF NOT EXISTS "pgcrypto";
++ALTER TABLE users ALTER COLUMN id SET DEFAULT gen_random_uuid();

@@ -1,0 +1,816 @@
+
+===== COMMIT 06c36381c4fb4df760e5d8a4ebf2e87e409b12ef =====
+commit 06c36381c4fb4df760e5d8a4ebf2e87e409b12ef
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Thu Sep 4 09:28:56 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Thu Sep 4 09:28:56 2025 +0100
+
+    Deploy
+---
+ api-gateway/Dockerfile                             |   8 +
+ api-gateway/pom.xml                                |  77 +++++
+ .../tradestream/gateway/ApiGatewayApplication.java |  12 +
+ .../gateway/filters/RequestIdFilter.java           |  27 ++
+ .../gateway/ratelimit/RateLimitConfig.java         |  17 ++
+ .../gateway/security/SecurityConfig.java           |  59 ++++
+ .../gateway/web/FallbackController.java            |  16 +
+ api-gateway/src/main/resources/application.yml     | 111 +++++++
+ docker-compose.yml                                 |  23 +-
+ services/authentication-service/README.md          | 324 ++++++++++++++++++---
+ .../.gradle/nb-cache/subprojects.ser               | Bin 759 -> 759 bytes
+ .../.gradle/nb-cache/subprojects.ser               | Bin 756 -> 756 bytes
+ 12 files changed, 618 insertions(+), 56 deletions(-)
+
+diff --git a/api-gateway/Dockerfile b/api-gateway/Dockerfile
+index e69de29..dbf295a 100644
+--- a/api-gateway/Dockerfile
++++ b/api-gateway/Dockerfile
+@@ -0,0 +1,8 @@
++FROM eclipse-temurin:21-jre
++WORKDIR /app
++ARG JAR_FILE=target/api-gateway-*.jar
++COPY ${JAR_FILE} app.jar
++HEALTHCHECK --interval=30s --timeout=3s --retries=5 CMD curl -fsS http://localhost:8080/actuator/health || exit 1
++EXPOSE 8080
++ENTRYPOINT ["java","-jar","/app/app.jar"]
++
+diff --git a/api-gateway/pom.xml b/api-gateway/pom.xml
+index e69de29..9d4271e 100644
+--- a/api-gateway/pom.xml
++++ b/api-gateway/pom.xml
+@@ -0,0 +1,77 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project xmlns="http://maven.apache.org/POM/4.0.0"
++         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
++                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++  <groupId>com.tradestream</groupId>
++  <artifactId>api-gateway</artifactId>
++  <version>0.0.1-SNAPSHOT</version>
++
++  <parent>
++    <groupId>org.springframework.boot</groupId>
++    <artifactId>spring-boot-starter-parent</artifactId>
++    <version>3.3.3</version>
++  </parent>
++
++  <properties>
++    <java.version>21</java.version>
++    <spring-cloud.version>2023.0.3</spring-cloud.version>
++  </properties>
++
++  <dependencies>
++    <dependency>
++      <groupId>org.springframework.cloud</groupId>
++      <artifactId>spring-cloud-starter-gateway</artifactId>
++    </dependency>
++    <dependency>
++      <groupId>org.springframework.boot</groupId>
++      <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
++    </dependency>
++    <dependency>
++      <groupId>org.springframework.boot</groupId>
++      <artifactId>spring-boot-starter-actuator</artifactId>
++    </dependency>
++    <!-- For Redis-backed rate limiting (optional; you already run Redis) -->
++    <dependency>
++      <groupId>org.springframework.boot</groupId>
++      <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
++    </dependency>
++    <dependency>
++      <groupId>org.springframework.cloud</groupId>
++      <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
++    </dependency>
++    <dependency>
++      <groupId>org.projectlombok</groupId>
++      <artifactId>lombok</artifactId>
++      <optional>true</optional>
++    </dependency>
++    <dependency>
++      <groupId>org.springframework.boot</groupId>
++      <artifactId>spring-boot-configuration-processor</artifactId>
++      <optional>true</optional>
++    </dependency>
++  </dependencies>
++
++  <dependencyManagement>
++    <dependencies>
++      <dependency>
++        <groupId>org.springframework.cloud</groupId>
++        <artifactId>spring-cloud-dependencies</artifactId>
++        <version>${spring-cloud.version}</version>
++        <type>pom</type>
++        <scope>import</scope>
++      </dependency>
++    </dependencies>
++  </dependencyManagement>
++
++  <build>
++    <plugins>
++      <plugin>
++        <groupId>org.springframework.boot</groupId>
++        <artifactId>spring-boot-maven-plugin</artifactId>
++      </plugin>
++    </plugins>
++  </build>
++</project>
++
+diff --git a/api-gateway/src/main/java/com/tradestream/gateway/ApiGatewayApplication.java b/api-gateway/src/main/java/com/tradestream/gateway/ApiGatewayApplication.java
+new file mode 100644
+index 0000000..4b25363
+--- /dev/null
++++ b/api-gateway/src/main/java/com/tradestream/gateway/ApiGatewayApplication.java
+@@ -0,0 +1,12 @@
++package com.tradestream.gateway;
++
++import org.springframework.boot.SpringApplication;
++import org.springframework.boot.autoconfigure.SpringBootApplication;
++
++@SpringBootApplication
++public class ApiGatewayApplication {
++  public static void main(String[] args) {
++    SpringApplication.run(ApiGatewayApplication.class, args);
++  }
++}
++
+diff --git a/api-gateway/src/main/java/com/tradestream/gateway/filters/RequestIdFilter.java b/api-gateway/src/main/java/com/tradestream/gateway/filters/RequestIdFilter.java
+new file mode 100644
+index 0000000..1011512
+--- /dev/null
++++ b/api-gateway/src/main/java/com/tradestream/gateway/filters/RequestIdFilter.java
+@@ -0,0 +1,27 @@
++package com.tradestream.gateway.filters;
++
++import org.springframework.cloud.gateway.filter.GlobalFilter;
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Configuration;
++import org.springframework.http.server.reactive.ServerHttpRequest;
++import org.springframework.web.server.ServerWebExchange;
++
++import java.util.UUID;
++
++@Configuration
++public class RequestIdFilter {
++  public static final String HEADER = "X-Request-Id";
++  @Bean
++  public GlobalFilter addRequestIdHeaderFilter() {
++    return (exchange, chain) -> {
++      ServerHttpRequest req = exchange.getRequest();
++      if (!req.getHeaders().containsKey(HEADER)) {
++        var mutated = req.mutate().header(HEADER, UUID.randomUUID().toString()).build();
++        ServerWebExchange ex2 = exchange.mutate().request(mutated).build();
++        return chain.filter(ex2);
++      }
++      return chain.filter(exchange);
++    };
++  }
++}
++
+diff --git a/api-gateway/src/main/java/com/tradestream/gateway/ratelimit/RateLimitConfig.java b/api-gateway/src/main/java/com/tradestream/gateway/ratelimit/RateLimitConfig.java
+new file mode 100644
+index 0000000..58f3f7a
+--- /dev/null
++++ b/api-gateway/src/main/java/com/tradestream/gateway/ratelimit/RateLimitConfig.java
+@@ -0,0 +1,17 @@
++package com.tradestream.gateway.ratelimit;
++
++import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Configuration;
++import reactor.core.publisher.Mono;
++
++@Configuration
++public class RateLimitConfig {
++  @Bean
++  public KeyResolver ipKeyResolver() {
++    return exchange -> Mono.justOrEmpty(
++      exchange.getRequest().getHeaders().getFirst("X-Forwarded-For")
++    ).switchIfEmpty(Mono.just(exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()));
++  }
++}
++
+diff --git a/api-gateway/src/main/java/com/tradestream/gateway/security/SecurityConfig.java b/api-gateway/src/main/java/com/tradestream/gateway/security/SecurityConfig.java
+new file mode 100644
+index 0000000..da9cdb8
+--- /dev/null
++++ b/api-gateway/src/main/java/com/tradestream/gateway/security/SecurityConfig.java
+@@ -0,0 +1,59 @@
++package com.tradestream.gateway.security;
++
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Configuration;
++import org.springframework.http.HttpMethod;
++import org.springframework.security.authentication.AbstractAuthenticationToken;
++import org.springframework.security.config.Customizer;
++import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
++import org.springframework.security.config.web.server.ServerHttpSecurity;
++import org.springframework.security.core.GrantedAuthority;
++import org.springframework.security.oauth2.jwt.Jwt;
++import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
++import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
++import org.springframework.security.web.server.SecurityWebFilterChain;
++import reactor.core.publisher.Mono;
++
++import java.util.*;
++import java.util.stream.Collectors;
++
++@Configuration
++@EnableWebFluxSecurity
++public class SecurityConfig {
++
++  @Bean
++  SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
++    http
++      .csrf(ServerHttpSecurity.CsrfSpec::disable)
++      .cors(Customizer.withDefaults())
++      .authorizeExchange(ex -> ex
++        // Public health
++        .pathMatchers("/actuator/health", "/actuator/info").permitAll()
++        // Public auth endpoints (edge validates JWT elsewhere)
++        .pathMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
++        .pathMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
++        // Public registration (still header-gated at downstream)
++        .pathMatchers(HttpMethod.POST, "/api/users/register").permitAll()
++        // Everything else needs a valid JWT
++        .anyExchange().authenticated()
++      )
++      .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(converter())));
++    return http.build();
++  }
++
++  private ReactiveJwtAuthenticationConverterAdapter converter() {
++    var delegate = new JwtAuthenticationConverter();
++    delegate.setJwtGrantedAuthoritiesConverter((Jwt jwt) -> {
++      Object scopes = jwt.getClaims().getOrDefault("scopes", jwt.getClaims().get("scope"));
++      Collection<String> list = switch (scopes) {
++        case null -> List.of();
++        case String s -> Arrays.stream(s.split("\\s+")).filter(x -> !x.isBlank()).toList();
++        case Collection<?> c -> c.stream().map(Object::toString).toList();
++        default -> List.of();
++      };
++      return list.stream().map(s -> (GrantedAuthority) () -> "SCOPE_" + s).collect(Collectors.toSet());
++    });
++    return new ReactiveJwtAuthenticationConverterAdapter(delegate);
++  }
++}
++
+diff --git a/api-gateway/src/main/java/com/tradestream/gateway/web/FallbackController.java b/api-gateway/src/main/java/com/tradestream/gateway/web/FallbackController.java
+new file mode 100644
+index 0000000..c44a73d
+--- /dev/null
++++ b/api-gateway/src/main/java/com/tradestream/gateway/web/FallbackController.java
+@@ -0,0 +1,16 @@
++package com.tradestream.gateway.web;
++
++import org.springframework.http.MediaType;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RestController;
++import reactor.core.publisher.Mono;
++import java.util.Map;
++
++@RestController
++public class FallbackController {
++  @RequestMapping(value = "/fallback", produces = MediaType.APPLICATION_JSON_VALUE)
++  public Mono<Map<String, Object>> fallback() {
++    return Mono.just(Map.of("status", "degraded", "message", "Downstream service unavailable. Please retry."));
++  }
++}
++
+diff --git a/api-gateway/src/main/resources/application.yml b/api-gateway/src/main/resources/application.yml
+new file mode 100644
+index 0000000..ab85a7e
+--- /dev/null
++++ b/api-gateway/src/main/resources/application.yml
+@@ -0,0 +1,111 @@
++server:
++  port: ${SERVER_PORT:8080}
++
++spring:
++  application:
++    name: api-gateway
++
++  security:
++    oauth2:
++      resourceserver:
++        jwt:
++          # Mount the same secret as auth-service
++          public-key-location: ${JWT_PUBLIC_KEY_LOCATION:file:/run/secrets/jwt_public.pem}
++
++  cloud:
++    gateway:
++      default-filters:
++        - RemoveRequestHeader=Cookie
++        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin RETAIN_UNIQUE
++
++      routes:
++        # ---------- AUTH ----------
++        - id: auth-login
++          uri: ${AUTH_BASE_URL:http://auth-service:8082}
++          predicates:
++            - Path=/api/auth/login
++          filters:
++            - RewritePath=/api/auth/login,/login
++            # Optional: throttle login by IP (requires Redis)
++            - name: RequestRateLimiter
++              args:
++                key-resolver: "#{@ipKeyResolver}"
++                redis-rate-limiter.replenishRate: 10
++                redis-rate-limiter.burstCapacity: 20
++
++        - id: auth-refresh
++          uri: ${AUTH_BASE_URL:http://auth-service:8082}
++          predicates:
++            - Path=/api/auth/refresh
++          filters:
++            - RewritePath=/api/auth/refresh,/refresh
++            - AddRequestHeader=X-Internal-Caller,api-gateway
++
++        # ---------- USER REGISTRATION (internal-only via header) ----------
++        - id: user-registration
++          uri: ${REG_BASE_URL:http://user-registration-service:8081}
++          predicates:
++            - Path=/api/users/register
++          filters:
++            - RewritePath=/api/users/register,/register
++            - AddRequestHeader=X-Internal-Caller,api-gateway
++
++        # ---------- ORDERS ----------
++        - id: orders
++          uri: ${ORDERS_BASE_URL:http://orders-service:8085}
++          predicates:
++            - Path=/api/orders/**
++          filters:
++            # orders-service already exposes /orders/**
++            - CircuitBreaker=name=ordersCB,fallbackUri=forward:/fallback
++
++        # ---------- TRANSACTIONS (already /api/transactions/**) ----------
++        - id: transactions
++          uri: http://transaction-processor:8084
++          predicates:
++            - Path=/api/transactions/**
++          filters:
++            - CircuitBreaker=name=txCB,fallbackUri=forward:/fallback
++
++        # ---------- PORTFOLIO (/portfolio/**) ----------
++        - id: portfolio
++          uri: http://portfolio-service:8087
++          predicates:
++            - Path=/api/portfolio/**
++          filters:
++            - RewritePath=/api/portfolio/(?<p>.*),/portfolio/${p}
++            - CircuitBreaker=name=portfolioCB,fallbackUri=forward:/fallback
++
++        # ---------- MARKET DATA: normalize to /api/market-data/** ----------
++        - id: market-data
++          uri: http://market-data-consumer:8083
++          predicates:
++            - Path=/api/market-data/**
++          filters:
++            # Rewrite to /candles/**
++            - RewritePath=/api/market-data/(?<p>.*),/candles/${p}
++            - CircuitBreaker=name=mdCB,fallbackUri=forward:/fallback
++
++      globalcors:
++        corsConfigurations:
++          "[/**]":
++            allowedOrigins: "*"
++            allowedMethods: "*"
++            allowedHeaders: "*"
++            allowCredentials: false
++            exposedHeaders: "X-Request-Id"
++
++management:
++  endpoints:
++    web:
++      exposure:
++        include: "health,info,gateway,metrics"
++
++resilience4j:
++  circuitbreaker:
++    instances:
++      ordersCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
++      txCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
++      portfolioCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
++      mdCB: { slidingWindowType: COUNT_BASED, slidingWindowSize: 20, failureRateThreshold: 50 }
++
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 53e3188..852e911 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -7,31 +7,28 @@ networks:
+ services:
+   # --- Edge ---
+   api-gateway:
+-    profiles: ["later"] 
+     build:
+       context: ./api-gateway
+       dockerfile: Dockerfile
+     image: tradestream-api-gateway:dev
+-    ports:
+-      - "8080:8080"
++    ports: ["8080:8080"]
+     depends_on:
+-      auth-service:
+-        condition: service_healthy
+-      user-registration-service:
+-        condition: service_healthy
+-      redis:
+-        condition: service_healthy
++      auth-service: { condition: service_healthy }
++      user-registration-service: { condition: service_healthy }
++      redis: { condition: service_healthy }
+     environment:
+       SERVER_PORT: 8080
+-      REDIS_HOST: redis
+-      ORDERS_BASE_URL: http://orders-service:8085
+       AUTH_BASE_URL: http://auth-service:8082
+       REG_BASE_URL: http://user-registration-service:8081
++      ORDERS_BASE_URL: http://orders-service:8085
++      JWT_PUBLIC_KEY_LOCATION: file:/run/secrets/jwt_public.pem
++      REDIS_HOST: redis
+     restart: unless-stopped
+     healthcheck:
+-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
++      test: ["CMD","curl","-f","http://localhost:8080/actuator/health"]
++    secrets:
++      - jwt_public.pem
+     networks: [public_net, private_net]
+-
+   # --- Auth & Users ---
+   user-registration-service:
+     build: { context: ./services/user-registration-service, dockerfile: Dockerfile }
+diff --git a/services/authentication-service/README.md b/services/authentication-service/README.md
+index c1f863e..271a7fb 100644
+--- a/services/authentication-service/README.md
++++ b/services/authentication-service/README.md
+@@ -1,81 +1,319 @@
+-![SECURITY: HIGH](https://img.shields.io/badge/SECURITY-HIGH-brightgreen) ![JWT](https://img.shields.io/badge/JWT-ENABLED-green) ![SIGNING: RSA-PSS](https://img.shields.io/badge/SIGNING-RSA--PSS%20\(PS256\)-blue) ![HTTPS ONLY](https://img.shields.io/badge/HTTPS-ENFORCED-green) ![AES-256-GCM](https://img.shields.io/badge/ENCRYPTION-AES--256--GCM-yellowgreen) ![JWS](https://img.shields.io/badge/ACCESS%20TOKEN-JWS-blue) ![JWE](https://img.shields.io/badge/REFRESH%20TOKEN-JWE-yellow) ![CONFIGURABLE](https://img.shields.io/badge/CONFIG-ENV--BASED-blue) ![WORK IN PROGRESS](https://img.shields.io/badge/MAINTENANCE-ACTIVE-blue) ![TESTS NEEDED](https://img.shields.io/badge/TESTS-MISSING-red)
++# 📌 Source of Truth: **Authentication Service**
+ 
+-## Authentication Service ![SECURITY: HIGH](https://img.shields.io/badge/SECURITY-HIGH-brightgreen)
++---
++
++## 1) One-liner — A single, impactful sentence.
+ 
+-This microservice handles user authentication and secure token issuance in the **TradeStream** system. It generates **signed access tokens** and **encrypted refresh tokens**, using modern cryptographic standards to ensure confidentiality, integrity, and tamper-proof delivery across services.
++Stateless authentication microservice that verifies credentials, issues RSA-signed JWTs (PS256), and exposes a refresh pathway gated for internal callers.
+ 
+ ---
+ 
+-### Responsibilities ![JWT](https://img.shields.io/badge/JWT-ENABLED-green) ![SIGNING: RSA-PSS](https://img.shields.io/badge/SIGNING-RSA--PSS%20\(PS256\)-blue)
++## 2) Executive Summary (for recruiters) — Business value + key technical achievements.
+ 
+-* Verifies login credentials from users via secure database lookup.
+-* Issues signed **access tokens** (JWS) for stateless, tamper-evident API authorization.
+-* Issues **encrypted refresh tokens** (JWE) for secure re-authentication.
+-* Signs tokens using **PS256 (RSA-PSS + SHA-256)** to avoid algorithm substitution attacks.
+-* Interfaces with the API Gateway, which handles token delivery and validation.
++* Delivered an **authentication core** for a trading platform: **/login** issues access+refresh tokens; **/refresh** mints short-lived access tokens from long-lived refresh tokens.
++* Built for **defense-in-depth**: asymmetric signing (RSA/PS256), **audience/issuer claims**, **token\_type** discrimination, and a **hard gate** on refresh via an interceptor requiring `X-Internal-Caller: api-gateway`.
++* **Operationally safe**: Flyway migrations, containerized with Docker, Actuator health, and strict **deny-by-default** security configuration.
++* Clean separation of concerns: controller → service (token/JWT) → repository (Postgres via JPA); **stateless** (no sessions) with **idempotent** token issuance behavior on refresh.
+ 
+ ---
+ 
+-### Security Highlights ![HTTPS ONLY](https://img.shields.io/badge/HTTPS-ENFORCED-green) ![AES-256-GCM](https://img.shields.io/badge/ENCRYPTION-AES--256--GCM-yellowgreen)
++## 3) What this service does — Responsibilities.
+ 
+-* **Private RSA Key Usage**
++* **Authenticate users** with **BCrypt** password verification against Postgres.
++* **Issue JWTs** (access: 15m, refresh: 30d) using **RSA private key**; embed `username`, `sub=userId`, `jti`, `aud`, `iss`, `token_type`, and `scopes`.
++* **Refresh access tokens** from valid refresh tokens; **no rotation** of refresh token (access-only rotation).
++* **Expose health/info** for runtime checks (`/actuator/health`, `/actuator/info`).
++* **Enforce strict ingress policy**: only `GET /`, `GET /actuator/*`, `POST /login`, `POST /refresh` allowed; everything else denied.
++* **Gate internal workflows**: `/refresh` requires header `X-Internal-Caller: api-gateway`.
+ 
+-  * The service uses a **private RSA key**, securely injected via environment variables, to sign all access tokens and refresh token inner payloads.
++---
+ 
+-* **Refresh Token Encryption**
++## 4) Tech Stack & Key Choices — Table + design rationale highlights.
+ 
+-  * The API Gateway encrypts refresh tokens using **AES-256-GCM** and a **randomly generated CEK**, which is itself encrypted with the API Gateway’s **RSA public key**.
++| Technology                       | Purpose                       | Rationale                                                              |
++| -------------------------------- | ----------------------------- | ---------------------------------------------------------------------- |
++| **Java 17 + Spring Boot 3**      | Service framework             | Mature ecosystem, records/validation, Actuator, Security               |
++| **Spring Security**              | HTTP security & filters       | **Deny-by-default**, stateless, CSRF disabled for API, easy CORS hooks |
++| **PostgreSQL + Flyway**          | User store & schema evolution | ACID, UUIDs, versioned migrations (`V1…`, `V2…`)                       |
++| **JPA/Hibernate**                | ORM for `users`               | Simple repository (`findByUsername`) with unique index                 |
++| **JJWT (io.jsonwebtoken)**       | JOSE/JWT signing & parsing    | **PS256** (RSA-PSS) signatures, compact APIs                           |
++| **RSA keypair (Docker secrets)** | Asymmetric crypto             | Private key inside container; public key used for parse/verify         |
++| **Docker**                       | Containerization              | Reproducible builds, healthchecks, secret mounts                       |
++| **Actuator**                     | Ops visibility                | Liveness/readiness via `/actuator/health`                              |
+ 
+-* **HTTPS Enforcement**
++**Design rationale highlights**
+ 
+-  * All client communication flows through HTTPS to ensure end-to-end security, especially for login and refresh flows.
++* **Asymmetric signing (PS256)** prevents shared-secret leakage and supports external verification by the API Gateway.
++* **Two-token model** (access+refresh) reduces blast radius; **refresh is access-only rotation** to minimize DB/IO.
++* **Header-gated refresh** via `InternalCallerInterceptor` ensures refresh path is **not public** even if network boundaries blur.
++* **Stateless sessions** enable horizontal scaling without sticky sessions.
++* **Issuer/Audience/Type** claims form an **authorization contract** for downstream verifiers.
+ 
+ ---
+ 
+-### 📊 Architecture Diagram
++## 5) Architecture at a glance — Primary flows (API + events).
++
++### Flow A: Login (client → Auth)
++
++1. `POST /login` with `{ username, password }`.
++2. Repository: `users.findByUsername(username.trim())`.
++3. Verify `BCrypt` password; on mismatch ⇒ **401 Unauthorized**.
++4. Generate **Access** (TTL 15m) and **Refresh** (TTL 30d) JWTs with `PS256`.
++5. Respond `200 OK` with `{ access_token, refresh_token, token_type=Bearer, user_id }`.
+ 
+-<details>
+-  <summary>Click to view authentication flow diagram</summary>
++### Flow B: Refresh (Gateway → Auth)
+ 
+-  ![Authentication Flow Diagram](./docs/authentication-flow.drawio.png)
++1. API Gateway calls `POST /refresh` with `X-Internal-Caller: api-gateway` and body `{ refreshToken }`.
++2. Interceptor validates header ⇒ otherwise **403 Forbidden**.
++3. Parse & verify refresh JWT with **public key**; enforce `token_type == "refresh"`.
++4. Mint **new Access** token (same `sub`, `username`, `scopes`); return **original Refresh**.
++5. Respond `200 OK` with new `{ access_token, refresh_token, token_type, user_id }`.
+ 
+-</details>
++### Flow C: Health/Info (Ops)
++
++* `GET /actuator/health` (readiness/liveness).
++* `GET /actuator/info` (build + key path info).
+ 
+ ---
+ 
+-### 🧠 How It Works
++## 6) Rules & Invariants — Core business rules enforced.
++
++* **Refresh tokens are not rotated**; only access is refreshed.
++* **Refresh endpoint is internal-only**: requires `X-Internal-Caller: api-gateway`.
++* **JWT structure**:
+ 
+-#### Login Flow:
++  * `alg=PS256`, `typ=JWT`, `iss="authentication-service"`, `aud="api-gateway"`, unique `jti`.
++  * `sub` is **UUID** user id; `username` mirrors DB; `token_type ∈ {access, refresh}`; `scopes` is array/string-list.
++* **Access TTL = 15m**, **Refresh TTL = 30d**.
++* **Deny-all** for any route not explicitly whitelisted.
++* **Trimming** of credentials: incoming `username/password` are `.trim()`ed before verification.
++* **Error semantics**: 401 on invalid creds or invalid refresh; 404 when user missing; 403 when internal header absent on refresh.
++
++---
+ 
+-1. Client sends login request with credentials over HTTPS.
+-2. Credentials are validated using a secure DB lookup:
+-   * If valid:
+-     * Access token is generated and signed (JWS using PS256).
+-     * Refresh token is generated as a signed JWS.
+-     * Refresh token is sent to API Gateway, which encrypts it (JWE).
+-     * Both tokens are returned to the client via API Gateway.
++## 7) Data Model — Main tables, keys, purpose.
+ 
+-#### Refresh Flow:
++**users**
+ 
+-1. Client sends refresh token via HTTPS.
+-2. API Gateway decrypts it, validates the signature.
+-3. If valid, Authentication Service issues a new access token.
++* **PK**: `id UUID` (default `gen_random_uuid()` via `pgcrypto`).
++* **Columns**: `username (unique, not null)`, `password (BCrypt hash, not null)`, `created_at TIMESTAMP DEFAULT now()` *(present in schema; not mapped in entity)*.
++* **Indexes/Constraints**: unique on `username`.
++* **Purpose**: authoritative user identity & secret verifier.
+ 
+ ---
+ 
+-### 🔧 Configuration
++## 8) Configuration (env) — Critical environment variables.
+ 
+-* `PRIVATE_KEY`: RSA private key for signing.
+-* `JWT_EXPIRATION`: Access token expiration window.
+-* `JWT_ISSUER`, `JWT_AUDIENCE`: Used in the `iss` and `aud` claims.
++| Key                             | Default                        | Notes                                          |
++| ------------------------------- | ------------------------------ | ---------------------------------------------- |
++| `SERVER_PORT`                   | `8082`                         | HTTP port                                      |
++| `SPRING_DATASOURCE_URL`         | —                              | e.g., `jdbc:postgresql://postgres:5432/authdb` |
++| `SPRING_DATASOURCE_USERNAME`    | —                              | DB user                                        |
++| `SPRING_DATASOURCE_PASSWORD`    | —                              | DB password                                    |
++| `SPRING_JPA_HIBERNATE_DDL_AUTO` | `validate`                     | Enforce schema sync                            |
++| `SPRING_FLYWAY_ENABLED`         | `true`                         | Run migrations                                 |
++| `SPRING_FLYWAY_LOCATIONS`       | `classpath:db/migration`       | Migration path                                 |
++| `JWT_PRIVATE_KEY_PATH`          | `/run/secrets/jwt_private.pem` | **PKCS#8** “BEGIN PRIVATE KEY”                 |
++| `JWT_PUBLIC_KEY_PATH`           | `/run/secrets/jwt_public.pem`  | “BEGIN PUBLIC KEY”                             |
++| `MANAGEMENT_PORT`               | `=SERVER_PORT`                 | Actuator on same port by default               |
+ 
+ ---
+ 
+-### 🧪 TODO / Future Improvements
++## 9) Operations & Runbook — Run commands, health, and troubleshooting.
++
++**Build & run locally**
++
++```bash
++./gradlew clean build -x test
++java -jar build/libs/auth-0.0.1-SNAPSHOT.jar
++# or Docker:
++docker build -t tradestream-auth-service .
++docker run -p 8082:8082 \
++  -e SPRING_DATASOURCE_URL='jdbc:postgresql://localhost:5432/authdb' \
++  -e SPRING_DATASOURCE_USERNAME=authuser \
++  -e SPRING_DATASOURCE_PASSWORD=authpass \
++  -e JWT_PRIVATE_KEY_PATH=/run/secrets/jwt_private.pem \
++  -e JWT_PUBLIC_KEY_PATH=/run/secrets/jwt_public.pem \
++  -v $PWD/secrets:/run/secrets \
++  tradestream-auth-service
++```
++
++**Generate RSA keys (PKCS#8 private)**
++
++```bash
++# Private (PKCS#8) + Public
++openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/jwt_private.pem
++openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
++```
++
++**Health checks**
++
++```bash
++curl -sf http://localhost:8082/actuator/health
++curl -s  http://localhost:8082/actuator/info
++```
++
++**Seed a user (for local testing)**
++
++```sql
++-- bcrypt hash for password 'changeme' (example; generate your own)
++INSERT INTO users (username, password) VALUES ('alice', '$2a$10$K8b2m6v2y8z3wQqE4m7wUuXnWb9C5g3qJ3u6y4zM8gZ0S4yq6cVbG');
++```
+ 
+-* Add unit and integration tests for token validation logic.
+-* Add metrics for login success/failure tracking.
+-* Rotate keys securely via KMS or secrets manager.
+-* Add monitoring system or something alogn the lines of that
++**Troubleshooting**
++
++| Symptom                              | Likely Cause                                 | Fix                                                           |
++| ------------------------------------ | -------------------------------------------- | ------------------------------------------------------------- |
++| `401 Unauthorized` on `/login`       | Wrong creds or BCrypt mismatch               | Verify username; re-hash password with BCrypt 10+ rounds      |
++| `401 Unauthorized` on `/refresh`     | Token invalid/expired or not a refresh token | Ensure `token_type=refresh`; check expiry; re-login           |
++| `403 Forbidden` on `/refresh`        | Missing/incorrect header                     | Set `X-Internal-Caller: api-gateway` at Gateway               |
++| `500` during startup (key load)      | Wrong key paths or non-PKCS#8 private key    | Mount secrets; regenerate keys with commands above            |
++| Build succeeds but `/users` etc. 404 | Deny-by-default, only specific routes exist  | Use only `/login`, `/refresh`, `/actuator/*`                  |
++| Flyway mismatch                      | DB not migrated                              | Ensure `SPRING_FLYWAY_ENABLED=true`; check `V1`, `V2` applied |
++
++---
++
++## 10) Extensibility — Future improvements & scaling strategies.
++
++* **Refresh rotation + revocation**: rotate refresh tokens and maintain a **revocation list** (jti blacklist) for compromise containment.
++* **Key rotation/JWKS**: publish **JWKS** endpoint and support rolling keys with `kid` headers.
++* **OIDC alignment**: expose discovery (`/.well-known/openid-configuration`) + standardized scopes/claims.
++* **mTLS between Gateway⇄Auth** or service mesh policy; replace header-gate with network-auth **and** header.
++* **Rate limiting + login cooldowns**; account lockout on suspicious activity.
++* **Scope derivation from roles** via RBAC tables; admin/user/readonly separation.
++* **Audience checks in parser**: enforce `aud`/`iss` on parse for defense-in-depth.
++* **Audit trail**: structured logs with jti, sub; optional login history table.
++
++---
++
++## 11) Where this fits in the bigger system — Context.
++
++The Authentication Service is the **identity and token issuer** for the platform: clients authenticate via the **API Gateway**, which forwards login to Auth; downstream microservices rely on the Gateway to validate JWTs and propagate principal data. **Refresh** is strictly **Gateway-initiated** to reduce exposure, while user data remains authoritative in Postgres.
+ 
+ ---
++
++## 12) Resume/CV Content (Copy-Paste Ready)
++
++**Impact Bullets**
++
++* Built a **stateless authentication service** (Java 17, Spring Boot, Postgres) issuing **RSA-signed (PS256)** JWTs with access/refresh semantics and strict deny-by-default ingress.
++* Implemented an **internal-only refresh flow** using an interceptor that enforces `X-Internal-Caller` to constrain token minting to the API Gateway.
++* Operationalized with **Flyway, Actuator, Docker**, healthchecks, and secret-mounted keys for predictable CI/CD and secure runtime.
++* Hardened claims model with **issuer/audience/jti/scopes** and **token\_type** discrimination to prevent refresh misuse.
++
++**Scope/Scale (placeholders)**
++
++* Logins/day: **\~N**; peak RPS: **\~X**.
++* P95 login latency: **≤ Y ms**; token refresh latency: **≤ Z ms**.
++* Uptime: **≥ 99.9%** over rolling 30 days.
++* Users in DB: **\~M**.
++
++**Tech Stack Summary**
++Java 17, Spring Boot 3, Spring Security, JJWT, PostgreSQL, Flyway, JPA/Hibernate, Docker, Actuator, Lombok
++
++**Cover-letter paragraph**
++
++> I designed and delivered a **stateless Authentication Service** that verifies credentials and issues **RSA-signed JWTs** with robust claims and an internal-only refresh path. The system emphasizes **operational safety** (Flyway, Actuator, Docker) and **defense-in-depth** (deny-by-default security, asymmetric crypto, audience/issuer contracts). I’d bring the same rigor and results-orientation to \<Company/Team>.
++
++**Interview Talking Points**
++
++* **PS256 vs RS256**: why PSS padding; key management, `kid`, rotation plan.
++* **Refresh strategy**: access-only rotation vs full rotation; revocation and jti blacklists.
++* **Stateless auth trade-offs**: scaling, logout semantics, token invalidation strategies.
++* **Defense-in-depth**: internal header gate vs mTLS; where to enforce `aud/iss`.
++* **Schema evolution**: Flyway migrations (`V1` create, `V2` rename to `username`, default UUIDs).
++* **Error modeling**: mapping auth errors to 401/403/404 and global exception handler.
++* **Hardening roadmap**: rate limits, lockouts, OIDC/JWKS, audit trails.
++
++---
++
++## 13) Cheat Sheet (for yourself) — Quick-reference commands, queries, payloads.
++
++**Health**
++
++```bash
++curl -sSf http://localhost:8082/actuator/health | jq .
++curl -s    http://localhost:8082/actuator/info  | jq .
++```
++
++**Login**
++
++```bash
++curl -sS -X POST http://localhost:8082/login \
++  -H "Content-Type: application/json" \
++  -d '{"username":"alice","password":"changeme"}'
++# → {"access_token":"...","refresh_token":"...","token_type":"Bearer","user_id":"<uuid>"}
++```
++
++**Refresh (must be called by Gateway / internal tooling)**
++
++```bash
++curl -sS -X POST http://localhost:8082/refresh \
++  -H "Content-Type: application/json" \
++  -H "X-Internal-Caller: api-gateway" \
++  -d '{"refreshToken":"<refresh_jwt>"}'
++```
++
++**Decode JWT locally (header & claims only)**
++
++```bash
++TOKEN=<jwt>
++IFS='.' read -r H P S <<< "$TOKEN"; \
++  echo "$H" | base64 -d 2>/dev/null | jq .; \
++  echo "$P" | base64 -d 2>/dev/null | jq .
++```
++
++**SQL: check users**
++
++```sql
++SELECT id, username, length(password) AS hash_len, created_at FROM users ORDER BY created_at DESC LIMIT 5;
++```
++
++**Generate RSA keys**
++
++```bash
++mkdir -p secrets
++openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/jwt_private.pem
++openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
++```
++
++**Docker run (with secrets mounted)**
++
++```bash
++docker run -p 8082:8082 --env-file .env -v $PWD/secrets:/run/secrets tradestream-auth-service
++```
++
++**Security quick facts**
++
++* Allowed routes: `GET /`, `GET /actuator/health`, `GET /actuator/health/**`, `GET /actuator/info`, `POST /login`, `POST /refresh`.
++* Everything else: **denied**. Session policy: **STATELESS**. CSRF: **disabled** (API).
++* Refresh requires: `X-Internal-Caller: api-gateway`.
++
++---
++
++## Appendix: API contracts (sample)
++
++**/login → 200 OK**
++
++```json
++{
++  "access_token": "<jwt>",
++  "refresh_token": "<jwt>",
++  "token_type": "Bearer",
++  "user_id": "8a1c1c7a-6d8e-4a8a-9fd2-2b2f2a5a5e90"
++}
++```
++
++**/refresh → 200 OK**
++
++```json
++{
++  "access_token": "<new_access_jwt>",
++  "refresh_token": "<same_refresh_jwt>",
++  "token_type": "Bearer",
++  "user_id": "8a1c1c7a-6d8e-4a8a-9fd2-2b2f2a5a5e90"
++}
++```
++
++---
++
+diff --git a/services/matching-engine/.gradle/nb-cache/subprojects.ser b/services/matching-engine/.gradle/nb-cache/subprojects.ser
+index 97f9881..b09ccf0 100644
+Binary files a/services/matching-engine/.gradle/nb-cache/subprojects.ser and b/services/matching-engine/.gradle/nb-cache/subprojects.ser differ
+diff --git a/services/orders-service/.gradle/nb-cache/subprojects.ser b/services/orders-service/.gradle/nb-cache/subprojects.ser
+index d4bd8dc..07aca34 100644
+Binary files a/services/orders-service/.gradle/nb-cache/subprojects.ser and b/services/orders-service/.gradle/nb-cache/subprojects.ser differ

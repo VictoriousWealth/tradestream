@@ -1,0 +1,337 @@
+
+===== COMMIT 1f072a89b3cd44b1acc4e53483935ab5902b593c =====
+commit 1f072a89b3cd44b1acc4e53483935ab5902b593c
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jan 4 16:24:09 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sun Jan 4 16:24:09 2026 +0000
+
+    feat: add CI workflow for end-to-end testing
+---
+ .github/workflows/ci.yml                           |  48 +++++++++++++++++++++
+ .../.gradle/nb-cache/subprojects.ser               | Bin 759 -> 759 bytes
+ .../.gradle/nb-cache/subprojects.ser               | Bin 756 -> 756 bytes
+ 3 files changed, 48 insertions(+)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index e69de29..e3f9af5 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,48 @@
++name: CI
++
++on:
++  push:
++  pull_request:
++
++env:
++  COMPOSE_DOCKER_CLI_BUILD: 1
++  DOCKER_BUILDKIT: 1
++
++jobs:
++  e2e:
++    runs-on: ubuntu-latest
++    timeout-minutes: 90
++
++    steps:
++      - name: Checkout
++        uses: actions/checkout@v4
++
++      - name: Show Docker info
++        run: |
++          docker version
++          docker compose version
++
++      - name: Run portfolio service E2E
++        run: |
++          chmod +x e2e_portfolio_service.sh
++          ./e2e_portfolio_service.sh
++
++      - name: Run trade pipeline E2E
++        run: |
++          chmod +x e2e_trade_pipeline_test.sh
++          ./e2e_trade_pipeline_test.sh
++
++      - name: Run cancel flow test
++        run: |
++          chmod +x manual_cancel_test.sh
++          ./manual_cancel_test.sh
++
++      - name: Run scenarios suite
++        run: |
++          chmod +x e2e_scenarios.sh
++          ./e2e_scenarios.sh
++
++      - name: Cleanup
++        if: always()
++        run: |
++          docker compose down -v || true
+diff --git a/services/matching-engine/.gradle/nb-cache/subprojects.ser b/services/matching-engine/.gradle/nb-cache/subprojects.ser
+index 26a865f..53f143f 100644
+Binary files a/services/matching-engine/.gradle/nb-cache/subprojects.ser and b/services/matching-engine/.gradle/nb-cache/subprojects.ser differ
+diff --git a/services/orders-service/.gradle/nb-cache/subprojects.ser b/services/orders-service/.gradle/nb-cache/subprojects.ser
+index 84a183a..e8f93f1 100644
+Binary files a/services/orders-service/.gradle/nb-cache/subprojects.ser and b/services/orders-service/.gradle/nb-cache/subprojects.ser differ
+
+===== COMMIT 12c8ee41d5304133a0d35d46bbd840b0e9e0a69c =====
+commit 12c8ee41d5304133a0d35d46bbd840b0e9e0a69c
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jan 4 16:24:09 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sun Jan 4 16:24:09 2026 +0000
+
+    fix: update ticker logic to maintain uniqueness
+---
+ manual_cancel_test.sh | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/manual_cancel_test.sh b/manual_cancel_test.sh
+index 42ea586..6b39ab6 100755
+--- a/manual_cancel_test.sh
++++ b/manual_cancel_test.sh
+@@ -7,7 +7,9 @@ ORDERS_HOST="${ORDERS_HOST:-tradestream-orders-service-1}"
+ ORDERS_PORT="${ORDERS_PORT:-8085}"
+ USER_A="${USER_A:-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}"
+ USER_B="${USER_B:-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb}"
+-TICK="E2CANTEST$(date +%s)"
++TS="$(date +%s)"
++# orders-service enforces ticker length <=16; keep ours short but unique-ish
++TICK="E2CAN${TS: -6}"
+ 
+ echo "NET=$PRIVATE_NET HOST=$ORDERS_HOST PORT=$ORDERS_PORT TICK=$TICK"
+ 
+
+===== COMMIT d16ac60776fa52e0bf8283c0bcb94091b7f3e912 =====
+commit d16ac60776fa52e0bf8283c0bcb94091b7f3e912
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jan 4 16:24:09 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sun Jan 4 16:24:09 2026 +0000
+
+    chore: add .gitignore for matching-engine service
+---
+ services/matching-engine/.gitignore | 40 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+
+diff --git a/services/matching-engine/.gitignore b/services/matching-engine/.gitignore
+new file mode 100644
+index 0000000..6c37573
+--- /dev/null
++++ b/services/matching-engine/.gitignore
+@@ -0,0 +1,40 @@
++HELP.md
++.gradle
++build/
++!gradle/wrapper/gradle-wrapper.jar
++!**/src/main/**/build/
++!**/src/test/**/build/
++
++### STS ###
++.apt_generated
++.classpath
++.factorypath
++.project
++.settings
++.springBeans
++.sts4-cache
++bin/
++!**/src/main/**/bin/
++!**/src/test/**/bin/
++
++### IntelliJ IDEA ###
++.idea
++*.iws
++*.iml
++*.ipr
++out/
++!**/src/main/**/out/
++!**/src/test/**/out/
++
++### NetBeans ###
++/nbproject/private/
++/nbbuild/
++/dist/
++/nbdist/
++/.nb-gradle/
++
++### VS Code ###
++.vscode/
++
++jwt_private.pem
++jwt_public.pem
+
+===== COMMIT 14761521e442da33bc94b422e9f19b1ccd129a67 =====
+commit 14761521e442da33bc94b422e9f19b1ccd129a67
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jan 4 16:24:09 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sun Jan 4 16:24:09 2026 +0000
+
+    chore: add .gitignore for orders-service
+---
+ services/orders-service/.gitignore | 40 ++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 40 insertions(+)
+
+diff --git a/services/orders-service/.gitignore b/services/orders-service/.gitignore
+new file mode 100644
+index 0000000..6c37573
+--- /dev/null
++++ b/services/orders-service/.gitignore
+@@ -0,0 +1,40 @@
++HELP.md
++.gradle
++build/
++!gradle/wrapper/gradle-wrapper.jar
++!**/src/main/**/build/
++!**/src/test/**/build/
++
++### STS ###
++.apt_generated
++.classpath
++.factorypath
++.project
++.settings
++.springBeans
++.sts4-cache
++bin/
++!**/src/main/**/bin/
++!**/src/test/**/bin/
++
++### IntelliJ IDEA ###
++.idea
++*.iws
++*.iml
++*.ipr
++out/
++!**/src/main/**/out/
++!**/src/test/**/out/
++
++### NetBeans ###
++/nbproject/private/
++/nbbuild/
++/dist/
++/nbdist/
++/.nb-gradle/
++
++### VS Code ###
++.vscode/
++
++jwt_private.pem
++jwt_public.pem
+
+===== COMMIT 943df9e5bdb5073f2f509eba1aa16281564a68dc =====
+commit 943df9e5bdb5073f2f509eba1aa16281564a68dc
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jan 4 16:27:59 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sun Jan 4 16:27:59 2026 +0000
+
+    feat(ci): add build and start stack steps in CI workflow
+---
+ .github/workflows/ci.yml | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index e3f9af5..7484e9d 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -22,6 +22,12 @@ jobs:
+           docker version
+           docker compose version
+ 
++      - name: Build images
++        run: docker compose build
++
++      - name: Start stack
++        run: docker compose up -d
++
+       - name: Run portfolio service E2E
+         run: |
+           chmod +x e2e_portfolio_service.sh
+
+===== COMMIT f2c2770cbbf65ed86cbd028aa62396fdf577092f =====
+commit f2c2770cbbf65ed86cbd028aa62396fdf577092f
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jan 4 16:30:00 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sun Jan 4 16:30:00 2026 +0000
+
+    ci: add step to build API Gateway jar in CI workflow
+---
+ .github/workflows/ci.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 7484e9d..43b1032 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -22,6 +22,9 @@ jobs:
+           docker version
+           docker compose version
+ 
++      - name: Build API Gateway jar
++        run: mvn -B -DskipTests package -f api-gateway/pom.xml
++
+       - name: Build images
+         run: docker compose build
+ 
+
+===== COMMIT 53cbba0d3cf8cefa9a185964d4195203975b14bc =====
+commit 53cbba0d3cf8cefa9a185964d4195203975b14bc
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jan 4 16:31:26 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sun Jan 4 16:31:26 2026 +0000
+
+    feat: add JDK 21 setup to CI workflow
+---
+ .github/workflows/ci.yml | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 43b1032..f72504a 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -22,6 +22,12 @@ jobs:
+           docker version
+           docker compose version
+ 
++      - name: Setup JDK 21
++        uses: actions/setup-java@v4
++        with:
++          distribution: temurin
++          java-version: 21
++
+       - name: Build API Gateway jar
+         run: mvn -B -DskipTests package -f api-gateway/pom.xml
+ 
+
+===== COMMIT c2a6eb09237bcc2c79bf9ca3044ad6e92175be5a =====
+commit c2a6eb09237bcc2c79bf9ca3044ad6e92175be5a
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sun Jan 4 16:39:40 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sun Jan 4 16:39:40 2026 +0000
+
+    chore: add JWT test key generation to CI workflow
+---
+ .github/workflows/ci.yml | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index f72504a..53df9d1 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -17,6 +17,12 @@ jobs:
+       - name: Checkout
+         uses: actions/checkout@v4
+ 
++      - name: Generate JWT test keys
++        run: |
++          mkdir -p secrets
++          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out secrets/jwt_private.pem
++          openssl rsa -in secrets/jwt_private.pem -pubout -out secrets/jwt_public.pem
++
+       - name: Show Docker info
+         run: |
+           docker version

@@ -1,0 +1,66 @@
+
+===== COMMIT c49149ba21fe4ec0afbbe960d6371f99dd67e2c1 =====
+commit c49149ba21fe4ec0afbbe960d6371f99dd67e2c1
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Mon Jan 5 10:48:00 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Mon Jan 5 10:48:00 2026 +0000
+
+    fix: update .gitignore for market data consumer to include gradle and bin directories
+---
+ services/market-data-consumer/.gitignore | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/services/market-data-consumer/.gitignore b/services/market-data-consumer/.gitignore
+index c2065bc..917f50f 100644
+--- a/services/market-data-consumer/.gitignore
++++ b/services/market-data-consumer/.gitignore
+@@ -1,5 +1,6 @@
+ HELP.md
+ .gradle
++.gradle/
+ build/
+ !gradle/wrapper/gradle-wrapper.jar
+ !**/src/main/**/build/
+@@ -14,6 +15,7 @@ build/
+ .springBeans
+ .sts4-cache
+ bin/
++bin
+ !**/src/main/**/bin/
+ !**/src/test/**/bin/
+ 
+
+===== COMMIT ddc10684c0ed45868922da52e74f264213a4421c =====
+commit ddc10684c0ed45868922da52e74f264213a4421c
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Mon Jan 5 10:48:00 2026 +0000
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Mon Jan 5 10:48:00 2026 +0000
+
+    fix: update .gitignore for matching engine to include gradle and build directories
+---
+ services/matching-engine/.gitignore | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/services/matching-engine/.gitignore b/services/matching-engine/.gitignore
+index 6c37573..1d57aad 100644
+--- a/services/matching-engine/.gitignore
++++ b/services/matching-engine/.gitignore
+@@ -1,6 +1,8 @@
+ HELP.md
+ .gradle
++.gradle/
+ build/
++build
+ !gradle/wrapper/gradle-wrapper.jar
+ !**/src/main/**/build/
+ !**/src/test/**/build/
+@@ -14,6 +16,7 @@ build/
+ .springBeans
+ .sts4-cache
+ bin/
++bin
+ !**/src/main/**/bin/
+ !**/src/test/**/bin/
+ 
