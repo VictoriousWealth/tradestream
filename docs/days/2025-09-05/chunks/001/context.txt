@@ -1,0 +1,22 @@
+Date: 2025-09-05
+Chunk: 001
+Chunk commit count: 2
+Chunk unique filtered files: 11
+Chunk patch bytes: 71556
+
+Commits:
+4ae8ee0 2025-09-05 05:43:55 +0100 Nick Efe Oni Deploy
+a81176b 2025-09-05 18:55:16 +0100 Nick Efe Oni Deploy
+
+Changed files:
+api-gateway/README.md
+api-gateway/src/main/java/com/tradestream/gateway/security/JwtDecoderConfig.java
+api-gateway/src/main/resources/application.yml
+copy_to_clipboard_all_readmes.sh
+CVREADME.md
+docker-compose.yml
+gateway_smoke.sh
+README.md
+services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/CandleQueryService.java
+services/matching-engine/.gradle/nb-cache/subprojects.ser
+services/orders-service/.gradle/nb-cache/subprojects.ser
