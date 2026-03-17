@@ -1,0 +1,1274 @@
+
+===== COMMIT e568e24694213707c17f4f1ed05040d5649e26ef =====
+commit e568e24694213707c17f4f1ed05040d5649e26ef
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Mon Aug 4 23:21:50 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Mon Aug 4 23:21:50 2025 +0100
+
+    Deploy
+---
+ automated_scripts/dev-deploy.sh                    |   4 +-
+ docker-compose.yml                                 |   7 +
+ market-data-consumer/.gitattributes                |   3 +
+ market-data-consumer/.gitignore                    |  37 +++
+ market-data-consumer/Dockerfile                    |  18 ++
+ market-data-consumer/README.md                     | 152 +++++++++++++
+ market-data-consumer/build.gradle                  |  39 ++++
+ .../gradle/wrapper/gradle-wrapper.jar              | Bin 0 -> 43764 bytes
+ .../gradle/wrapper/gradle-wrapper.properties       |   7 +
+ market-data-consumer/gradlew                       | 251 +++++++++++++++++++++
+ market-data-consumer/gradlew.bat                   |  94 ++++++++
+ market-data-consumer/settings.gradle               |   1 +
+ .../MarketDataConsumerApplication.java             |  13 ++
+ .../stock_data/MarketDataEvent.java                |  30 +++
+ .../market_data_consumer/stock_data/StockData.java |  80 +++++++
+ .../stock_data/StockDataController.java            |  26 +++
+ .../stock_data/StockDataRepository.java            |  11 +
+ .../stock_data/StockDataService.java               |  52 +++++
+ .../stock_data/ValidationExceptionHandler.java     |  22 ++
+ .../src/main/resources/application.properties      |  17 ++
+ .../resources/db/migration/V1__init_schema.sql     |  13 ++
+ .../migration/V2__add_timestamps_to_stock_data.sql |   3 +
+ .../db/migration/V3__create_extension_pgcrypto.sql |   1 +
+ .../resources/db/migration/V4__seed_stock_data.sql |  15 ++
+ .../MarketDataConsumerApplicationTests.java        |  13 ++
+ 25 files changed, 907 insertions(+), 2 deletions(-)
+
+diff --git a/automated_scripts/dev-deploy.sh b/automated_scripts/dev-deploy.sh
+index d8d3831..7be6fad 100755
+--- a/automated_scripts/dev-deploy.sh
++++ b/automated_scripts/dev-deploy.sh
+@@ -5,8 +5,8 @@ set -e
+ STACK_NAME="tradestream"
+ TIMESTAMP=$(date +%s)
+ 
+-SERVICE_KEYS=("auth-service" "user-registration-service")
+-SERVICE_DIRS=("authentication-service" "user-registration-service")
++SERVICE_KEYS=("auth-service" "user-registration-service" "market-data-consumer")
++SERVICE_DIRS=("authentication-service" "user-registration-service" "market-data-consumer")
+ 
+ echo "🔁 Starting multi-service build & deploy..."
+ for i in "${!SERVICE_KEYS[@]}"; do
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 5b79287..8bbf811 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -18,6 +18,8 @@ services:
+       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+       SPRING_FLYWAY_ENABLED: "true"
+       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
++    deploy:
++      replicas: 1
+   auth-service:
+     build:
+       context: ./authentication-service
+@@ -37,6 +39,8 @@ services:
+       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+       JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
+       JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
++    deploy:
++      replicas: 1
+     secrets:
+       - jwt_private.pem
+       - jwt_public.pem
+@@ -57,6 +61,9 @@ services:
+       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+       SPRING_FLYWAY_ENABLED: "true"
+       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
++    deploy:
++      replicas: 1
++
+   postgres:
+     image: postgres:15-alpine
+     container_name: tradestream_postgres
+diff --git a/market-data-consumer/.gitattributes b/market-data-consumer/.gitattributes
+new file mode 100644
+index 0000000..8af972c
+--- /dev/null
++++ b/market-data-consumer/.gitattributes
+@@ -0,0 +1,3 @@
++/gradlew text eol=lf
++*.bat text eol=crlf
++*.jar binary
+diff --git a/market-data-consumer/.gitignore b/market-data-consumer/.gitignore
+new file mode 100644
+index 0000000..c2065bc
+--- /dev/null
++++ b/market-data-consumer/.gitignore
+@@ -0,0 +1,37 @@
++HELP.md
++.gradle
++build/
++!gradle/wrapper/gradle-wrapper.jar
++!**/src/main/**/build/
++!**/src/test/**/build/
++
++### STS ###
++.apt_generated
++.classpath
++.factorypath
++.project
++.settings
++.springBeans
++.sts4-cache
++bin/
++!**/src/main/**/bin/
++!**/src/test/**/bin/
++
++### IntelliJ IDEA ###
++.idea
++*.iws
++*.iml
++*.ipr
++out/
++!**/src/main/**/out/
++!**/src/test/**/out/
++
++### NetBeans ###
++/nbproject/private/
++/nbbuild/
++/dist/
++/nbdist/
++/.nb-gradle/
++
++### VS Code ###
++.vscode/
+diff --git a/market-data-consumer/Dockerfile b/market-data-consumer/Dockerfile
+index e69de29..0fa96f6 100644
+--- a/market-data-consumer/Dockerfile
++++ b/market-data-consumer/Dockerfile
+@@ -0,0 +1,18 @@
++# 1. Base image with Java
++FROM eclipse-temurin:17-jdk
++
++# 2. Set working directory
++WORKDIR /app
++
++# 3. Copy everything from the context (auth service files)
++COPY . .
++
++# 4. Grant Gradle permission (good for Alpine-based images)
++# 5. Build app (skip tests for speed)
++RUN chmod +x ./gradlew && ./gradlew clean build -x test
++
++# 6. Expose port used by Spring Boot
++EXPOSE 8083
++
++# 7. Run the application using the compiled JAR
++CMD ["java", "-jar", "build/libs/market-data-consumer-0.0.1-SNAPSHOT.jar"]
+diff --git a/market-data-consumer/README.md b/market-data-consumer/README.md
+index e69de29..2ef17fb 100644
+--- a/market-data-consumer/README.md
++++ b/market-data-consumer/README.md
+@@ -0,0 +1,152 @@
++# 📈 Market Data Consumer Service
++
++This microservice ingests market data events (e.g. stock price updates), validates them, and persists them into a PostgreSQL database.
++
++---
++
++## 🚀 Features
++
++- ✅ Exposes REST API to receive market data events
++- ✅ Validates input with Jakarta Bean Validation
++- ✅ Stores data in PostgreSQL using Spring Data JPA
++- ✅ Database migrations and seed data via Flyway
++- ✅ Dockerized and orchestrated with Docker Compose / Swarm
++- ✅ Structured validation error responses
++- ✅ Tested via `curl` and raw SQL inspection
++
++---
++
++## 🔧 Tech Stack
++
++![Java](https://img.shields.io/badge/Java-21-blue?logo=java\&logoColor=white)
++![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.0-green?logo=spring-boot)
++![Spring Web](https://img.shields.io/badge/Spring_Web-white?logo=spring\&logoColor=green)
++![Spring Data JPA](https://img.shields.io/badge/Spring_Data_JPA-white?logo=spring\&logoColor=green)
++![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?logo=postgresql)
++![Flyway](https://img.shields.io/badge/Flyway-Database_Migrations-red?logo=flyway\&logoColor=white)
++![Docker](https://img.shields.io/badge/Docker-Containerized-blue?logo=docker)
++![Hibernate Validator](https://img.shields.io/badge/Hibernate_Validator-Validation-red?logo=hibernate)
++
++---
++
++## 📦 API Specification
++
++### POST `/api/stock/event`
++
++Ingests a new market data event.
++
++#### Request Body (JSON)
++
++```json
++{
++  "ticker": "AAPL",
++  "name": "Apple Inc.",
++  "price": 196.20,
++  "volume": 10000000,
++  "date": "2025-08-04"
++}
++````
++
++#### Response
++
++* `202 Accepted`: Event was accepted and stored
++* `400 Bad Request`: Validation failed
++
++---
++
++## ❗ Validation Rules
++
++| Field  | Constraints                |
++| ------ | -------------------------- |
++| ticker | Not null, 1–10 characters  |
++| name   | Not null, 1–255 characters |
++| price  | Not null, must be positive |
++| volume | Must be positive           |
++| date   | Not null                   |
++
++---
++
++## 🐳 Running Locally
++
++### 1. Build the Docker images
++
++```bash
++docker build -t market-data-consumer:dev ./market-data-consumer
++```
++
++### 2. Start services
++
++```bash
++docker stack deploy -c docker-compose.yml tradestream
++```
++
++### 3. Test the endpoint
++
++```bash
++curl -X POST http://localhost:8083/api/stock/event \
++  -H "Content-Type: application/json" \
++  -d '{
++    "ticker": "AAPL",
++    "name": "Apple Inc.",
++    "price": 196.20,
++    "volume": 10000000,
++    "date": "2025-08-04"
++  }'
++```
++
++---
++
++## 🗃️ Database Schema
++
++Created via Flyway (`V1__init_schema.sql`, etc):
++
++```sql
++CREATE TABLE stock_data (
++    id UUID PRIMARY KEY,
++    name VARCHAR(255) NOT NULL,
++    ticker VARCHAR(10) NOT NULL,
++    date DATE NOT NULL,
++    open DECIMAL(18, 4) NOT NULL,
++    high DECIMAL(18, 4) NOT NULL,
++    low DECIMAL(18, 4) NOT NULL,
++    close DECIMAL(18, 4) NOT NULL,
++    volume BIGINT NOT NULL,
++    created_at TIMESTAMPTZ,
++    updated_at TIMESTAMPTZ,
++    CONSTRAINT uq_ticker_date UNIQUE (ticker, date)
++);
++```
++
++---
++
++## 🧪 Seed Data
++
++Seeded automatically by Flyway (`V4__seed_stock_data.sql`):
++
++```sql
++INSERT INTO stock_data (...) VALUES
++  ('AAPL', ...),
++  ('TSLA', ...);
++```
++
++---
++
++## 📁 Folder Structure
++
++```
++.
++├── market-data-consumer/
++│   ├── src/main/java/com/tradestream/market_data_consumer/
++│   │   ├── stock_data/
++│   │   │   ├── StockData.java
++│   │   │   ├── MarketDataEvent.java
++│   │   │   ├── StockDataController.java
++│   │   │   └── ValidationExceptionHandler.java
++│   └── resources/db/migration/
++│       ├── V1__init_schema.sql
++│       ├── V2__add_timestamps_to_stock_data.sql
++│       ├── V3__create_extension_pgcrypto.sql
++│       └── V4__seed_stock_data.sql
++```
++
++---
+diff --git a/market-data-consumer/build.gradle b/market-data-consumer/build.gradle
+new file mode 100644
+index 0000000..12a0494
+--- /dev/null
++++ b/market-data-consumer/build.gradle
+@@ -0,0 +1,39 @@
++plugins {
++	id 'java'
++	id 'org.springframework.boot' version '3.5.4'
++	id 'io.spring.dependency-management' version '1.1.7'
++}
++
++group = 'com.tradestream'
++version = '0.0.1-SNAPSHOT'
++
++java {
++	toolchain {
++		languageVersion = JavaLanguageVersion.of(17)
++	}
++}
++
++repositories {
++	mavenCentral()
++}
++
++dependencies {
++	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
++	implementation 'org.springframework.boot:spring-boot-starter-web'
++	implementation 'org.flywaydb:flyway-core'
++	implementation 'org.flywaydb:flyway-database-postgresql'
++	runtimeOnly 'org.postgresql:postgresql'
++	testImplementation 'org.springframework.boot:spring-boot-starter-test'
++	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
++
++	compileOnly 'org.projectlombok:lombok'
++	annotationProcessor 'org.projectlombok:lombok'
++
++	implementation 'org.springframework.boot:spring-boot-starter-validation'
++
++}
++
++
++tasks.named('test') {
++	useJUnitPlatform()
++}
+diff --git a/market-data-consumer/gradle/wrapper/gradle-wrapper.jar b/market-data-consumer/gradle/wrapper/gradle-wrapper.jar
+new file mode 100644
+index 0000000..1b33c55
+Binary files /dev/null and b/market-data-consumer/gradle/wrapper/gradle-wrapper.jar differ
+diff --git a/market-data-consumer/gradle/wrapper/gradle-wrapper.properties b/market-data-consumer/gradle/wrapper/gradle-wrapper.properties
+new file mode 100644
+index 0000000..d4081da
+--- /dev/null
++++ b/market-data-consumer/gradle/wrapper/gradle-wrapper.properties
+@@ -0,0 +1,7 @@
++distributionBase=GRADLE_USER_HOME
++distributionPath=wrapper/dists
++distributionUrl=https\://services.gradle.org/distributions/gradle-8.14.3-bin.zip
++networkTimeout=10000
++validateDistributionUrl=true
++zipStoreBase=GRADLE_USER_HOME
++zipStorePath=wrapper/dists
+diff --git a/market-data-consumer/gradlew b/market-data-consumer/gradlew
+new file mode 100755
+index 0000000..23d15a9
+--- /dev/null
++++ b/market-data-consumer/gradlew
+@@ -0,0 +1,251 @@
++#!/bin/sh
++
++#
++# Copyright © 2015-2021 the original authors.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      https://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++# SPDX-License-Identifier: Apache-2.0
++#
++
++##############################################################################
++#
++#   Gradle start up script for POSIX generated by Gradle.
++#
++#   Important for running:
++#
++#   (1) You need a POSIX-compliant shell to run this script. If your /bin/sh is
++#       noncompliant, but you have some other compliant shell such as ksh or
++#       bash, then to run this script, type that shell name before the whole
++#       command line, like:
++#
++#           ksh Gradle
++#
++#       Busybox and similar reduced shells will NOT work, because this script
++#       requires all of these POSIX shell features:
++#         * functions;
++#         * expansions «$var», «${var}», «${var:-default}», «${var+SET}»,
++#           «${var#prefix}», «${var%suffix}», and «$( cmd )»;
++#         * compound commands having a testable exit status, especially «case»;
++#         * various built-in commands including «command», «set», and «ulimit».
++#
++#   Important for patching:
++#
++#   (2) This script targets any POSIX shell, so it avoids extensions provided
++#       by Bash, Ksh, etc; in particular arrays are avoided.
++#
++#       The "traditional" practice of packing multiple parameters into a
++#       space-separated string is a well documented source of bugs and security
++#       problems, so this is (mostly) avoided, by progressively accumulating
++#       options in "$@", and eventually passing that to Java.
++#
++#       Where the inherited environment variables (DEFAULT_JVM_OPTS, JAVA_OPTS,
++#       and GRADLE_OPTS) rely on word-splitting, this is performed explicitly;
++#       see the in-line comments for details.
++#
++#       There are tweaks for specific operating systems such as AIX, CygWin,
++#       Darwin, MinGW, and NonStop.
++#
++#   (3) This script is generated from the Groovy template
++#       https://github.com/gradle/gradle/blob/HEAD/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
++#       within the Gradle project.
++#
++#       You can find Gradle at https://github.com/gradle/gradle/.
++#
++##############################################################################
++
++# Attempt to set APP_HOME
++
++# Resolve links: $0 may be a link
++app_path=$0
++
++# Need this for daisy-chained symlinks.
++while
++    APP_HOME=${app_path%"${app_path##*/}"}  # leaves a trailing /; empty if no leading path
++    [ -h "$app_path" ]
++do
++    ls=$( ls -ld "$app_path" )
++    link=${ls#*' -> '}
++    case $link in             #(
++      /*)   app_path=$link ;; #(
++      *)    app_path=$APP_HOME$link ;;
++    esac
++done
++
++# This is normally unused
++# shellcheck disable=SC2034
++APP_BASE_NAME=${0##*/}
++# Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
++APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
++
++# Use the maximum available, or set MAX_FD != -1 to use that value.
++MAX_FD=maximum
++
++warn () {
++    echo "$*"
++} >&2
++
++die () {
++    echo
++    echo "$*"
++    echo
++    exit 1
++} >&2
++
++# OS specific support (must be 'true' or 'false').
++cygwin=false
++msys=false
++darwin=false
++nonstop=false
++case "$( uname )" in                #(
++  CYGWIN* )         cygwin=true  ;; #(
++  Darwin* )         darwin=true  ;; #(
++  MSYS* | MINGW* )  msys=true    ;; #(
++  NONSTOP* )        nonstop=true ;;
++esac
++
++CLASSPATH="\\\"\\\""
++
++
++# Determine the Java command to use to start the JVM.
++if [ -n "$JAVA_HOME" ] ; then
++    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
++        # IBM's JDK on AIX uses strange locations for the executables
++        JAVACMD=$JAVA_HOME/jre/sh/java
++    else
++        JAVACMD=$JAVA_HOME/bin/java
++    fi
++    if [ ! -x "$JAVACMD" ] ; then
++        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++else
++    JAVACMD=java
++    if ! command -v java >/dev/null 2>&1
++    then
++        die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++fi
++
++# Increase the maximum file descriptors if we can.
++if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
++    case $MAX_FD in #(
++      max*)
++        # In POSIX sh, ulimit -H is undefined. That's why the result is checked to see if it worked.
++        # shellcheck disable=SC2039,SC3045
++        MAX_FD=$( ulimit -H -n ) ||
++            warn "Could not query maximum file descriptor limit"
++    esac
++    case $MAX_FD in  #(
++      '' | soft) :;; #(
++      *)
++        # In POSIX sh, ulimit -n is undefined. That's why the result is checked to see if it worked.
++        # shellcheck disable=SC2039,SC3045
++        ulimit -n "$MAX_FD" ||
++            warn "Could not set maximum file descriptor limit to $MAX_FD"
++    esac
++fi
++
++# Collect all arguments for the java command, stacking in reverse order:
++#   * args from the command line
++#   * the main class name
++#   * -classpath
++#   * -D...appname settings
++#   * --module-path (only if needed)
++#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and GRADLE_OPTS environment variables.
++
++# For Cygwin or MSYS, switch paths to Windows format before running java
++if "$cygwin" || "$msys" ; then
++    APP_HOME=$( cygpath --path --mixed "$APP_HOME" )
++    CLASSPATH=$( cygpath --path --mixed "$CLASSPATH" )
++
++    JAVACMD=$( cygpath --unix "$JAVACMD" )
++
++    # Now convert the arguments - kludge to limit ourselves to /bin/sh
++    for arg do
++        if
++            case $arg in                                #(
++              -*)   false ;;                            # don't mess with options #(
++              /?*)  t=${arg#/} t=/${t%%/*}              # looks like a POSIX filepath
++                    [ -e "$t" ] ;;                      #(
++              *)    false ;;
++            esac
++        then
++            arg=$( cygpath --path --ignore --mixed "$arg" )
++        fi
++        # Roll the args list around exactly as many times as the number of
++        # args, so each arg winds up back in the position where it started, but
++        # possibly modified.
++        #
++        # NB: a `for` loop captures its iteration list before it begins, so
++        # changing the positional parameters here affects neither the number of
++        # iterations, nor the values presented in `arg`.
++        shift                   # remove old arg
++        set -- "$@" "$arg"      # push replacement arg
++    done
++fi
++
++
++# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
++
++# Collect all arguments for the java command:
++#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
++#     and any embedded shellness will be escaped.
++#   * For example: A user cannot expect ${Hostname} to be expanded, as it is an environment variable and will be
++#     treated as '${Hostname}' itself on the command line.
++
++set -- \
++        "-Dorg.gradle.appname=$APP_BASE_NAME" \
++        -classpath "$CLASSPATH" \
++        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
++        "$@"
++
++# Stop when "xargs" is not available.
++if ! command -v xargs >/dev/null 2>&1
++then
++    die "xargs is not available"
++fi
++
++# Use "xargs" to parse quoted args.
++#
++# With -n1 it outputs one arg per line, with the quotes and backslashes removed.
++#
++# In Bash we could simply go:
++#
++#   readarray ARGS < <( xargs -n1 <<<"$var" ) &&
++#   set -- "${ARGS[@]}" "$@"
++#
++# but POSIX shell has neither arrays nor command substitution, so instead we
++# post-process each arg (as a line of input to sed) to backslash-escape any
++# character that might be a shell metacharacter, then use eval to reverse
++# that process (while maintaining the separation between arguments), and wrap
++# the whole thing up as a single "set" statement.
++#
++# This will of course break if any of these variables contains a newline or
++# an unmatched quote.
++#
++
++eval "set -- $(
++        printf '%s\n' "$DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS" |
++        xargs -n1 |
++        sed ' s~[^-[:alnum:]+,./:=@_]~\\&~g; ' |
++        tr '\n' ' '
++    )" '"$@"'
++
++exec "$JAVACMD" "$@"
+diff --git a/market-data-consumer/gradlew.bat b/market-data-consumer/gradlew.bat
+new file mode 100644
+index 0000000..db3a6ac
+--- /dev/null
++++ b/market-data-consumer/gradlew.bat
+@@ -0,0 +1,94 @@
++@rem
++@rem Copyright 2015 the original author or authors.
++@rem
++@rem Licensed under the Apache License, Version 2.0 (the "License");
++@rem you may not use this file except in compliance with the License.
++@rem You may obtain a copy of the License at
++@rem
++@rem      https://www.apache.org/licenses/LICENSE-2.0
++@rem
++@rem Unless required by applicable law or agreed to in writing, software
++@rem distributed under the License is distributed on an "AS IS" BASIS,
++@rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++@rem See the License for the specific language governing permissions and
++@rem limitations under the License.
++@rem
++@rem SPDX-License-Identifier: Apache-2.0
++@rem
++
++@if "%DEBUG%"=="" @echo off
++@rem ##########################################################################
++@rem
++@rem  Gradle startup script for Windows
++@rem
++@rem ##########################################################################
++
++@rem Set local scope for the variables with windows NT shell
++if "%OS%"=="Windows_NT" setlocal
++
++set DIRNAME=%~dp0
++if "%DIRNAME%"=="" set DIRNAME=.
++@rem This is normally unused
++set APP_BASE_NAME=%~n0
++set APP_HOME=%DIRNAME%
++
++@rem Resolve any "." and ".." in APP_HOME to make it shorter.
++for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
++
++@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
++
++@rem Find java.exe
++if defined JAVA_HOME goto findJavaFromJavaHome
++
++set JAVA_EXE=java.exe
++%JAVA_EXE% -version >NUL 2>&1
++if %ERRORLEVEL% equ 0 goto execute
++
++echo. 1>&2
++echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH. 1>&2
++echo. 1>&2
++echo Please set the JAVA_HOME variable in your environment to match the 1>&2
++echo location of your Java installation. 1>&2
++
++goto fail
++
++:findJavaFromJavaHome
++set JAVA_HOME=%JAVA_HOME:"=%
++set JAVA_EXE=%JAVA_HOME%/bin/java.exe
++
++if exist "%JAVA_EXE%" goto execute
++
++echo. 1>&2
++echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME% 1>&2
++echo. 1>&2
++echo Please set the JAVA_HOME variable in your environment to match the 1>&2
++echo location of your Java installation. 1>&2
++
++goto fail
++
++:execute
++@rem Setup the command line
++
++set CLASSPATH=
++
++
++@rem Execute Gradle
++"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %*
++
++:end
++@rem End local scope for the variables with windows NT shell
++if %ERRORLEVEL% equ 0 goto mainEnd
++
++:fail
++rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
++rem the _cmd.exe /c_ return code!
++set EXIT_CODE=%ERRORLEVEL%
++if %EXIT_CODE% equ 0 set EXIT_CODE=1
++if not ""=="%GRADLE_EXIT_CONSOLE%" exit %EXIT_CODE%
++exit /b %EXIT_CODE%
++
++:mainEnd
++if "%OS%"=="Windows_NT" endlocal
++
++:omega
+diff --git a/market-data-consumer/settings.gradle b/market-data-consumer/settings.gradle
+new file mode 100644
+index 0000000..105ef5d
+--- /dev/null
++++ b/market-data-consumer/settings.gradle
+@@ -0,0 +1 @@
++rootProject.name = 'market-data-consumer'
+diff --git a/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/MarketDataConsumerApplication.java b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/MarketDataConsumerApplication.java
+new file mode 100644
+index 0000000..8265a16
+--- /dev/null
++++ b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/MarketDataConsumerApplication.java
+@@ -0,0 +1,13 @@
++package com.tradestream.market_data_consumer;
++
++import org.springframework.boot.SpringApplication;
++import org.springframework.boot.autoconfigure.SpringBootApplication;
++
++@SpringBootApplication
++public class MarketDataConsumerApplication {
++
++	public static void main(String[] args) {
++		SpringApplication.run(MarketDataConsumerApplication.class, args);
++	}
++
++}
+diff --git a/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/MarketDataEvent.java b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/MarketDataEvent.java
+new file mode 100644
+index 0000000..548cf30
+--- /dev/null
++++ b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/MarketDataEvent.java
+@@ -0,0 +1,30 @@
++package com.tradestream.market_data_consumer.stock_data;
++
++import jakarta.validation.constraints.NotNull;
++import jakarta.validation.constraints.Size;
++import jakarta.validation.constraints.Positive;
++
++import java.math.BigDecimal;
++import java.time.LocalDate;
++
++public record MarketDataEvent(
++
++    @NotNull
++    @Size(min = 1, max = 10)
++    String ticker,
++
++    @NotNull
++    @Size(min = 1, max = 255)
++    String name,
++
++    @NotNull
++    @Positive
++    BigDecimal price,
++
++    @Positive
++    long volume,
++
++    @NotNull
++    LocalDate date
++
++) {}
+diff --git a/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockData.java b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockData.java
+new file mode 100644
+index 0000000..be4cacb
+--- /dev/null
++++ b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockData.java
+@@ -0,0 +1,80 @@
++package com.tradestream.market_data_consumer.stock_data;
++
++import java.math.BigDecimal;
++import java.time.Instant;
++import java.time.LocalDate;
++import java.util.UUID;
++
++import jakarta.persistence.Column;
++import jakarta.persistence.Entity;
++import jakarta.persistence.Id;
++import jakarta.persistence.PrePersist;
++import jakarta.persistence.PreUpdate;
++import jakarta.persistence.Table;
++import jakarta.persistence.UniqueConstraint;
++import lombok.AllArgsConstructor;
++import lombok.Builder;
++import lombok.Data;
++import lombok.NoArgsConstructor;
++
++@Data
++@Builder
++@NoArgsConstructor
++@AllArgsConstructor
++@Entity
++@Table(name = "stock_data", uniqueConstraints = {
++    @UniqueConstraint(columnNames = {"ticker", "date"})
++})
++public class StockData {
++
++    @Id
++    @Column(nullable = false, updatable = false)
++    private UUID id;
++
++    @Column(nullable = false)
++    private String name;
++
++    @Column(nullable = false, length = 10)
++    private String ticker;
++
++    @Column(nullable = false)
++    private LocalDate date;
++
++    @Column(nullable = false, precision = 18, scale = 4)
++    private BigDecimal open;
++
++    @Column(nullable = false, precision = 18, scale = 4)
++    private BigDecimal high;
++
++    @Column(nullable = false, precision = 18, scale = 4)
++    private BigDecimal low;
++
++    @Column(nullable = false, precision = 18, scale = 4)
++    private BigDecimal close;
++
++    @Column(nullable = false)
++    private Long volume;
++
++    @Column(name = "created_at", columnDefinition = "TIMESTAMPTZ")
++    private Instant createdAt;
++
++    @Column(name = "updated_at", columnDefinition = "TIMESTAMPTZ")
++    private Instant updatedAt;
++
++
++    @PrePersist
++    public void prePersist() {
++        Instant now = Instant.now();
++        this.createdAt = now;
++        this.updatedAt = now;
++        if (this.id == null) {
++            this.id = UUID.randomUUID();
++        }
++    }
++
++    @PreUpdate
++    public void preUpdate() {
++        this.updatedAt = Instant.now();
++    }
++
++}
+diff --git a/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataController.java b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataController.java
+new file mode 100644
+index 0000000..8ec1de9
+--- /dev/null
++++ b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataController.java
+@@ -0,0 +1,26 @@
++package com.tradestream.market_data_consumer.stock_data;
++
++import org.springframework.http.ResponseEntity;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestBody;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RestController;
++
++import jakarta.validation.Valid;
++
++@RestController
++@RequestMapping("/api/stock")
++public class StockDataController {
++
++    private final StockDataService service;
++
++    public StockDataController(StockDataService service) {
++        this.service = service;
++    }
++
++    @PostMapping("/event")
++    public ResponseEntity<Void> ingestMarketData(@Valid @RequestBody MarketDataEvent event) {
++        service.processMarketEvent(event);
++        return ResponseEntity.accepted().build();
++    }
++}
+diff --git a/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataRepository.java b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataRepository.java
+new file mode 100644
+index 0000000..61a8666
+--- /dev/null
++++ b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataRepository.java
+@@ -0,0 +1,11 @@
++package com.tradestream.market_data_consumer.stock_data;
++
++import java.time.LocalDate;
++import java.util.Optional;
++import java.util.UUID;
++
++import org.springframework.data.jpa.repository.JpaRepository;
++
++public interface StockDataRepository extends JpaRepository<StockData, UUID> {
++    Optional<StockData> findByTickerAndDate(String ticker, LocalDate date);
++}
+diff --git a/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataService.java b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataService.java
+new file mode 100644
+index 0000000..6cca409
+--- /dev/null
++++ b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataService.java
+@@ -0,0 +1,52 @@
++package com.tradestream.market_data_consumer.stock_data;
++
++import org.springframework.stereotype.Service;
++import org.springframework.transaction.annotation.Transactional;
++
++import java.math.BigDecimal;
++import java.time.LocalDate;
++import java.util.Optional;
++import java.util.UUID;
++
++@Service
++public class StockDataService {
++
++    private final StockDataRepository repository;
++
++    public StockDataService(StockDataRepository repository) {
++        this.repository = repository;
++    }
++
++    @Transactional
++    public void processMarketEvent(MarketDataEvent event) {
++        LocalDate date = event.date();
++        String ticker = event.ticker();
++        BigDecimal price = event.price();
++        long volume = event.volume();
++
++        Optional<StockData> maybe = repository.findByTickerAndDate(ticker, date);
++
++        StockData data = maybe.orElseGet(() ->
++            StockData.builder()
++                .id(UUID.randomUUID())
++                .ticker(ticker)
++                .name(event.name())
++                .date(date)
++                .open(price)
++                .high(price)
++                .low(price)
++                .close(price)
++                .volume(volume)
++                .build()
++        );
++
++        if (maybe.isPresent()) {
++            data.setHigh(data.getHigh().max(price));
++            data.setLow(data.getLow().min(price));
++            data.setClose(price);
++            data.setVolume(data.getVolume() + volume);
++        }
++
++        repository.save(data);
++    }
++}
+diff --git a/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/ValidationExceptionHandler.java b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/ValidationExceptionHandler.java
+new file mode 100644
+index 0000000..798a601
+--- /dev/null
++++ b/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/ValidationExceptionHandler.java
+@@ -0,0 +1,22 @@
++package com.tradestream.market_data_consumer.stock_data;
++
++import java.util.HashMap;
++import java.util.Map;
++
++import org.springframework.http.ResponseEntity;
++import org.springframework.web.bind.MethodArgumentNotValidException;
++import org.springframework.web.bind.annotation.ExceptionHandler;
++import org.springframework.web.bind.annotation.RestControllerAdvice;
++
++@RestControllerAdvice
++public class ValidationExceptionHandler {
++
++    @ExceptionHandler(MethodArgumentNotValidException.class)
++    public ResponseEntity<Map<String, String>> handleValidationErrors(MethodArgumentNotValidException ex) {
++        Map<String, String> errors = new HashMap<>();
++        ex.getBindingResult().getFieldErrors().forEach(error ->
++            errors.put(error.getField(), error.getDefaultMessage())
++        );
++        return ResponseEntity.badRequest().body(errors);
++    }
++}
+diff --git a/market-data-consumer/src/main/resources/application.properties b/market-data-consumer/src/main/resources/application.properties
+new file mode 100644
+index 0000000..328e0d9
+--- /dev/null
++++ b/market-data-consumer/src/main/resources/application.properties
+@@ -0,0 +1,17 @@
++spring.application.name=market-data-consumer
++server.port=${SERVER_PORT:8083}
++
++# --- PostgreSQL connection ---
++spring.datasource.url=${SPRING_DATASOURCE_URL}
++spring.datasource.username=${SPRING_DATASOURCE_USERNAME}
++spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
++spring.jpa.hibernate.ddl-auto=${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
++spring.jpa.show-sql=true
++spring.jpa.properties.hibernate.format_sql=true
++
++# --- Flyway config ---
++spring.flyway.enabled=${SPRING_FLYWAY_ENABLED:true}
++spring.flyway.locations=${SPRING_FLYWAY_LOCATIONS:classpath:db/migration}
++spring.flyway.baseline-on-migrate=true
++logging.level.org.flywaydb.core=DEBUG
++
+diff --git a/market-data-consumer/src/main/resources/db/migration/V1__init_schema.sql b/market-data-consumer/src/main/resources/db/migration/V1__init_schema.sql
+new file mode 100644
+index 0000000..0fc7e3b
+--- /dev/null
++++ b/market-data-consumer/src/main/resources/db/migration/V1__init_schema.sql
+@@ -0,0 +1,13 @@
++CREATE TABLE stock_data (
++    id UUID PRIMARY KEY,
++    name VARCHAR(255) NOT NULL,
++    ticker VARCHAR(10) NOT NULL,
++    date DATE NOT NULL,
++    open DECIMAL(18, 4) NOT NULL,
++    high DECIMAL(18, 4) NOT NULL,
++    low DECIMAL(18, 4) NOT NULL,
++    close DECIMAL(18, 4) NOT NULL,
++    volume BIGINT NOT NULL,
++
++    CONSTRAINT uq_ticker_date UNIQUE (ticker, date)
++);
+diff --git a/market-data-consumer/src/main/resources/db/migration/V2__add_timestamps_to_stock_data.sql b/market-data-consumer/src/main/resources/db/migration/V2__add_timestamps_to_stock_data.sql
+new file mode 100644
+index 0000000..f2aadbc
+--- /dev/null
++++ b/market-data-consumer/src/main/resources/db/migration/V2__add_timestamps_to_stock_data.sql
+@@ -0,0 +1,3 @@
++ALTER TABLE stock_data
++ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ,
++ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+diff --git a/market-data-consumer/src/main/resources/db/migration/V3__create_extension_pgcrypto.sql b/market-data-consumer/src/main/resources/db/migration/V3__create_extension_pgcrypto.sql
+new file mode 100644
+index 0000000..9744c61
+--- /dev/null
++++ b/market-data-consumer/src/main/resources/db/migration/V3__create_extension_pgcrypto.sql
+@@ -0,0 +1 @@
++CREATE EXTENSION IF NOT EXISTS pgcrypto;
+diff --git a/market-data-consumer/src/main/resources/db/migration/V4__seed_stock_data.sql b/market-data-consumer/src/main/resources/db/migration/V4__seed_stock_data.sql
+new file mode 100644
+index 0000000..fad5ac1
+--- /dev/null
++++ b/market-data-consumer/src/main/resources/db/migration/V4__seed_stock_data.sql
+@@ -0,0 +1,15 @@
++INSERT INTO stock_data (
++    id, name, ticker, date, open, high, low, close, volume, created_at, updated_at
++) VALUES (
++    gen_random_uuid(), 'Apple Inc.', 'AAPL', '2025-08-01',
++    195.00, 198.00, 194.50, 196.20, 10000000,
++    now(), now()
++);
++
++INSERT INTO stock_data (
++    id, name, ticker, date, open, high, low, close, volume, created_at, updated_at
++) VALUES (
++    gen_random_uuid(), 'Tesla Inc.', 'TSLA', '2025-08-01',
++    250.00, 260.00, 249.00, 255.30, 8000000,
++    now(), now()
++);
+diff --git a/market-data-consumer/src/test/java/com/tradestream/market_data_consumer/MarketDataConsumerApplicationTests.java b/market-data-consumer/src/test/java/com/tradestream/market_data_consumer/MarketDataConsumerApplicationTests.java
+new file mode 100644
+index 0000000..5a8ee14
+--- /dev/null
++++ b/market-data-consumer/src/test/java/com/tradestream/market_data_consumer/MarketDataConsumerApplicationTests.java
+@@ -0,0 +1,13 @@
++package com.tradestream.market_data_consumer;
++
++import org.junit.jupiter.api.Test;
++import org.springframework.boot.test.context.SpringBootTest;
++
++@SpringBootTest
++class MarketDataConsumerApplicationTests {
++
++	@Test
++	void contextLoads() {
++	}
++
++}
+
+===== COMMIT 94c4eafa89a5c490dbd4cf59faf657d0ed8b3f1f =====
+commit 94c4eafa89a5c490dbd4cf59faf657d0ed8b3f1f
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Mon Aug 4 23:27:44 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Mon Aug 4 23:27:44 2025 +0100
+
+    Update README.md
+---
+ market-data-consumer/README.md | 32 +++++++++++++++-----------------
+ 1 file changed, 15 insertions(+), 17 deletions(-)
+
+diff --git a/market-data-consumer/README.md b/market-data-consumer/README.md
+index 2ef17fb..fc1ab26 100644
+--- a/market-data-consumer/README.md
++++ b/market-data-consumer/README.md
+@@ -1,10 +1,10 @@
+-# 📈 Market Data Consumer Service
++# Market Data Consumer Service
+ 
+ This microservice ingests market data events (e.g. stock price updates), validates them, and persists them into a PostgreSQL database.
+ 
+ ---
+ 
+-## 🚀 Features
++## Features
+ 
+ - ✅ Exposes REST API to receive market data events
+ - ✅ Validates input with Jakarta Bean Validation
+@@ -16,20 +16,18 @@ This microservice ingests market data events (e.g. stock price updates), validat
+ 
+ ---
+ 
+-## 🔧 Tech Stack
++## Tech Stack
+ 
+-![Java](https://img.shields.io/badge/Java-21-blue?logo=java\&logoColor=white)
+-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.0-green?logo=spring-boot)
+-![Spring Web](https://img.shields.io/badge/Spring_Web-white?logo=spring\&logoColor=green)
+-![Spring Data JPA](https://img.shields.io/badge/Spring_Data_JPA-white?logo=spring\&logoColor=green)
+-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?logo=postgresql)
+-![Flyway](https://img.shields.io/badge/Flyway-Database_Migrations-red?logo=flyway\&logoColor=white)
+-![Docker](https://img.shields.io/badge/Docker-Containerized-blue?logo=docker)
+-![Hibernate Validator](https://img.shields.io/badge/Hibernate_Validator-Validation-red?logo=hibernate)
++- ![Java](https://img.shields.io/badge/Java-21-blue?logo=java\&logoColor=white) 
++- ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.0-green?logo=spring-boot)
++- ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-blue?logo=postgresql)
++- ![Flyway](https://img.shields.io/badge/Flyway-Database_Migrations-red?logo=flyway\&logoColor=white)
++- ![Docker](https://img.shields.io/badge/Docker-Containerized-blue?logo=docker)
++- ![Docker Compose](https://img.shields.io/badge/Docker--Compose-Orchestration-2496ED?logo=docker\&logoColor=white)
+ 
+ ---
+ 
+-## 📦 API Specification
++##� API Specification
+ 
+ ### POST `/api/stock/event`
+ 
+@@ -54,7 +52,7 @@ Ingests a new market data event.
+ 
+ ---
+ 
+-## ❗ Validation Rules
++## Validation Rules
+ 
+ | Field  | Constraints                |
+ | ------ | -------------------------- |
+@@ -66,7 +64,7 @@ Ingests a new market data event.
+ 
+ ---
+ 
+-## 🐳 Running Locally
++## Running Locally
+ 
+ ### 1. Build the Docker images
+ 
+@@ -96,7 +94,7 @@ curl -X POST http://localhost:8083/api/stock/event \
+ 
+ ---
+ 
+-## 🗃️ Database Schema
++## Database Schema
+ 
+ Created via Flyway (`V1__init_schema.sql`, etc):
+ 
+@@ -119,7 +117,7 @@ CREATE TABLE stock_data (
+ 
+ ---
+ 
+-## 🧪 Seed Data
++## Seed Data
+ 
+ Seeded automatically by Flyway (`V4__seed_stock_data.sql`):
+ 
+@@ -131,7 +129,7 @@ INSERT INTO stock_data (...) VALUES
+ 
+ ---
+ 
+-## 📁 Folder Structure
++## Folder Structure
+ 
+ ```
+ .
+
+===== COMMIT bc3a7c1f7339db5a5ade3c5a3f86598a0c9cee1e =====
+commit bc3a7c1f7339db5a5ade3c5a3f86598a0c9cee1e
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Mon Aug 4 23:29:39 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Mon Aug 4 23:29:39 2025 +0100
+
+    Update README.md
+---
+ user-registration-service/README.md | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/user-registration-service/README.md b/user-registration-service/README.md
+index 8a335a5..48bc607 100644
+--- a/user-registration-service/README.md
++++ b/user-registration-service/README.md
+@@ -16,9 +16,7 @@
+ 
+ ## 📸 Screenshots
+ 
+-```bash
+-![./docs/example-curl-request-to-microservice.png]
+-```
++![](./docs/example-curl-request-to-microservice.png)
+ 
+ ---
+ 
+
+===== COMMIT cc56288175b410ade0a7d771ce0a7e41f46ad8fd =====
+commit cc56288175b410ade0a7d771ce0a7e41f46ad8fd
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Mon Aug 4 23:33:00 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Mon Aug 4 23:33:00 2025 +0100
+
+    Update README.md
+---
+ market-data-consumer/README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/market-data-consumer/README.md b/market-data-consumer/README.md
+index fc1ab26..cd1eb71 100644
+--- a/market-data-consumer/README.md
++++ b/market-data-consumer/README.md
+@@ -27,7 +27,7 @@ This microservice ingests market data events (e.g. stock price updates), validat
+ 
+ ---
+ 
+-##� API Specification
++## API Specification
+ 
+ ### POST `/api/stock/event`
+ 
