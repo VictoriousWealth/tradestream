@@ -1,0 +1,2 @@
+docker-compose.yml
+market-data-consumer/pom.xml
