@@ -1,0 +1,325 @@
+
+===== COMMIT 5e2cf430a6bf6fe736a37ae3b15165158816b391 =====
+commit 5e2cf430a6bf6fe736a37ae3b15165158816b391
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jul 5 04:16:35 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jul 5 04:16:35 2025 +0100
+
+    Initial project scaffold: PRD, microservice structure, docs
+---
+ .env.example                      |   0
+ .github/workflows/ci.yml          |   0
+ .gitignore                        |  18 ++++++
+ README.md                         | 127 ++++++++++++++++++++++++++++++++++++++
+ api-gateway/Dockerfile            |   0
+ api-gateway/README.md             |   0
+ api-gateway/pom.xml               |   0
+ authentication-service/Dockerfile |   0
+ authentication-service/README.md  |   0
+ authentication-service/pom.xml    |   0
+ docker-compose.yml                |   0
+ docs/api-design.md                |   0
+ docs/architecture-diagram.png     |   0
+ docs/future-enhancements.md       |   0
+ docs/tradestream-prd.pdf          |   0
+ market-data-consumer/Dockerfile   |   0
+ market-data-consumer/README.md    |   0
+ market-data-consumer/pom.xml      |   0
+ transaction-processor/Dockerfile  |   0
+ transaction-processor/README.md   |   0
+ transaction-processor/pom.xml     |   0
+ 21 files changed, 145 insertions(+)
+
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..e69de29
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..e69de29
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..28c1cf0
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,18 @@
++# Java
++/target/
++/*.iml
++*.class
++
++# Docker
++*.env
++
++# Logs
++*.log
++
++# OS
++.DS_Store
++
++# IDEs
++.idea/
++.vscode/
++
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..506dbb2
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,127 @@
++# TradeStream — Real-Time Financial Data Processor
++
++> A scalable, resilient microservice-based system that simulates real-time financial transaction processing, following engineering practices used in financial institutions like JPMorgan Chase.
++
++---
++
++## 🚀 Project Overview
++
++TradeStream demonstrates:
++
++- Secure, production-grade APIs using **Java Spring Boot**
++- **Event-driven architecture** with Kafka or RabbitMQ
++- Independent microservices with PostgreSQL & Redis per service
++- Containerized, isolated deployment using Docker & Docker Compose
++- Secure authentication with **JWT**
++- Real-time transaction processing simulation
++- Cloud deployment using **AWS Lightsail**
++
++**Note:** This project is a self-initiated portfolio and learning exercise. It simulates real-world financial system patterns but does not process actual financial data.
++
++---
++
++## 🛠️ Technology Stack
++
++| Category             | Technology                         |
++|----------------------|------------------------------------|
++| Backend Framework    | Java Spring Boot                   |
++| Stream Processing    | Kafka or RabbitMQ (configurable)   |
++| Database             | PostgreSQL                         |
++| Cache Layer          | Redis                              |
++| Authentication       | JWT (JSON Web Tokens)              |
++| Containerization     | Docker, Docker Compose             |
++| CI                   | GitHub Actions                     |
++| Deployment           | AWS Lightsail                      |
++
++Planned Future Enhancements:
++
++- Kubernetes for container orchestration
++- Terraform for infrastructure as code
++- Prometheus & Grafana for observability
++- Advanced API security measures
++- Introduce a CD pipeline 
++
++---
++
++## 🏗️ System Architecture
++
++> _See [`/docs/architecture-diagram.png`](docs/architecture-diagram.png) for full architecture overview._
++
++**Core Components:**
++
++- **API Gateway:** Public entry point, request routing, token validation
++- **Authentication Service:** Issues JWT tokens upon successful login
++- **Transaction Processor:** Processes simulated transaction logic, publishes events
++- **Market Data Consumer:** Placeholder for future real-time market data processing
++- **Message Broker:** Kafka or RabbitMQ for decoupled, event-driven communication
++- **PostgreSQL & Redis:** Each service owns its independent data stores
++
++---
++
++## ⚙️ Getting Started (MVP Setup)
++
++### **Prerequisites**
++
++- Docker & Docker Compose installed
++- Basic familiarity with running Java services in containers
++
++### **Steps**
++
++```bash
++# Clone repository
++git clone https://github.com/yourusername/tradestream.git
++cd tradestream
++
++# Build and run containers
++docker-compose up --build
++```
++
++Services exposed:
++
++* `http://localhost:8080` — API Gateway
++* Authentication, transaction, and health endpoints accessible per Technical Design
++
++---
++
++## 🔒 Security Notes
++
++* Follows secure coding practices from Day 1
++* API authentication with JWT
++* Secure service-to-service communication within private Docker network
++* Future enhancements planned for: rate limiting, RBAC, secure headers, vulnerability scanning
++
++---
++
++## 📚 Documentation
++
++* [Project Requirements & Design (PRD)](docs/tradestream-prd.pdf)
++* [System Architecture Diagram](docs/architecture-diagram.png)
++* [API Design Details](docs/api-design.md)
++* [Planned Future Enhancements](docs/future-enhancements.md)
++
++---
++
++## 🎯 Learning Objectives
++
++TradeStream aims to:
++
++* Demonstrate backend and system design aligned with fintech industry standards
++* Gain practical experience with microservices, event-driven systems, and Docker
++* Strengthen secure software development practices
++* Explore realistic cloud deployment and scaling patterns
++
++---
++
++## 🛡️ Disclaimer
++
++This project simulates financial system behavior for educational purposes only. It does not process real transactions or sensitive data.
++
++---
++
++## 🤝 Acknowledgements
++
++Inspired by architectural patterns and standards seen in organizations such as **JPMorgan Chase**, **AWS**, and **OWASP**.
++
++```
++
++---
+diff --git a/api-gateway/Dockerfile b/api-gateway/Dockerfile
+new file mode 100644
+index 0000000..e69de29
+diff --git a/api-gateway/README.md b/api-gateway/README.md
+new file mode 100644
+index 0000000..e69de29
+diff --git a/api-gateway/pom.xml b/api-gateway/pom.xml
+new file mode 100644
+index 0000000..e69de29
+diff --git a/authentication-service/Dockerfile b/authentication-service/Dockerfile
+new file mode 100644
+index 0000000..e69de29
+diff --git a/authentication-service/README.md b/authentication-service/README.md
+new file mode 100644
+index 0000000..e69de29
+diff --git a/authentication-service/pom.xml b/authentication-service/pom.xml
+new file mode 100644
+index 0000000..e69de29
+diff --git a/docker-compose.yml b/docker-compose.yml
+new file mode 100644
+index 0000000..e69de29
+diff --git a/docs/api-design.md b/docs/api-design.md
+new file mode 100644
+index 0000000..e69de29
+diff --git a/docs/architecture-diagram.png b/docs/architecture-diagram.png
+new file mode 100644
+index 0000000..e69de29
+diff --git a/docs/future-enhancements.md b/docs/future-enhancements.md
+new file mode 100644
+index 0000000..e69de29
+diff --git a/docs/tradestream-prd.pdf b/docs/tradestream-prd.pdf
+new file mode 100644
+index 0000000..e69de29
+diff --git a/market-data-consumer/Dockerfile b/market-data-consumer/Dockerfile
+new file mode 100644
+index 0000000..e69de29
+diff --git a/market-data-consumer/README.md b/market-data-consumer/README.md
+new file mode 100644
+index 0000000..e69de29
+diff --git a/market-data-consumer/pom.xml b/market-data-consumer/pom.xml
+new file mode 100644
+index 0000000..e69de29
+diff --git a/transaction-processor/Dockerfile b/transaction-processor/Dockerfile
+new file mode 100644
+index 0000000..e69de29
+diff --git a/transaction-processor/README.md b/transaction-processor/README.md
+new file mode 100644
+index 0000000..e69de29
+diff --git a/transaction-processor/pom.xml b/transaction-processor/pom.xml
+new file mode 100644
+index 0000000..e69de29
+
+===== COMMIT 528d71f3551cc045cbd11a9c80a9d6a6914c6220 =====
+commit 528d71f3551cc045cbd11a9c80a9d6a6914c6220
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jul 5 04:22:46 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jul 5 04:22:46 2025 +0100
+
+    Fix .gitignore to exclude build artifacts and editor files
+---
+ .env.example |  0
+ .gitignore   | 22 ++++++++++++++--------
+ 2 files changed, 14 insertions(+), 8 deletions(-)
+
+diff --git a/.env.example b/.env.example
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/.gitignore b/.gitignore
+index 28c1cf0..d992bcb 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,18 +1,24 @@
+-# Java
+-/target/
+-/*.iml
+-*.class
++# Java build artifacts
++**/target/
++**/*.class
++
++# Maven/Gradle specific
++**/*.iml
++**/.idea/
+ 
+ # Docker
+ *.env
++.env
++.env.*
+ 
+ # Logs
+ *.log
+ 
+-# OS
++# OS / Editor junk files
+ .DS_Store
+-
+-# IDEs
+-.idea/
+ .vscode/
++.idea/
++
++# System specific
++Thumbs.db
+ 
+
+===== COMMIT d8b6490c54a9e99488ca5bb3acc1c9d687f1293e =====
+commit d8b6490c54a9e99488ca5bb3acc1c9d687f1293e
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Sat Jul 5 04:27:55 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Sat Jul 5 04:27:55 2025 +0100
+
+    fixed minor typo within main readme
+---
+ README.md | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index 506dbb2..9751d66 100644
+--- a/README.md
++++ b/README.md
+@@ -122,6 +122,4 @@ This project simulates financial system behavior for educational purposes only.
+ 
+ Inspired by architectural patterns and standards seen in organizations such as **JPMorgan Chase**, **AWS**, and **OWASP**.
+ 
+-```
+-
+ ---
