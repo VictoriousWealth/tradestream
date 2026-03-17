@@ -1,0 +1,33 @@
+Date: 2025-07-05
+Chunk: 001
+Chunk commit count: 3
+Chunk unique filtered files: 21
+Chunk patch bytes: 9678
+
+Commits:
+5e2cf43 2025-07-05 04:16:35 +0100 Nick Efe Oni Initial project scaffold: PRD, microservice structure, docs
+528d71f 2025-07-05 04:22:46 +0100 Nick Efe Oni Fix .gitignore to exclude build artifacts and editor files
+d8b6490 2025-07-05 04:27:55 +0100 Nick Efe Oni fixed minor typo within main readme
+
+Changed files:
+.env.example
+.github/workflows/ci.yml
+.gitignore
+api-gateway/Dockerfile
+api-gateway/pom.xml
+api-gateway/README.md
+authentication-service/Dockerfile
+authentication-service/pom.xml
+authentication-service/README.md
+docker-compose.yml
+docs/api-design.md
+docs/architecture-diagram.png
+docs/future-enhancements.md
+docs/tradestream-prd.pdf
+market-data-consumer/Dockerfile
+market-data-consumer/pom.xml
+market-data-consumer/README.md
+README.md
+transaction-processor/Dockerfile
+transaction-processor/pom.xml
+transaction-processor/README.md
