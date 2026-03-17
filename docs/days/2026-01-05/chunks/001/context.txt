@@ -1,0 +1,13 @@
+Date: 2026-01-05
+Chunk: 001
+Chunk commit count: 2
+Chunk unique filtered files: 2
+Chunk patch bytes: 1830
+
+Commits:
+c49149b 2026-01-05 10:48:00 +0000 Nick Efe Oni fix: update .gitignore for market data consumer to include gradle and bin directories
+ddc1068 2026-01-05 10:48:00 +0000 Nick Efe Oni fix: update .gitignore for matching engine to include gradle and build directories
+
+Changed files:
+services/market-data-consumer/.gitignore
+services/matching-engine/.gitignore
