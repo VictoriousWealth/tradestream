@@ -1,0 +1,13 @@
+Date: 2026-01-04
+Commit count: 9
+
+Commits:
+1f072a8 2026-01-04 16:24:09 +0000 Nick Efe Oni feat: add CI workflow for end-to-end testing
+12c8ee4 2026-01-04 16:24:09 +0000 Nick Efe Oni fix: update ticker logic to maintain uniqueness
+d16ac60 2026-01-04 16:24:09 +0000 Nick Efe Oni chore: add .gitignore for matching-engine service
+1476152 2026-01-04 16:24:09 +0000 Nick Efe Oni chore: add .gitignore for orders-service
+943df9e 2026-01-04 16:27:59 +0000 Nick Efe Oni feat(ci): add build and start stack steps in CI workflow
+f2c2770 2026-01-04 16:30:00 +0000 Nick Efe Oni ci: add step to build API Gateway jar in CI workflow
+53cbba0 2026-01-04 16:31:26 +0000 Nick Efe Oni feat: add JDK 21 setup to CI workflow
+c2a6eb0 2026-01-04 16:39:40 +0000 Nick Efe Oni chore: add JWT test key generation to CI workflow
+a1e17f8 2026-01-04 16:48:43 +0000 Nick Efe Oni feat(ci): add wait for core services before running E2E tests
