@@ -1,0 +1,28 @@
+Date: 2025-08-21
+Chunk: 001
+Chunk commit count: 1
+Chunk unique filtered files: 18
+Chunk patch bytes: 55697
+
+Commits:
+538f9a6 2025-08-21 04:30:57 +0100 Nick Efe Oni Deploy
+
+Changed files:
+e2e_portfolio_service.sh
+services/authentication-service/build.gradle
+services/authentication-service/src/main/java/com/tradestream/auth/config/SecurityConfig.java
+services/authentication-service/src/main/java/com/tradestream/auth/controller/UserController.java
+services/authentication-service/src/main/java/com/tradestream/auth/service/TokenService.java
+services/authentication-service/src/main/resources/application.yml
+services/authentication-service/src/main/resources/db/migration/V2__rename_email_to_username.sql
+services/matching-engine/.gradle/nb-cache/subprojects.ser
+services/orders-service/.gradle/nb-cache/subprojects.ser
+services/portfolio-service/README.md
+services/portfolio-service/src/main/java/com/tradestream/portfolio_service/config/ListenerFactoryConfig.java
+services/user-registration-service/build.gradle
+services/user-registration-service/README.md
+services/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/SecurityConfig.java
+services/user-registration-service/src/main/java/com/tradestream/user_registration_service/controller/UserController.java
+services/user-registration-service/src/main/java/com/tradestream/user_registration_service/dto/UserDTO.java
+services/user-registration-service/src/main/java/com/tradestream/user_registration_service/model/User.java
+services/user-registration-service/src/main/resources/db/migration/V2__rename_email_to_username.sql
