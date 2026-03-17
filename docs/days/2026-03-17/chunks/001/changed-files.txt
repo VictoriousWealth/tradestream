@@ -1,0 +1,8 @@
+docs/architecture-decisions.md
+docs/event-contracts.md
+docs/known-risks-and-non-goals.md
+docs/operational-runbook.md
+docs/security-model.md
+docs/test-strategy.md
+generate_devlogs.sh
+README.md
