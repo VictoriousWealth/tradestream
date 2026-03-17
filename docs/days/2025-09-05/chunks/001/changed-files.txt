@@ -1,0 +1,11 @@
+api-gateway/README.md
+api-gateway/src/main/java/com/tradestream/gateway/security/JwtDecoderConfig.java
+api-gateway/src/main/resources/application.yml
+copy_to_clipboard_all_readmes.sh
+CVREADME.md
+docker-compose.yml
+gateway_smoke.sh
+README.md
+services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/CandleQueryService.java
+services/matching-engine/.gradle/nb-cache/subprojects.ser
+services/orders-service/.gradle/nb-cache/subprojects.ser
