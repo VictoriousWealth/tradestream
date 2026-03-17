@@ -1,0 +1,12 @@
+Date: 2026-01-24
+Commit count: 8
+
+Commits:
+a026f03 2026-01-24 17:07:33 +0000 Nick Efe Oni fix: update CVREADME for clarity on README purpose
+35ff505 2026-01-24 17:07:33 +0000 Nick Efe Oni fix: correct CVREADME reference and add GitHub Actions to CI
+79574e4 2026-01-24 17:07:33 +0000 Nick Efe Oni feat: add API design documentation
+0df0b10 2026-01-24 17:07:33 +0000 Nick Efe Oni docs: outline future enhancements and features
+4731eac 2026-01-24 17:07:33 +0000 Nick Efe Oni fix: correct event bus references in sequence diagram
+7d73907 2026-01-24 17:07:33 +0000 Nick Efe Oni fix: update trade execution diagram and clarify event bus
+d3a2bb5 2026-01-24 17:07:33 +0000 Nick Efe Oni chore: enhance project overview and update technologies used
+73d2844 2026-01-24 19:20:27 +0000 Nick Efe Oni Enhance future enhancements documentation with detailed descriptions and final product overview
