@@ -1,0 +1,7 @@
+Date: 2025-07-05
+Commit count: 3
+
+Commits:
+5e2cf43 2025-07-05 04:16:35 +0100 Nick Efe Oni Initial project scaffold: PRD, microservice structure, docs
+528d71f 2025-07-05 04:22:46 +0100 Nick Efe Oni Fix .gitignore to exclude build artifacts and editor files
+d8b6490 2025-07-05 04:27:55 +0100 Nick Efe Oni fixed minor typo within main readme
