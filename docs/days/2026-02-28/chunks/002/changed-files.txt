@@ -1,0 +1,4 @@
+docs/architecture-diagram.png
+docs/tradestream-prd.md
+docs/tradestream-prd.pdf
+README.md
