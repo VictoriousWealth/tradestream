@@ -1,0 +1,8 @@
+56a60e8 2025-07-05 04:22:46 +0100 Nick Efe Oni chore(gitignore): exclude build artifacts and editor files
+1a1eca3 2025-07-05 04:27:55 +0100 Nick Efe Oni style(readme): correct minor typo in main documentation
+31a2635 2025-07-06 05:28:25 +0100 Nick Efe Oni docs(readme): enhance readme for clarity and professional presentation
+9447769 2025-07-06 05:31:22 +0100 Nick Efe Oni chore(readme): update README for deployment clarity
+4d51109 2025-07-06 05:34:05 +0100 Nick Efe Oni chore(readme): update header formatting and improve alignment
+b15b5c7 2025-07-06 05:34:49 +0100 Nick Efe Oni docs(readme): add project overview section to documentation
+06c6bf9 2025-07-06 05:58:08 +0100 Nick Efe Oni chore(docs): update README with new sections and anchors for navigation
+63d6f37 2025-07-06 06:01:54 +0100 Nick Efe Oni chore(license): add Creative Commons Attribution-NonCommercial 4.0 license
