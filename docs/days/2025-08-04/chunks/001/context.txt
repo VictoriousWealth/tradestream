@@ -1,0 +1,39 @@
+Date: 2025-08-04
+Chunk: 001
+Chunk commit count: 4
+Chunk unique filtered files: 26
+Chunk patch bytes: 42261
+
+Commits:
+e568e24 2025-08-04 23:21:50 +0100 Nick Efe Oni Deploy
+94c4eaf 2025-08-04 23:27:44 +0100 Nick Efe Oni Update README.md
+bc3a7c1 2025-08-04 23:29:39 +0100 Nick Efe Oni Update README.md
+cc56288 2025-08-04 23:33:00 +0100 Nick Efe Oni Update README.md
+
+Changed files:
+automated_scripts/dev-deploy.sh
+docker-compose.yml
+market-data-consumer/.gitattributes
+market-data-consumer/.gitignore
+market-data-consumer/build.gradle
+market-data-consumer/Dockerfile
+market-data-consumer/gradle/wrapper/gradle-wrapper.jar
+market-data-consumer/gradle/wrapper/gradle-wrapper.properties
+market-data-consumer/gradlew
+market-data-consumer/gradlew.bat
+market-data-consumer/README.md
+market-data-consumer/settings.gradle
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/MarketDataConsumerApplication.java
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/MarketDataEvent.java
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockData.java
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataController.java
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataRepository.java
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/StockDataService.java
+market-data-consumer/src/main/java/com/tradestream/market_data_consumer/stock_data/ValidationExceptionHandler.java
+market-data-consumer/src/main/resources/application.properties
+market-data-consumer/src/main/resources/db/migration/V1__init_schema.sql
+market-data-consumer/src/main/resources/db/migration/V2__add_timestamps_to_stock_data.sql
+market-data-consumer/src/main/resources/db/migration/V3__create_extension_pgcrypto.sql
+market-data-consumer/src/main/resources/db/migration/V4__seed_stock_data.sql
+market-data-consumer/src/test/java/com/tradestream/market_data_consumer/MarketDataConsumerApplicationTests.java
+user-registration-service/README.md
