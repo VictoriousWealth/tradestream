@@ -106,6 +106,12 @@ Start here depending on what you need:
 * `docs/api-design.md` — gateway routes and service API behavior
 * `docs/future-enhancements.md` — concrete roadmap for simulation bots, analytics UI, schema governance, observability, and platform hardening
 * `docs/observability-stack-guide.md` — implementation guide for metrics, logs, traces, lag dashboards, and alerting
+* `docs/known-risks-and-non-goals.md` — explicit current limitations, deferred scope, and implementation risks confirmed in code
+* `docs/event-contracts.md` — topic-by-topic Kafka contract details, idempotency behavior, and contract gaps
+* `docs/security-model.md` — current auth, trust boundaries, token model, and known security gaps
+* `docs/test-strategy.md` — what the current scripts and CI actually validate, plus drift and coverage gaps
+* `docs/operational-runbook.md` — local runtime troubleshooting guide for gateway, Kafka, Redis, and downstream services
+* `docs/architecture-decisions.md` — concrete architecture choices visible in the repo and their consequences
 * `docs/order-placement-matching-trade-execution-diagram.md` — order placement to trade execution flow
 * `docs/trade-execution-market-data-&-portfolio-updates-+-order-status-diagram.md` — downstream projection/update flow
 
