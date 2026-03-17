@@ -1,0 +1,17 @@
+Date: 2025-07-07
+Chunk: 001
+Chunk commit count: 3
+Chunk unique filtered files: 5
+Chunk patch bytes: 31380
+
+Commits:
+1bfb10d 2025-07-07 10:15:47 +0100 Nick Efe Oni updating diagrams
+b0c96dc 2025-07-07 23:55:33 +0100 Nick Efe Oni Update README.md
+08298ca 2025-07-07 23:56:09 +0100 Nick Efe Oni Update README.md
+
+Changed files:
+docs/architecture-diagram.drawio.png
+docs/architecture-diagram.png
+docs/high-level-architecture-diagram.png
+docs/tradestream-prd.md
+README.md
