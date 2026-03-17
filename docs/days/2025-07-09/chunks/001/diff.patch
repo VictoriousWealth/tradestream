@@ -1,0 +1,147 @@
+
+===== COMMIT 842104a9e9cf22b59176850c667a419ede282321 =====
+commit 842104a9e9cf22b59176850c667a419ede282321
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 03:46:19 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Wed Jul 9 03:47:23 2025 +0100
+
+    Deploy
+---
+ ...ion-flow.drawio.png => api-gateway-flow.drawio.png} | Bin
+ .../docs/authentication-flow.drawio.png                | Bin 0 -> 324328 bytes
+ 2 files changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/api-gateway/docs/token-authentication-flow.drawio.png b/api-gateway/docs/api-gateway-flow.drawio.png
+similarity index 100%
+rename from api-gateway/docs/token-authentication-flow.drawio.png
+rename to api-gateway/docs/api-gateway-flow.drawio.png
+diff --git a/authentication-service/docs/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+new file mode 100644
+index 0000000..9b896b6
+Binary files /dev/null and b/authentication-service/docs/authentication-flow.drawio.png differ
+
+===== COMMIT 283e37221f2ccb7dc0e3c7d1a78c79937e1af79b =====
+commit 283e37221f2ccb7dc0e3c7d1a78c79937e1af79b
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 9 03:48:14 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Wed Jul 9 03:48:14 2025 +0100
+
+    Update README.md
+---
+ api-gateway/README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/api-gateway/README.md b/api-gateway/README.md
+index 813a2b2..9a86c28 100644
+--- a/api-gateway/README.md
++++ b/api-gateway/README.md
+@@ -10,7 +10,7 @@ The API Gateway acts as the central access point for all client requests. It man
+ 
+ This diagram illustrates the full authentication lifecycle, including how access and refresh tokens are processed, validated, and routed:
+ 
+-![Token Authentication Flow](docs/token-authentication-flow.drawio.png)
++![Token Authentication Flow](docs/api-gateway-flow.drawio.png)
+ 
+ 🛡️ All security-sensitive communication is encrypted using HTTPS, and refresh tokens are never exposed in URLs. Access tokens are expected to be sent via Bearer token in the `Authorization` header. Refresh tokens are recommended to be stored in `HttpOnly` secure cookies or passed in the request body over HTTPS.
+ 
+
+===== COMMIT ba1583ec7bae85b9107698fad5b56caa8c6e32cf =====
+commit ba1583ec7bae85b9107698fad5b56caa8c6e32cf
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 04:29:41 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Wed Jul 9 04:29:41 2025 +0100
+
+    Deploy
+---
+ .../docs/api-gateway-flow.drawio.png                   | Bin 0 -> 359853 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/api-gateway-flow.drawio.png b/authentication-service/docs/api-gateway-flow.drawio.png
+new file mode 100644
+index 0000000..ebffb0a
+Binary files /dev/null and b/authentication-service/docs/api-gateway-flow.drawio.png differ
+
+===== COMMIT ecf4e7415988b85bcb4813e1534b57f94a109a7d =====
+commit ecf4e7415988b85bcb4813e1534b57f94a109a7d
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 04:31:57 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Wed Jul 9 04:31:57 2025 +0100
+
+    Deploy
+---
+ .../docs/authentication-flow.drawio.png            | Bin 324328 -> 359853 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+index 9b896b6..ebffb0a 100644
+Binary files a/authentication-service/docs/authentication-flow.drawio.png and b/authentication-service/docs/authentication-flow.drawio.png differ
+
+===== COMMIT e08c491daedffbdc2864979819bfa0f39f94ede3 =====
+commit e08c491daedffbdc2864979819bfa0f39f94ede3
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 04:33:12 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Wed Jul 9 04:33:12 2025 +0100
+
+    Deploy
+---
+ .../docs/authentication-flow.drawio.png            | Bin 359853 -> 360148 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+index ebffb0a..8463a17 100644
+Binary files a/authentication-service/docs/authentication-flow.drawio.png and b/authentication-service/docs/authentication-flow.drawio.png differ
+
+===== COMMIT 02d3b980f90bd5e527bbf5063b0af29777f02e9d =====
+commit 02d3b980f90bd5e527bbf5063b0af29777f02e9d
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 04:34:01 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Wed Jul 9 04:34:01 2025 +0100
+
+    Deploy
+---
+ .../docs/api-gateway-flow.drawio.png                   | Bin 359853 -> 0 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/api-gateway-flow.drawio.png b/authentication-service/docs/api-gateway-flow.drawio.png
+deleted file mode 100644
+index ebffb0a..0000000
+Binary files a/authentication-service/docs/api-gateway-flow.drawio.png and /dev/null differ
+
+===== COMMIT 41d9c2247aa60b17a4aba29e0ad98475dcc6595c =====
+commit 41d9c2247aa60b17a4aba29e0ad98475dcc6595c
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 9 04:35:18 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Wed Jul 9 04:35:18 2025 +0100
+
+    Deploy
+---
+ .../docs/authentication-flow.drawio.png            | Bin 360148 -> 360249 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+index 8463a17..425617c 100644
+Binary files a/authentication-service/docs/authentication-flow.drawio.png and b/authentication-service/docs/authentication-flow.drawio.png differ
+
+===== COMMIT 078097e817464a839c86be8691837e082f7b4a6b =====
+commit 078097e817464a839c86be8691837e082f7b4a6b
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 9 04:41:14 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Wed Jul 9 04:41:14 2025 +0100
+
+    Delete authentication-service/docs/authentication-flow.drawio.png
+---
+ .../docs/authentication-flow.drawio.png                | Bin 360249 -> 0 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/authentication-service/docs/authentication-flow.drawio.png b/authentication-service/docs/authentication-flow.drawio.png
+deleted file mode 100644
+index 425617c..0000000
+Binary files a/authentication-service/docs/authentication-flow.drawio.png and /dev/null differ
