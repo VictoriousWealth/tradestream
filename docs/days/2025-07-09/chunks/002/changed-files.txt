@@ -1,0 +1,3 @@
+api-gateway/docs/api-gateway-flow.drawio.png
+authentication-service/docs/authentication-flow.drawio.png
+authentication-service/README.md
