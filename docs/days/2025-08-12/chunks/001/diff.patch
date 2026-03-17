@@ -1,0 +1,1547 @@
+
+===== COMMIT d227e77923d2bc0a633371fdd4c6338a557c7737 =====
+commit d227e77923d2bc0a633371fdd4c6338a557c7737
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Tue Aug 12 05:08:09 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Tue Aug 12 05:08:09 2025 +0100
+
+    Deploy
+---
+ docker-compose.yml                                 |   2 +-
+ e2e_scenarios.sh                                   | 273 +++++++++++++++++++++
+ e2e_trade_pipeline_test.sh                         | 116 +++++++++
+ manual_cancel_test.sh                              |  70 ++++++
+ .../service/AggregationService.java                |   4 +-
+ services/matching-engine/bin/main/application.yml  |   4 +
+ .../V2__processed_messages_topic_msgid.sql         |  55 +++++
+ .../config/BytesListenerFactoryConfig.java         |  29 +--
+ .../matching_engine/domain/ProcessedMessage.java   |  27 +-
+ .../matching_engine/dto/OrderCancelledEvent.java   |   7 +
+ .../matching_engine/dto/OrderPlacedEvent.java      |   4 +-
+ .../matching_engine/matching/MatchingService.java  |  51 ++--
+ .../persistence/ProcessedMessageRepository.java    |   4 +-
+ .../matching_engine/stream/DltLoggingConsumer.java |  24 +-
+ .../stream/OrderCancelledConsumer.java             |  52 +++-
+ .../stream/OrderPlacedConsumer.java                |  28 ++-
+ .../src/main/resources/application.yml             |   4 +
+ .../V2__processed_messages_topic_msgid.sql         |  55 +++++
+ .../bin/main/db/migration/V4__ingested_fills.sql   |   8 +
+ .../main/db/migration/V5__drop_ingested_trades.sql |   3 +
+ .../orders_service/domain/IngestedFill.java        |  28 +++
+ .../orders_service/domain/IngestedFillId.java      |  24 ++
+ .../orders_service/domain/IngestedTrade.java       |  39 ---
+ .../orders_service/dto/TradeExecuted.java          |  16 +-
+ .../kafka/TradeExecutedConsumer.java               |  94 ++++---
+ .../repo/IngestedFillRepository.java               |  28 +++
+ .../repo/IngestedTradeRepository.java              |  21 --
+ .../resources/db/migration/V4__ingested_fills.sql  |   8 +
+ .../db/migration/V5__drop_ingested_trades.sql      |   3 +
+ 29 files changed, 897 insertions(+), 184 deletions(-)
+
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 3099de9..d7cf9ad 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -109,7 +109,7 @@ services:
+       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+       SPRING_FLYWAY_ENABLED: "true"
+       SPRING_FLYWAY_LOCATIONS: classpath:db/migration
+-
++      SPRING_MAIN_ALLOW_CIRCULAR_REFERENCES: "true"
+       KAFKA_BOOTSTRAP_SERVERS: redpanda:9092
+       KAFKA_TOPIC_ORDER_PLACED: order.placed.v1
+       KAFKA_TOPIC_ORDER_CANCELLED: order.cancelled.v1
+diff --git a/e2e_scenarios.sh b/e2e_scenarios.sh
+new file mode 100755
+index 0000000..837a7bd
+--- /dev/null
++++ b/e2e_scenarios.sh
+@@ -0,0 +1,273 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++RED='\033[0;31m'; GRN='\033[0;32m'; YLW='\033[1;33m'; NC='\033[0m'
++info(){ echo -e "${YLW}⇒ $*${NC}"; }
++ok(){ echo -e "${GRN}✔ $*${NC}"; }
++fail(){ echo -e "${RED}✘ $*${NC}"; exit 1; }
++
++# --- config / helpers ---
++PRIVATE_NET="$(docker network ls --format '{{.Name}}' | grep -E '_private_net$' | head -n1 || true)"
++[[ -z "$PRIVATE_NET" ]] && PRIVATE_NET="tradestream_private_net"
++
++ORDERS_HOST="${ORDERS_HOST:-tradestream-orders-service-1}"
++ME_HOST="${ME_HOST:-tradestream-matching-engine-1}"
++MDS_HOST="${MDS_HOST:-tradestream-market-data-consumer-1}"
++ORDERS_PORT=8085
++ME_PORT=8086
++MDS_PORT=8083
++
++USER_A="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
++USER_B="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
++
++net_curl() {
++  local method="$1"; shift
++  docker run -i --rm --network "${PRIVATE_NET}" curlimages/curl:8.9.1 -sS -X "$method" "$@"
++}
++
++# generic topic watcher (grabs the *next* message after arming)
++arm_topic_watcher() {
++  local topic="$1" watch_file="$2"
++  docker compose exec -T redpanda sh -lc "rm -f ${watch_file}; \
++    rpk topic consume ${topic} --offset end -f '%v' -n 1 > ${watch_file} 2>/dev/null & echo \$! > /tmp/e2e_watch.pid"
++}
++
++arm_trade_watcher() {
++  arm_topic_watcher "trade.executed.v1" "$1"
++}
++
++wait_trade_or_timeout() {
++  local watch_file="$1" max_halfsecs="${2:-40}"
++  for i in $(seq 1 "$max_halfsecs"); do
++    if docker compose exec -T redpanda sh -lc "[ -s ${watch_file} ]"; then
++      docker compose exec -T redpanda sh -lc "cat ${watch_file}"
++      return 0
++    fi
++    sleep 0.5
++  done
++  return 1
++}
++
++# wait until our *specific* cancel (orderId) appears on order.cancelled.v1
++wait_for_cancel_published() {
++  local order_id="$1" watch_file="$2" tries="${3:-60}"
++  for i in $(seq 1 "$tries"); do
++    if docker compose exec -T redpanda sh -lc "[ -s ${watch_file} ]"; then
++      local msg
++      msg="$(docker compose exec -T redpanda sh -lc "cat ${watch_file}")"
++      local seen
++      seen="$(echo "$msg" | jq -r '.orderId // empty' || true)"
++      if [[ "$seen" == "$order_id" ]]; then
++        echo "$msg"
++        return 0
++      fi
++      # wrong message (some other cancel landed first); re-arm and keep waiting
++      arm_topic_watcher "order.cancelled.v1" "$watch_file"
++    fi
++    sleep 0.5
++  done
++  return 1
++}
++
++# poll rpk until matching-engine has zero lag on a topic (i.e., caught up)
++wait_me_caught_up() {
++  local topic="$1" timeout="${2:-60}"
++  for i in $(seq 1 "$timeout"); do
++    # column 6 is LAG in the rpk table; awk collapses multiple spaces
++    local lag
++    lag="$(docker compose exec -T redpanda rpk group describe matching-engine \
++      | awk -v t="$topic" 'BEGIN{lag="NA"} $1==t {lag=$6} END{print lag}')"
++    if [[ "$lag" == "0" ]]; then
++      return 0
++    fi
++    sleep 1
++  done
++  return 1
++}
++
++post_order() {
++  # args: side type tif price quantity ticker user
++  local side="$1" type="$2" tif="$3" price="$4" qty="$5" ticker="$6" user="$7"
++  local payload
++  if [[ "$type" == "MARKET" ]]; then
++    payload=$(jq -n --arg user "$user" --arg tick "$ticker" --arg side "$side" --arg type "$type" --arg tif "$tif" --argjson qty "$qty" \
++      '{userId:$user,ticker:$tick,side:$side,type:$type,timeInForce:$tif,price:null,quantity:$qty}')
++  else
++    payload=$(jq -n --arg user "$user" --arg tick "$ticker" --arg side "$side" --arg type "$type" --arg tif "$tif" --argjson price "$price" --argjson qty "$qty" \
++      '{userId:$user,ticker:$tick,side:$side,type:$type,timeInForce:$tif,price:$price,quantity:$qty}')
++  fi
++  local resp; resp="$(echo "$payload" | net_curl POST "http://${ORDERS_HOST}:${ORDERS_PORT}/orders" -H "Content-Type: application/json" --data @-)"
++  echo "$resp" | jq -e . >/dev/null || { echo "$resp"; fail "Orders response was not JSON"; }
++  local id; id="$(echo "$resp" | jq -r .id)"
++  [[ "$id" == "null" || -z "$id" ]] && { echo "$resp"; fail "Order id missing"; }
++  echo "$id"
++}
++
++get_order() {
++  local id="$1"
++  net_curl GET "http://${ORDERS_HOST}:${ORDERS_PORT}/orders/${id}"
++}
++
++assert_eq() { [[ "$1" == "$2" ]] || fail "assert failed: expected [$2] got [$1] ($3)"; }
++assert_num_eq() { awk "BEGIN{exit !($1==$2)}" || fail "assert failed: expected [$2] got [$1] ($3)"; }
++
++# --- bring up core services ---
++info "Using docker network: ${PRIVATE_NET}"
++docker compose up -d orders_postgres matching_postgres market_postgres postgres redis redpanda \
++  orders-service matching-engine market-data-consumer >/dev/null
++
++# health
++info "Waiting for health..."
++for i in {1..60}; do
++  set +e
++  net_curl GET "http://${ORDERS_HOST}:${ORDERS_PORT}/actuator/health" >/dev/null && O=ok || O=
++  net_curl GET "http://${ME_HOST}:${ME_PORT}/actuator/health" >/dev/null && M=ok || M=
++  net_curl GET "http://${MDS_HOST}:${MDS_PORT}/actuator/health" >/dev/null && D=ok || D=
++  set -e
++  [[ "$O$M$D" == "okokok" ]] && break
++  sleep 2
++done
++ok "All healthy."
++
++# Unique tickers to isolate scenarios
++SUF="$(date +%s)"
++T_PF="E2EPF${SUF}"
++T_IOC1="E2IOC1${SUF}"
++T_IOC0="E2IOC0${SUF}"
++T_FOK="E2FOK${SUF}"
++T_MKT="E2MKT${SUF}"
++T_CAN="E2CAN${SUF}"
++T_RCV="E2RCV${SUF}"
++T_DLT="E2DLT${SUF}"
++
++# =============== 1) PARTIAL FILL =================
++info "[1/9] Partial fill (${T_PF}): SELL 80 then BUY 50 @150.25"
++WATCH="/tmp/pf_trade.json"; arm_trade_watcher "$WATCH"
++SELL80_ID="$(post_order SELL LIMIT GTC 150.25 80 "$T_PF" "$USER_A")"
++BUY50_ID="$(post_order BUY  LIMIT GTC 150.25 50 "$T_PF" "$USER_B")"
++TR_PF="$(wait_trade_or_timeout "$WATCH" 60 || fail "No trade for partial-fill")"
++echo "$TR_PF" | jq .
++qty="$(echo "$TR_PF" | jq -r .quantity)"; price="$(echo "$TR_PF" | jq -r .price)"
++assert_num_eq "$qty" 50 "partial fill qty"
++assert_num_eq "$price" 150.25 "partial fill price"
++
++S="$(get_order "$SELL80_ID")"; B="$(get_order "$BUY50_ID")"
++s_status="$(echo "$S" | jq -r .status)"; s_rem="$(echo "$S" | jq -r .remainingQuantity)"
++b_status="$(echo "$B" | jq -r .status)"; b_rem="$(echo "$B" | jq -r .remainingQuantity)"
++assert_eq "$s_status" "PARTIALLY_FILLED" "sell status"
++assert_num_eq "$s_rem" 30 "sell remaining"
++assert_eq "$b_status" "FILLED" "buy status"
++assert_num_eq "$b_rem" 0 "buy remaining"
++ok "Partial fill OK."
++
++# =============== 2) IOC partial ==================
++info "[2/9] IOC partial (${T_IOC1}): SELL 10, BUY IOC 50"
++WATCH="/tmp/ioc1_trade.json"; arm_trade_watcher "$WATCH"
++S10="$(post_order SELL LIMIT GTC 150.25 10 "$T_IOC1" "$USER_A")"
++BI50="$(post_order BUY  LIMIT IOC 150.25 50 "$T_IOC1" "$USER_B")"
++TR_IOC1="$(wait_trade_or_timeout "$WATCH" 60 || fail "No trade for IOC partial")"
++echo "$TR_IOC1" | jq .
++qty="$(echo "$TR_IOC1" | jq -r .quantity)"; assert_num_eq "$qty" 10 "IOC matched available"
++ok "IOC partial OK."
++
++# =============== 3) IOC no-liquidity ============
++info "[3/9] IOC no-liquidity (${T_IOC0}): BUY IOC 10 (no rests) => no trade"
++WATCH="/tmp/ioc0_trade.json"; arm_trade_watcher "$WATCH"
++post_order BUY LIMIT IOC 150.25 10 "$T_IOC0" "$USER_B" >/dev/null
++if wait_trade_or_timeout "$WATCH" 10; then fail "Unexpected trade for IOC no-liquidity"; fi
++ok "IOC no-liquidity OK (no trade)."
++
++# =============== 4) FOK insufficient ============
++info "[4/9] FOK insufficient (${T_FOK}): SELL 50, then BUY FOK 100 => no trade"
++WATCH="/tmp/fok_trade.json"; arm_trade_watcher "$WATCH"
++post_order SELL LIMIT GTC 150.25 50 "$T_FOK" "$USER_A" >/dev/null
++post_order BUY  LIMIT FOK 150.25 100 "$T_FOK" "$USER_B" >/dev/null
++if wait_trade_or_timeout "$WATCH" 10; then fail "Unexpected trade for FOK insufficient"; fi
++ok "FOK insufficient OK (no trade)."
++
++# =============== 5) MARKET order ================
++info "[5/9] MARKET (${T_MKT}): SELL 20@150.30, BUY MARKET 25 => trade 20 @ 150.30"
++WATCH="/tmp/mkt_trade.json"; arm_trade_watcher "$WATCH"
++post_order SELL LIMIT GTC 150.30 20 "$T_MKT" "$USER_A" >/dev/null
++post_order BUY  MARKET GTC 0      25 "$T_MKT" "$USER_B" >/dev/null
++TR_MKT="$(wait_trade_or_timeout "$WATCH" 60 || fail "No trade for MARKET")"
++echo "$TR_MKT" | jq .
++qty="$(echo "$TR_MKT" | jq -r .quantity)"; price="$(echo "$TR_MKT" | jq -r .price)"
++assert_num_eq "$qty" 20 "MARKET qty equals available"
++assert_num_eq "$price" 150.30 "MARKET executes at resting price"
++ok "MARKET behavior OK."
++
++# =============== 6) Cancel flow =================
++# policy: you do NOT allow cancelling partially-filled orders (only NEW)
++info "[6/9] Cancel (${T_CAN}): SELL 40, cancel, then BUY 40 => no trade"
++S40="$(post_order SELL LIMIT GTC 150.25 40 "$T_CAN" "$USER_A")"
++
++# Arm cancel watcher BEFORE calling cancel to avoid missing the event
++CANCEL_WATCH="/tmp/cancel_evt.json"; arm_topic_watcher "order.cancelled.v1" "$CANCEL_WATCH"
++
++# cancel via Orders API
++net_curl POST "http://${ORDERS_HOST}:${ORDERS_PORT}/orders/${S40}/cancel" >/dev/null
++
++# wait until *our* cancel shows on the topic
++wait_for_cancel_published "$S40" "$CANCEL_WATCH" 60 || fail "Cancel event not observed on Kafka"
++
++# ensure matching-engine has consumed cancels up to head
++wait_me_caught_up "order.cancelled.v1" 60 || fail "Matching engine did not catch up on cancels"
++
++# now place the crossing BUY; there should be NO trade
++WATCH="/tmp/can_trade.json"; arm_trade_watcher "$WATCH"
++post_order BUY LIMIT GTC 150.25 40 "$T_CAN" "$USER_B" >/dev/null
++if wait_trade_or_timeout "$WATCH" 10; then fail "Unexpected trade after cancel"; fi
++ok "Cancel flow OK (no trade after cancel)."
++
++# =============== 7) Idempotency ================
++info "[7/9] Idempotency: re-publish previous partial-fill trade, expect no double-apply"
++TKEY="$T_PF"
++TJSON="$(echo "$TR_PF" | tr -d '\n')"
++S_BEFORE="$(get_order "$SELL80_ID")"; B_BEFORE="$(get_order "$BUY50_ID")"
++s_filled_pre="$(echo "$S_BEFORE" | jq -r .filledQuantity)"
++b_filled_pre="$(echo "$B_BEFORE" | jq -r .filledQuantity)"
++printf "%s\n" "$TJSON" | docker compose exec -T redpanda sh -lc "rpk topic produce trade.executed.v1 -k $TKEY >/dev/null"
++printf "%s\n" "$TJSON" | docker compose exec -T redpanda sh -lc "rpk topic produce trade.executed.v1 -k $TKEY >/dev/null"
++sleep 2
++S_AFTER="$(get_order "$SELL80_ID")"; B_AFTER="$(get_order "$BUY50_ID")"
++s_filled_post="$(echo "$S_AFTER" | jq -r .filledQuantity)"
++b_filled_post="$(echo "$B_AFTER" | jq -r .filledQuantity)"
++assert_eq "$s_filled_post" "$s_filled_pre" "sell filled should not change"
++assert_eq "$b_filled_post" "$b_filled_pre" "buy filled should not change"
++ok "Idempotency OK (duplicate trade ignored)."
++
++# =============== 8) Recovery ====================
++info "[8/9] Recovery: place SELL 15, restart engine, then BUY 15 => trade"
++WATCH="/tmp/rcv_trade.json"; arm_trade_watcher "$WATCH"
++S15="$(post_order SELL LIMIT GTC 150.25 15 "$T_RCV" "$USER_A")"
++docker compose restart matching-engine >/dev/null
++for i in {1..60}; do
++  net_curl GET "http://${ME_HOST}:${ME_PORT}/actuator/health" >/dev/null && break || true
++  sleep 2
++done
++post_order BUY LIMIT GTC 150.25 15 "$T_RCV" "$USER_B" >/dev/null
++TR_RCV="$(wait_trade_or_timeout "$WATCH" 60 || fail "No trade after restart")"
++echo "$TR_RCV" | jq .
++ok "Recovery warm-start OK."
++
++# =============== 9) DLT poison ==================
++info "[9/9] DLT: send bad side to order.placed.v1 => should land in order.placed.v1.DLT"
++DLT_FILE="/tmp/dlt_msg.json"
++docker compose exec -T redpanda sh -lc "rm -f ${DLT_FILE}; \
++  rpk topic consume order.placed.v1.DLT --offset end -f '%v' -n 1 > ${DLT_FILE} 2>/dev/null &"
++docker compose exec -T redpanda sh -lc "cat <<'JSON' | rpk topic produce order.placed.v1 -k ${T_DLT}
++{\"orderId\":\"$(uuidgen)\",\"userId\":\"$USER_A\",\"ticker\":\"${T_DLT}\",\"side\":\"BYYY\",\"type\":\"LIMIT\",\"timeInForce\":\"GTC\",\"price\":150.25,\"quantity\":10}
++JSON"
++for i in {1..40}; do
++  if docker compose exec -T redpanda sh -lc "[ -s ${DLT_FILE} ]"; then
++    MSG="$(docker compose exec -T redpanda sh -lc "cat ${DLT_FILE}")"
++    echo "$MSG"
++    ok "DLT poison captured."
++    break
++  fi
++  sleep 0.5
++  [[ $i -eq 40 ]] && fail "Poison message did not appear on DLT."
++done
++
++ok "ALL SCENARIOS PASSED 🎉"
+diff --git a/e2e_trade_pipeline_test.sh b/e2e_trade_pipeline_test.sh
+new file mode 100755
+index 0000000..26bc716
+--- /dev/null
++++ b/e2e_trade_pipeline_test.sh
+@@ -0,0 +1,116 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++RED='\033[0;31m'; GRN='\033[0;32m'; YLW='\033[1;33m'; NC='\033[0m'
++info(){ echo -e "${YLW}⇒ $*${NC}"; }
++ok(){ echo -e "${GRN}✔ $*${NC}"; }
++fail(){ echo -e "${RED}✘ $*${NC}"; exit 1; }
++
++TICKER="${1:-AAPL}"
++PRICE="${PRICE:-150.25}"
++QTY="${QTY:-50}"
++
++SELL_ORDER_ID="11111111-1111-1111-1111-111111111111"
++BUY_ORDER_ID="22222222-2222-2222-2222-222222222222"
++USER_A="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
++USER_B="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
++
++detect_network() {
++  local net
++  net="$(docker network ls --format '{{.Name}}' | grep -E '_private_net$' | head -n1 || true)"
++  [[ -z "$net" ]] && net="private_net"
++  echo "$net"
++}
++
++pick_container_by_hint() {
++  local hint="$1"
++  docker ps --format '{{.Names}}' | grep -E "$hint" | head -n1 || true
++}
++
++net_curl() {
++  local method="$1"; shift
++  docker run --rm --network "${PRIVATE_NET}" curlimages/curl:8.9.1 -sS -X "$method" "$@"
++}
++
++PRIVATE_NET="$(detect_network)"
++info "Using docker network: ${PRIVATE_NET}"
++
++info "Ensuring core services are running..."
++docker compose up -d orders_postgres matching_postgres market_postgres transaction_postgres postgres \
++  redis redpanda orders-service matching-engine market-data-consumer >/dev/null
++
++# Prefer service names (more stable). If you really want container names, keep your pick_* lines.
++ORDERS_CTN="${ORDERS_CTN:-$(pick_container_by_hint 'orders-service')}"
++ME_CTN="${ME_CTN:-$(pick_container_by_hint 'matching-engine')}"
++MDS_CTN="${MDS_CTN:-$(pick_container_by_hint 'market-data-consumer')}"
++REDPANDA_CTN="${REDPANDA_CTN:-$(pick_container_by_hint 'redpanda')}"
++
++[[ -z "$ORDERS_CTN" || -z "$ME_CTN" || -z "$MDS_CTN" || -z "$REDPANDA_CTN" ]] && \
++  fail "Could not resolve one or more containers (orders/matching/market-data/redpanda). Are they up?"
++
++# TIP: swap to service names if DNS ever complains
++ORDERS_HOST="${ORDERS_HOST:-$ORDERS_CTN}"   # or: ORDERS_HOST=orders-service
++ME_HOST="${ME_HOST:-$ME_CTN}"               # or: ME_HOST=matching-engine
++MDS_HOST="${MDS_HOST:-$MDS_CTN}"            # or: MDS_HOST=market-data-consumer
++ORDERS_PORT=8085
++ME_PORT=8086
++MDS_PORT=8083
++
++info "Waiting for service health (Orders, Matching, Market Data)..."
++for i in {1..60}; do
++  set +e
++  net_curl GET "http://${ORDERS_HOST}:${ORDERS_PORT}/actuator/health" >/dev/null && O=ok || O=
++  net_curl GET "http://${ME_HOST}:${ME_PORT}/actuator/health" >/dev/null && M=ok || M=
++  net_curl GET "http://${MDS_HOST}:${MDS_PORT}/actuator/health" >/dev/null && D=ok || D=
++  set -e
++  if [[ "$O$M$D" == "okokok" ]]; then ok "All health checks passed."; break; fi
++  sleep 2
++  [[ $i -eq 60 ]] && fail "Services failed to become healthy in time."
++done
++
++info "Arming trade watcher at end of topic..."
++WATCH_FILE="/tmp/e2e_trade.json"
++docker compose exec -T redpanda sh -lc "rm -f ${WATCH_FILE}; \
++  rpk topic consume trade.executed.v1 --offset end -f '%v' -n 1 > ${WATCH_FILE} 2>/dev/null & echo \$! > /tmp/e2e_watch.pid"
++
++info "Placing resting SELL (${QTY} @ ${PRICE}) on ${TICKER}..."
++POST_STATUS=$(
++  docker run --rm --network "${PRIVATE_NET}" curlimages/curl:8.9.1 -sS -o /dev/stderr -w '%{http_code}' \
++    -X POST "http://${ORDERS_HOST}:${ORDERS_PORT}/orders" \
++    -H "Content-Type: application/json" \
++    -d '{"orderId":"'"${SELL_ORDER_ID}"'","userId":"'"${USER_A}"'","ticker":"'"${TICKER}"'","side":"SELL","type":"LIMIT","timeInForce":"GTC","price":'"${PRICE}"',"quantity":'"${QTY}"'}'
++)
++[[ "$POST_STATUS" =~ ^20[02]$ ]] || fail "SELL POST failed: HTTP $POST_STATUS"
++ok "SELL placed."
++sleep 1
++
++info "Placing crossing BUY (${QTY} @ ${PRICE}) on ${TICKER}..."
++POST_STATUS=$(
++  docker run --rm --network "${PRIVATE_NET}" curlimages/curl:8.9.1 -sS -o /dev/stderr -w '%{http_code}' \
++    -X POST "http://${ORDERS_HOST}:${ORDERS_PORT}/orders" \
++    -H "Content-Type: application/json" \
++    -d '{"orderId":"'"${BUY_ORDER_ID}"'","userId":"'"${USER_B}"'","ticker":"'"${TICKER}"'","side":"BUY","type":"LIMIT","timeInForce":"GTC","price":'"${PRICE}"',"quantity":'"${QTY}"'}'
++)
++[[ "$POST_STATUS" =~ ^20[02]$ ]] || fail "BUY POST failed: HTTP $POST_STATUS"
++ok "BUY placed."
++
++info "Waiting for trade on Kafka (trade.executed.v1)..."
++for i in {1..40}; do
++  if docker compose exec -T redpanda sh -lc "[ -s ${WATCH_FILE} ]"; then
++    TRADE_JSON="$(docker compose exec -T redpanda sh -lc "cat ${WATCH_FILE}")"
++    echo "${TRADE_JSON}" | jq . || echo "${TRADE_JSON}"
++    ok "Trade event received."
++    break
++  fi
++  sleep 0.5
++  [[ $i -eq 40 ]] && fail "No trade received from Kafka (trade.executed.v1)."
++done
++
++info "Querying Market Data Consumer for latest 1m candle..."
++CANDLE_JSON="$(net_curl GET "http://${MDS_HOST}:${MDS_PORT}/candles/${TICKER}/latest?interval=1m" || true)"
++[[ -z "${CANDLE_JSON}" || "${CANDLE_JSON}" == *"Not Found"* ]] && fail "No candle returned from Market Data Consumer."
++echo "Candle:"
++echo "${CANDLE_JSON}"
++ok "Candle received."
++
++ok "End-to-end test PASSED 🎉"
+diff --git a/manual_cancel_test.sh b/manual_cancel_test.sh
+new file mode 100755
+index 0000000..42ea586
+--- /dev/null
++++ b/manual_cancel_test.sh
+@@ -0,0 +1,70 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++# --- Config (no stray quotes, correct port) ---
++PRIVATE_NET="${PRIVATE_NET:-tradestream_private_net}"
++ORDERS_HOST="${ORDERS_HOST:-tradestream-orders-service-1}"
++ORDERS_PORT="${ORDERS_PORT:-8085}"
++USER_A="${USER_A:-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa}"
++USER_B="${USER_B:-bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb}"
++TICK="E2CANTEST$(date +%s)"
++
++echo "NET=$PRIVATE_NET HOST=$ORDERS_HOST PORT=$ORDERS_PORT TICK=$TICK"
++
++# helper: dockerized curl on the compose network (fail if HTTP >= 400)
++net_curl() {
++  docker run -i --rm --network "$PRIVATE_NET" curlimages/curl:8.9.1 \
++    -sS --fail -X "$1" "$2" -H "Content-Type: application/json" "${@:3}"
++}
++
++# 1) Place resting SELL
++SELL_JSON="$(net_curl POST "http://${ORDERS_HOST}:${ORDERS_PORT}/orders" \
++  --data @- <<JSON
++{"userId":"$USER_A","ticker":"$TICK","side":"SELL","type":"LIMIT","timeInForce":"GTC","price":150.25,"quantity":40}
++JSON
++)"
++echo "SELL_JSON=$SELL_JSON"
++SELL_ID="$(printf '%s' "$SELL_JSON" | jq -r .id)"
++if [[ -z "$SELL_ID" || "$SELL_ID" == "null" ]]; then
++  echo "❌ Failed to create SELL. Raw response above. Check ORDERS_* and service health." >&2
++  exit 1
++fi
++echo "SELL_ID=$SELL_ID"
++
++# 2) Arm one-shot consumer for cancel (print p/o/key/value)
++docker compose exec -T redpanda sh -lc '
++  rm -f /tmp/can.out;
++  rpk topic consume order.cancelled.v1 --offset end -f "%p %o %k %v" -n 1 > /tmp/can.out 2>/dev/null &
++  echo $! > /tmp/can.pid
++'
++
++# 3) Issue cancel
++net_curl POST "http://${ORDERS_HOST}:${ORDERS_PORT}/orders/${SELL_ID}/cancel" >/dev/null
++echo "Cancel requested."
++
++# 4) Print the actual cancel record (partition/offset/key/value)
++docker compose exec -T redpanda sh -lc \
++  "timeout 10 sh -c 'while [ ! -s /tmp/can.out ]; do sleep 0.2; done; cat /tmp/can.out'"
++
++# 5) Verify engine lag==0 for ALL partitions on order.cancelled.v1
++if ! docker compose exec -T redpanda sh -lc \
++  "rpk group describe matching-engine | awk '\$1==\"order.cancelled.v1\" {s+=\$6} END{exit !(s==0)}'"; then
++  echo "❌ matching-engine still has lag on order.cancelled.v1; not safe to proceed." >&2
++  docker compose exec -T redpanda rpk group describe matching-engine || true
++  exit 1
++fi
++echo "Cancel topic lag is 0."
++
++# 6) Send crossing BUY
++net_curl POST "http://${ORDERS_HOST}:${ORDERS_PORT}/orders" --data @- <<JSON >/dev/null
++{"userId":"$USER_B","ticker":"$TICK","side":"BUY","type":"LIMIT","timeInForce":"GTC","price":150.25,"quantity":40}
++JSON
++echo "BUY posted."
++
++# 7) See if any trade fires (use shell timeout, not rpk -t)
++if docker compose exec -T redpanda sh -lc \
++  "timeout 5 rpk topic consume trade.executed.v1 --offset end -f '%p %o %k %v' -n 1"; then
++  echo "⚠️ A trade executed (above). If sellOrderId == $SELL_ID, engine processed BUY before cancel apply."
++else
++  echo "✅ No trade observed within 5s — cancel likely applied before BUY."
++fi
+diff --git a/services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/AggregationService.java b/services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/AggregationService.java
+index 7a2a44d..124963f 100644
+--- a/services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/AggregationService.java
++++ b/services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/AggregationService.java
+@@ -40,8 +40,8 @@ public class AggregationService {
+         if (inserted == 0) return false; // duplicate
+ 
+         String ticker = t.ticker().toUpperCase(Locale.ROOT);
+-        BigDecimal price = BigDecimal.valueOf(t.price());
+-        BigDecimal qty   = BigDecimal.valueOf(t.quantity());
++        BigDecimal price = t.price();
++        BigDecimal qty   = t.quantity();
+ 
+         for (Interval itv : SUPPORTED) {
+             Instant bucket = Bucketizer.bucketStart(t.timestamp(), itv);
+diff --git a/services/matching-engine/bin/main/application.yml b/services/matching-engine/bin/main/application.yml
+index dec9a36..ac60dff 100644
+--- a/services/matching-engine/bin/main/application.yml
++++ b/services/matching-engine/bin/main/application.yml
+@@ -49,3 +49,7 @@ tradestream:
+     orderPlaced: ${KAFKA_TOPIC_ORDER_PLACED:order.placed.v1}
+     orderCancelled: ${KAFKA_TOPIC_ORDER_CANCELLED:order.cancelled.v1}
+     tradeExecuted: ${KAFKA_TOPIC_TRADE_EXECUTED:trade.executed.v1}
++
++logging:
++  level:
++    com.tradestream.matching_engine.stream: INFO
+\ No newline at end of file
+diff --git a/services/matching-engine/bin/main/db/migration/V2__processed_messages_topic_msgid.sql b/services/matching-engine/bin/main/db/migration/V2__processed_messages_topic_msgid.sql
+new file mode 100644
+index 0000000..3221d5b
+--- /dev/null
++++ b/services/matching-engine/bin/main/db/migration/V2__processed_messages_topic_msgid.sql
+@@ -0,0 +1,55 @@
++-- 1) Add columns if missing
++ALTER TABLE processed_messages
++  ADD COLUMN IF NOT EXISTS topic varchar(200);
++
++ALTER TABLE processed_messages
++  ADD COLUMN IF NOT EXISTS id bigserial;
++
++
++-- 3) Make 'id' the primary key (drop old PK on message_id if present)
++DO $$
++BEGIN
++  IF EXISTS (
++    SELECT 1
++      FROM pg_constraint c
++      JOIN pg_class t ON t.oid = c.conrelid
++     WHERE t.relname = 'processed_messages'
++       AND c.contype = 'p'
++  ) THEN
++    -- Drop whatever the current PK message_id
++    EXECUTE (
++      SELECT 'ALTER TABLE processed_messages DROP CONSTRAINT ' || quote_ident(c.conname)
++        FROM pg_constraint c
++        JOIN pg_class t ON t.oid = c.conrelid
++       WHERE t.relname = 'processed_messages'
++         AND c.contype = 'p'
++      LIMIT 1
++    );
++  END IF;
++END $$;
++
++ALTER TABLE processed_messages
++  ALTER COLUMN id SET NOT NULL;
++
++ALTER TABLE processed_messages
++  ADD CONSTRAINT processed_messages_pkey PRIMARY KEY (id);
++
++-- 4) Enforce NOT NULL on topic
++ALTER TABLE processed_messages
++  ALTER COLUMN topic SET NOT NULL;
++
++-- 5) Add unique (topic, message_id)
++DO $$
++BEGIN
++  IF NOT EXISTS (
++    SELECT 1
++      FROM pg_constraint
++     WHERE conname = 'uk_processed_topic_msgid'
++  ) THEN
++    ALTER TABLE processed_messages
++      ADD CONSTRAINT uk_processed_topic_msgid UNIQUE (topic, message_id);
++  END IF;
++END $$;
++
++-- (Optional) index to speed up existence checks (the unique constraint already indexes both columns)
++CREATE INDEX IF NOT EXISTS ix_processed_topic_msgid ON processed_messages(topic, message_id);
+diff --git a/services/matching-engine/src/main/java/com/tradestream/matching_engine/config/BytesListenerFactoryConfig.java b/services/matching-engine/src/main/java/com/tradestream/matching_engine/config/BytesListenerFactoryConfig.java
+index c3fd687..774fe1a 100644
+--- a/services/matching-engine/src/main/java/com/tradestream/matching_engine/config/BytesListenerFactoryConfig.java
++++ b/services/matching-engine/src/main/java/com/tradestream/matching_engine/config/BytesListenerFactoryConfig.java
+@@ -1,37 +1,38 @@
+-// src/main/java/com/tradestream/matching_engine/config/BytesListenerFactoryConfig.java
+ package com.tradestream.matching_engine.config;
+ 
+ import java.util.HashMap;
+ import java.util.Map;
+ 
+-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+ import org.apache.kafka.clients.consumer.ConsumerConfig;
+-import org.springframework.beans.factory.annotation.Qualifier;
++import org.apache.kafka.common.serialization.ByteArrayDeserializer;
++import org.apache.kafka.common.serialization.StringDeserializer;
++import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+ import org.springframework.context.annotation.Bean;
+ import org.springframework.context.annotation.Configuration;
+ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+-import org.springframework.kafka.core.*;
++import org.springframework.kafka.core.ConsumerFactory;
++import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+ 
+ @Configuration
+ public class BytesListenerFactoryConfig {
+ 
+   @Bean("bytesConsumerFactory")
+-  public ConsumerFactory<byte[], byte[]> bytesConsumerFactory(
+-      ConsumerFactory<?, ?> base // Boot auto-config provides this
+-  ) {
+-    Map<String, Object> props = new HashMap<>(base.getConfigurationProperties());
+-    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
++  public ConsumerFactory<String, byte[]> bytesConsumerFactory(KafkaProperties kafkaProps) {
++    // Build a fresh, independent config from application properties
++    Map<String, Object> props = new HashMap<>(kafkaProps.buildConsumerProperties());
++    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
++    // Optional: ensure we can read older DLT messages if group is new
++    props.putIfAbsent(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+     return new DefaultKafkaConsumerFactory<>(props);
+   }
+ 
+   @Bean("bytesKafkaListenerContainerFactory")
+-  public ConcurrentKafkaListenerContainerFactory<byte[], byte[]> bytesKafkaListenerContainerFactory(
+-      @Qualifier("bytesConsumerFactory") ConsumerFactory<byte[], byte[]> cf
+-  ) {
+-    var f = new ConcurrentKafkaListenerContainerFactory<byte[], byte[]>();
++  public ConcurrentKafkaListenerContainerFactory<String, byte[]> bytesKafkaListenerContainerFactory(
++      ConsumerFactory<String, byte[]> cf) {
++    var f = new ConcurrentKafkaListenerContainerFactory<String, byte[]>();
+     f.setConsumerFactory(cf);
+-    // no custom error handler -> no DLT-for-DLT loops
++    // Keep error handler simple to avoid wiring in more beans and creating new cycles
+     return f;
+   }
+ }
+diff --git a/services/matching-engine/src/main/java/com/tradestream/matching_engine/domain/ProcessedMessage.java b/services/matching-engine/src/main/java/com/tradestream/matching_engine/domain/ProcessedMessage.java
+index cd6506d..a9ecc1b 100644
+--- a/services/matching-engine/src/main/java/com/tradestream/matching_engine/domain/ProcessedMessage.java
++++ b/services/matching-engine/src/main/java/com/tradestream/matching_engine/domain/ProcessedMessage.java
+@@ -6,17 +6,38 @@ import java.util.UUID;
+ 
+ import jakarta.persistence.Column;
+ import jakarta.persistence.Entity;
++import jakarta.persistence.GeneratedValue;
++import jakarta.persistence.GenerationType;
+ import jakarta.persistence.Id;
+ import jakarta.persistence.Table;
++import jakarta.persistence.UniqueConstraint;
+ import lombok.AllArgsConstructor;
+ import lombok.Builder;
+ import lombok.Getter;
+ import lombok.NoArgsConstructor;
+ import lombok.Setter;
+ 
+-@Entity @Table(name = "processed_messages")
++@Entity
++@Table(
++    name = "processed_messages",
++    uniqueConstraints = @UniqueConstraint(
++        name = "uk_processed_topic_msgid",
++        columnNames = {"topic", "message_id"}
++    )
++)
+ @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+ public class ProcessedMessage {
+-    @Id @Column(name="message_id") private UUID messageId;
+-    @Column(name="received_at", nullable=false) private OffsetDateTime receivedAt;
++
++    @Id
++    @GeneratedValue(strategy = GenerationType.IDENTITY)
++    private Long id;  // NEW surrogate PK
++
++    @Column(name = "topic", nullable = false, length = 200)
++    private String topic;  // NEW
++
++    @Column(name = "message_id", nullable = false)
++    private UUID messageId;
++
++    @Column(name = "received_at", nullable = false)
++    private OffsetDateTime receivedAt;
+ }
+diff --git a/services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderCancelledEvent.java b/services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderCancelledEvent.java
+index a791e71..acc1d32 100644
+--- a/services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderCancelledEvent.java
++++ b/services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderCancelledEvent.java
+@@ -1,5 +1,7 @@
+ // dto/OrderCancelledEvent.java
+ package com.tradestream.matching_engine.dto;
++import java.math.BigDecimal;
++import java.time.Instant;
+ import java.util.UUID;
+ 
+ import lombok.AllArgsConstructor;
+@@ -11,4 +13,9 @@ import lombok.Setter;
+ @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+ public class OrderCancelledEvent {
+     private UUID orderId;
++    private UUID userId;
++    private String ticker;
++    private BigDecimal quantity;
++    private BigDecimal price;
++    private Instant timestamp;
+ }
+diff --git a/services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderPlacedEvent.java b/services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderPlacedEvent.java
+index fd965be..d459ef4 100644
+--- a/services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderPlacedEvent.java
++++ b/services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderPlacedEvent.java
+@@ -4,6 +4,8 @@ package com.tradestream.matching_engine.dto;
+ import java.math.BigDecimal;
+ import java.util.UUID;
+ 
++import com.fasterxml.jackson.annotation.JsonAlias;
++import com.fasterxml.jackson.annotation.JsonProperty;
+ import com.tradestream.matching_engine.domain.OrderSide;
+ import com.tradestream.matching_engine.domain.OrderType;
+ import com.tradestream.matching_engine.domain.TimeInForce;
+@@ -20,7 +22,7 @@ public class OrderPlacedEvent {
+     private UUID userId;
+     private String ticker;
+     private OrderSide side;
+-    private OrderType orderType;
++    @JsonProperty("orderType") @JsonAlias({"type","orderType"}) private OrderType orderType;
+     private TimeInForce timeInForce;
+     private BigDecimal price;     // null for MARKET
+     private BigDecimal quantity;
+diff --git a/services/matching-engine/src/main/java/com/tradestream/matching_engine/matching/MatchingService.java b/services/matching-engine/src/main/java/com/tradestream/matching_engine/matching/MatchingService.java
+index 5a1c40a..2e65fff 100644
+--- a/services/matching-engine/src/main/java/com/tradestream/matching_engine/matching/MatchingService.java
++++ b/services/matching-engine/src/main/java/com/tradestream/matching_engine/matching/MatchingService.java
+@@ -9,6 +9,8 @@ import java.util.Map;
+ import java.util.UUID;
+ import java.util.concurrent.ConcurrentHashMap;
+ 
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
+ import org.springframework.stereotype.Service;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+@@ -25,80 +27,87 @@ import lombok.RequiredArgsConstructor;
+ @Service
+ @RequiredArgsConstructor
+ public class MatchingService {
++    private static final Logger log = LoggerFactory.getLogger(MatchingService.class);
++
+     private final RestingOrderRepository restingRepo;
+     private final TradePublisher tradePublisher;
+ 
+     // ticker -> order book (in-memory)
+     private final Map<String, OrderBook> books = new ConcurrentHashMap<>();
+ 
+-    /** Warm-start: call on @PostConstruct from a runner */
+     public void loadActiveOrders(List<RestingOrder> active) {
+-        active.forEach(ro -> books.computeIfAbsent(ro.getTicker(), t -> new OrderBook()).add(ro));
++        log.info("Loading {} active orders into in-memory books", active.size());
++        active.forEach(ro -> {
++            books.computeIfAbsent(ro.getTicker(), t -> new OrderBook()).add(ro);
++            log.debug("Loaded order {} into book for {}", ro.getId(), ro.getTicker());
++        });
+     }
+ 
+     @Transactional
+     public void cancel(UUID orderId) {
+-        restingRepo.findById(orderId).ifPresent(ro -> {
++        log.info("Received cancel for orderId={}", orderId);
++        restingRepo.findById(orderId).ifPresentOrElse(ro -> {
+             ro.setStatus("CANCELED");
+             restingRepo.save(ro);
+             books.computeIfAbsent(ro.getTicker(), t -> new OrderBook()).remove(ro);
+-        });
++            boolean removed = true;
++            log.info("Cancel applied: id={} ticker={} removedFromBook={}", orderId, ro.getTicker(), removed);
++        }, () -> log.warn("Cancel requested for unknown orderId={}", orderId));
+     }
+ 
+-    /**
+-     * Core matching for an incoming order (from OrderPlaced).
+-     * Returns true if fully filled; false if anything rests/cancels.
+-     */
+     @Transactional
+     public boolean handleIncoming(OrderPlacedEvent evt) {
++        log.info("Handling incoming order: {}", evt);
+         RestingOrder incoming = toResting(evt);
+         OrderBook book = books.computeIfAbsent(incoming.getTicker(), t -> new OrderBook());
+ 
+-        // FOK pre-check: must be fully fillable now
++        // FOK pre-check
+         if (incoming.getTimeInForce() == TimeInForce.FOK && !canFullyFill(incoming, book)) {
+-            return false; // reject without persisting
++            log.info("Rejecting FOK order {} - cannot fully fill", incoming.getId());
++            return false;
+         }
+ 
+-        // Aggressively match while crossed
++        // Matching loop
+         while (incoming.getRemainingQuantity().compareTo(BigDecimal.ZERO) > 0 &&
+                book.isCrossed(incoming.getPrice(), incoming.getSide())) {
+             RestingOrder top = book.pollOpp(incoming.getSide());
+             if (top == null) break;
+ 
+             BigDecimal tradeQty = incoming.getRemainingQuantity().min(top.getRemainingQuantity());
+-            BigDecimal tradePrice = top.getPrice() != null ? top.getPrice() : incoming.getPrice(); // market/limit cross
++            BigDecimal tradePrice = top.getPrice() != null ? top.getPrice() : incoming.getPrice();
++
++            log.info("Match found: incoming={} resting={} qty={} price={}",
++                    incoming.getId(), top.getId(), tradeQty, tradePrice);
+ 
+             publishTrade(incoming, top, tradeQty, tradePrice);
+ 
+-            // update resting (from book)
+             top.setRemainingQuantity(top.getRemainingQuantity().subtract(tradeQty));
+             top.setStatus(top.getRemainingQuantity().signum() == 0 ? "FILLED" : "PARTIALLY_FILLED");
+             restingRepo.save(top);
+             if (top.getRemainingQuantity().signum() > 0) {
+-                book.requeueOpp(top); // still has qty
++                book.requeueOpp(top);
++                log.debug("Re-queued partially filled order {}", top.getId());
+             }
+ 
+-            // update incoming
+             incoming.setRemainingQuantity(incoming.getRemainingQuantity().subtract(tradeQty));
+         }
+ 
+-        // Post-match resolution by TIF
++        // Post-match persistence
+         if (incoming.getRemainingQuantity().signum() == 0) {
+-            // fully filled, nothing to persist
++            log.info("Order {} fully filled", incoming.getId());
+             return true;
+         }
+ 
+         if (incoming.getTimeInForce() == TimeInForce.IOC) {
+-            // cancel remainder
++            log.info("Order {} IOC - unfilled qty canceled", incoming.getId());
+             return false;
+         }
+ 
+-        // Only LIMIT orders can rest; MARKET remainder cancels
+         if (incoming.getOrderType() == OrderType.MARKET) {
++            log.info("Order {} MARKET - remainder canceled", incoming.getId());
+             return false;
+         }
+ 
+-        // Safety guard: LIMIT must have price before resting
+         if (incoming.getPrice() == null) {
+             throw new IllegalStateException("LIMIT order must have price to rest");
+         }
+@@ -107,6 +116,8 @@ public class MatchingService {
+                 ? "PARTIALLY_FILLED" : "ACTIVE");
+         restingRepo.save(incoming);
+         book.add(incoming);
++        log.info("Rested order {} with status {} and remaining qty {}",
++                incoming.getId(), incoming.getStatus(), incoming.getRemainingQuantity());
+         return false;
+     }
+ 
+diff --git a/services/matching-engine/src/main/java/com/tradestream/matching_engine/persistence/ProcessedMessageRepository.java b/services/matching-engine/src/main/java/com/tradestream/matching_engine/persistence/ProcessedMessageRepository.java
+index 9535a0c..9d15c77 100644
+--- a/services/matching-engine/src/main/java/com/tradestream/matching_engine/persistence/ProcessedMessageRepository.java
++++ b/services/matching-engine/src/main/java/com/tradestream/matching_engine/persistence/ProcessedMessageRepository.java
+@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
+ 
+ import com.tradestream.matching_engine.domain.ProcessedMessage;
+ 
+-public interface ProcessedMessageRepository extends JpaRepository<ProcessedMessage, UUID> { }
++public interface ProcessedMessageRepository extends JpaRepository<ProcessedMessage, Long> { // PK type changed
++    boolean existsByTopicAndMessageId(String topic, UUID messageId); // NEW
++}
+diff --git a/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/DltLoggingConsumer.java b/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/DltLoggingConsumer.java
+index 1b16292..e4dd9ef 100644
+--- a/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/DltLoggingConsumer.java
++++ b/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/DltLoggingConsumer.java
+@@ -1,6 +1,7 @@
+-// src/main/java/com/tradestream/matching_engine/stream/DltLoggingConsumer.java
+ package com.tradestream.matching_engine.stream;
+ 
++import java.nio.charset.StandardCharsets;
++
+ import org.apache.kafka.clients.consumer.ConsumerRecord;
+ import org.springframework.kafka.annotation.KafkaListener;
+ import org.springframework.kafka.support.KafkaHeaders;
+@@ -16,16 +17,19 @@ public class DltLoggingConsumer {
+       containerFactory = "bytesKafkaListenerContainerFactory",
+       properties = { "auto.offset.reset=latest" }
+   )
+-  public void onDlt(ConsumerRecord<byte[], byte[]> rec,
+-                    @Header(KafkaHeaders.DLT_EXCEPTION_FQCN) String exClass,
+-                    @Header(KafkaHeaders.DLT_EXCEPTION_MESSAGE) String exMsg,
+-                    @Header(KafkaHeaders.DLT_ORIGINAL_TOPIC) String origTopic,
+-                    @Header(KafkaHeaders.DLT_ORIGINAL_OFFSET) Long origOffset) {
++  public void onDlt(ConsumerRecord<String, byte[]> rec,
++                    @Header(value = KafkaHeaders.DLT_EXCEPTION_FQCN, required = false) String exClass,
++                    @Header(value = KafkaHeaders.DLT_EXCEPTION_MESSAGE, required = false) String exMsg,
++                    @Header(value = KafkaHeaders.DLT_ORIGINAL_TOPIC, required = false) String origTopic,
++                    @Header(value = KafkaHeaders.DLT_ORIGINAL_OFFSET, required = false) Long origOffset) {
+ 
+-    String key = rec.key() == null ? "null" : new String(rec.key(), java.nio.charset.StandardCharsets.UTF_8);
+-    String payload = rec.value() == null ? "null" : new String(rec.value(), java.nio.charset.StandardCharsets.UTF_8);
++    String key = rec.key();
++    String payload = rec.value() == null ? "null" : new String(rec.value(), StandardCharsets.UTF_8);
+ 
+-    System.err.printf("DLT from %s@%d | %s: %s | key=%s | value=%s%n",
+-        origTopic, origOffset, exClass, exMsg, key, payload);
++    System.err.printf(
++        "DLT from %s@%s | %s: %s | key=%s | value=%s%n",
++        origTopic, String.valueOf(origOffset), String.valueOf(exClass), String.valueOf(exMsg),
++        String.valueOf(key), payload
++    );
+   }
+ }
+diff --git a/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderCancelledConsumer.java b/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderCancelledConsumer.java
+index d0d6c1d..941866d 100644
+--- a/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderCancelledConsumer.java
++++ b/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderCancelledConsumer.java
+@@ -1,11 +1,12 @@
+-// stream/OrderCancelledConsumer.java
+ package com.tradestream.matching_engine.stream;
+ 
++import java.nio.charset.StandardCharsets;
+ import java.time.OffsetDateTime;
+-import java.util.Optional;
+ import java.util.UUID;
+ 
+ import org.apache.kafka.clients.consumer.ConsumerRecord;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
+ import org.springframework.kafka.annotation.KafkaListener;
+ import org.springframework.kafka.support.Acknowledgment;
+ import org.springframework.stereotype.Component;
+@@ -21,11 +22,14 @@ import lombok.RequiredArgsConstructor;
+ @Component
+ @RequiredArgsConstructor
+ public class OrderCancelledConsumer {
++
++    private static final Logger log = LoggerFactory.getLogger(OrderCancelledConsumer.class);
++
+     private final MatchingService matchingService;
+     private final ProcessedMessageRepository msgRepo;
+ 
+     @KafkaListener(
+-        topics = "#{engineProps.orderCancelled}", 
++        topics = "#{engineProps.orderCancelled}",
+         containerFactory = "kafkaListenerContainerFactory",
+         properties = {
+             "spring.json.value.default.type=com.tradestream.matching_engine.dto.OrderCancelledEvent",
+@@ -35,18 +39,48 @@ public class OrderCancelledConsumer {
+     )
+     @Transactional
+     public void onMessage(ConsumerRecord<String, OrderCancelledEvent> rec, Acknowledgment ack) {
++        log.info("CANCEL CONSUMED topic={} key={} partition={} offset={} value={}",
++                rec.topic(), rec.key(), rec.partition(), rec.offset(), rec.value());
++
+         OrderCancelledEvent evt = rec.value();
+-        UUID messageId = extractMessageId(rec, Optional.ofNullable(evt.getOrderId()).orElse(UUID.randomUUID()));
+-        if (msgRepo.existsById(messageId)) { ack.acknowledge(); return; }
++        UUID messageId = extractMessageId(rec, null);
++        if (messageId == null) {
++            String rid = rec.topic() + "|" + rec.partition() + "|" + rec.offset();
++            messageId = UUID.nameUUIDFromBytes(rid.getBytes(StandardCharsets.UTF_8));
++        }
++
++        if (msgRepo.existsByTopicAndMessageId(rec.topic(), messageId)) {
++            log.info("DUP topic={} messageId={} - skipping", rec.topic(), messageId);
++            ack.acknowledge();
++            return;
++        }
++
++        if (evt.getOrderId() != null) {
++            log.info("APPLYING CANCEL orderId={} ticker={} qty={} price={}",
++                    evt.getOrderId(), evt.getTicker(), evt.getQuantity(), evt.getPrice());
++            matchingService.cancel(evt.getOrderId());
++        } else {
++            log.warn("CANCEL event missing orderId, ignoring");
++        }
++
++        msgRepo.save(ProcessedMessage.builder()
++                .topic(rec.topic())
++                .messageId(messageId)
++                .receivedAt(OffsetDateTime.now())
++                .build());
+ 
+-        if (evt.getOrderId() != null) matchingService.cancel(evt.getOrderId());
+-        msgRepo.save(ProcessedMessage.builder().messageId(messageId).receivedAt(OffsetDateTime.now()).build());
+         ack.acknowledge();
+     }
+ 
+-    private UUID extractMessageId(ConsumerRecord<?,?> rec, UUID fallback) {
++    private UUID extractMessageId(ConsumerRecord<?, ?> rec, UUID fallback) {
+         var header = rec.headers().lastHeader("eventId");
+-        if (header != null) try { return UUID.fromString(new String(header.value())); } catch (Exception ignore) {}
++        if (header != null) {
++            try {
++                return UUID.fromString(new String(header.value()));
++            } catch (Exception e) {
++                log.warn("Invalid eventId header for record key={}, using fallback", rec.key(), e);
++            }
++        }
+         return fallback;
+     }
+ }
+diff --git a/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderPlacedConsumer.java b/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderPlacedConsumer.java
+index 463ec6f..1c57092 100644
+--- a/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderPlacedConsumer.java
++++ b/services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderPlacedConsumer.java
+@@ -1,11 +1,13 @@
+ // stream/OrderPlacedConsumer.java
+ package com.tradestream.matching_engine.stream;
+ 
++import java.nio.charset.StandardCharsets;
+ import java.time.OffsetDateTime;
+-import java.util.Optional;
+ import java.util.UUID;
+ 
+ import org.apache.kafka.clients.consumer.ConsumerRecord;
++import org.slf4j.Logger;
++import org.slf4j.LoggerFactory;
+ import org.springframework.kafka.annotation.KafkaListener;
+ import org.springframework.kafka.support.Acknowledgment;
+ import org.springframework.stereotype.Component;
+@@ -21,6 +23,9 @@ import lombok.RequiredArgsConstructor;
+ @Component
+ @RequiredArgsConstructor
+ public class OrderPlacedConsumer {
++    
++    private static final Logger log = LoggerFactory.getLogger(OrderPlacedConsumer.class);
++    
+     private final MatchingService matchingService;
+     private final ProcessedMessageRepository msgRepo;
+ 
+@@ -36,11 +41,26 @@ public class OrderPlacedConsumer {
+     @Transactional
+     public void onMessage(ConsumerRecord<String, OrderPlacedEvent> rec, Acknowledgment ack) {
+         OrderPlacedEvent evt = rec.value();
+-        UUID messageId = extractMessageId(rec, Optional.ofNullable(evt.getOrderId()).orElse(UUID.randomUUID()));
+-        if (msgRepo.existsById(messageId)) { ack.acknowledge(); return; }
++        
++        UUID messageId = extractMessageId(rec, null);
++        if (messageId == null) {
++            String rid = rec.topic() + "|" + rec.partition() + "|" + rec.offset();
++            messageId = UUID.nameUUIDFromBytes(rid.getBytes(StandardCharsets.UTF_8));
++        }
++
++        if (msgRepo.existsByTopicAndMessageId(rec.topic(), messageId)) {
++            log.info("DUP topic={} messageId={} - skipping", rec.topic(), messageId);
++            ack.acknowledge();
++            return;
++        }
+ 
+         matchingService.handleIncoming(evt);
+-        msgRepo.save(ProcessedMessage.builder().messageId(messageId).receivedAt(OffsetDateTime.now()).build());
++        msgRepo.save(ProcessedMessage.builder()
++                .topic(rec.topic())
++                .messageId(messageId)
++                .receivedAt(OffsetDateTime.now())
++                .build());
++
+         ack.acknowledge();
+     }
+ 
+diff --git a/services/matching-engine/src/main/resources/application.yml b/services/matching-engine/src/main/resources/application.yml
+index dec9a36..ac60dff 100644
+--- a/services/matching-engine/src/main/resources/application.yml
++++ b/services/matching-engine/src/main/resources/application.yml
+@@ -49,3 +49,7 @@ tradestream:
+     orderPlaced: ${KAFKA_TOPIC_ORDER_PLACED:order.placed.v1}
+     orderCancelled: ${KAFKA_TOPIC_ORDER_CANCELLED:order.cancelled.v1}
+     tradeExecuted: ${KAFKA_TOPIC_TRADE_EXECUTED:trade.executed.v1}
++
++logging:
++  level:
++    com.tradestream.matching_engine.stream: INFO
+\ No newline at end of file
+diff --git a/services/matching-engine/src/main/resources/db/migration/V2__processed_messages_topic_msgid.sql b/services/matching-engine/src/main/resources/db/migration/V2__processed_messages_topic_msgid.sql
+new file mode 100644
+index 0000000..3221d5b
+--- /dev/null
++++ b/services/matching-engine/src/main/resources/db/migration/V2__processed_messages_topic_msgid.sql
+@@ -0,0 +1,55 @@
++-- 1) Add columns if missing
++ALTER TABLE processed_messages
++  ADD COLUMN IF NOT EXISTS topic varchar(200);
++
++ALTER TABLE processed_messages
++  ADD COLUMN IF NOT EXISTS id bigserial;
++
++
++-- 3) Make 'id' the primary key (drop old PK on message_id if present)
++DO $$
++BEGIN
++  IF EXISTS (
++    SELECT 1
++      FROM pg_constraint c
++      JOIN pg_class t ON t.oid = c.conrelid
++     WHERE t.relname = 'processed_messages'
++       AND c.contype = 'p'
++  ) THEN
++    -- Drop whatever the current PK message_id
++    EXECUTE (
++      SELECT 'ALTER TABLE processed_messages DROP CONSTRAINT ' || quote_ident(c.conname)
++        FROM pg_constraint c
++        JOIN pg_class t ON t.oid = c.conrelid
++       WHERE t.relname = 'processed_messages'
++         AND c.contype = 'p'
++      LIMIT 1
++    );
++  END IF;
++END $$;
++
++ALTER TABLE processed_messages
++  ALTER COLUMN id SET NOT NULL;
++
++ALTER TABLE processed_messages
++  ADD CONSTRAINT processed_messages_pkey PRIMARY KEY (id);
++
++-- 4) Enforce NOT NULL on topic
++ALTER TABLE processed_messages
++  ALTER COLUMN topic SET NOT NULL;
++
++-- 5) Add unique (topic, message_id)
++DO $$
++BEGIN
++  IF NOT EXISTS (
++    SELECT 1
++      FROM pg_constraint
++     WHERE conname = 'uk_processed_topic_msgid'
++  ) THEN
++    ALTER TABLE processed_messages
++      ADD CONSTRAINT uk_processed_topic_msgid UNIQUE (topic, message_id);
++  END IF;
++END $$;
++
++-- (Optional) index to speed up existence checks (the unique constraint already indexes both columns)
++CREATE INDEX IF NOT EXISTS ix_processed_topic_msgid ON processed_messages(topic, message_id);
+diff --git a/services/orders-service/bin/main/db/migration/V4__ingested_fills.sql b/services/orders-service/bin/main/db/migration/V4__ingested_fills.sql
+new file mode 100644
+index 0000000..7aba836
+--- /dev/null
++++ b/services/orders-service/bin/main/db/migration/V4__ingested_fills.sql
+@@ -0,0 +1,8 @@
++-- One row per (order, trade) we have applied
++CREATE TABLE IF NOT EXISTS ingested_fills (
++  order_id UUID       NOT NULL,
++  trade_id UUID       NOT NULL,
++  ticker   VARCHAR(16) NOT NULL,
++  ts       TIMESTAMPTZ NOT NULL,
++  PRIMARY KEY (order_id, trade_id)
++);
+diff --git a/services/orders-service/bin/main/db/migration/V5__drop_ingested_trades.sql b/services/orders-service/bin/main/db/migration/V5__drop_ingested_trades.sql
+new file mode 100644
+index 0000000..7cb96dc
+--- /dev/null
++++ b/services/orders-service/bin/main/db/migration/V5__drop_ingested_trades.sql
+@@ -0,0 +1,3 @@
++-- Remove legacy idempotency table no longer in use
++DROP TABLE IF EXISTS ingested_trades;
++-- (Dropping the table also drops idx_ingested_trades_order automatically)
+diff --git a/services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedFill.java b/services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedFill.java
+new file mode 100644
+index 0000000..55da3d1
+--- /dev/null
++++ b/services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedFill.java
+@@ -0,0 +1,28 @@
++package com.tradestream.orders_service.domain;
++
++import java.time.Instant;
++
++import jakarta.persistence.Column;
++import jakarta.persistence.EmbeddedId;
++import jakarta.persistence.Entity;
++import jakarta.persistence.Table;
++import lombok.AllArgsConstructor;
++import lombok.Getter;
++import lombok.NoArgsConstructor;
++import lombok.Setter;
++
++@Entity
++@Table(name = "ingested_fills")
++@Getter @Setter
++@NoArgsConstructor @AllArgsConstructor
++public class IngestedFill {
++
++  @EmbeddedId
++  private IngestedFillId id;
++
++  @Column(nullable = false, length = 16)
++  private String ticker;
++
++  @Column(name = "ts", nullable = false)
++  private Instant ts;
++}
+diff --git a/services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedFillId.java b/services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedFillId.java
+new file mode 100644
+index 0000000..fa9840b
+--- /dev/null
++++ b/services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedFillId.java
+@@ -0,0 +1,24 @@
++package com.tradestream.orders_service.domain;
++
++import java.io.Serializable;
++import java.util.UUID;
++
++import jakarta.persistence.Column;
++import jakarta.persistence.Embeddable;
++import lombok.AllArgsConstructor;
++import lombok.EqualsAndHashCode;
++import lombok.Getter;
++import lombok.NoArgsConstructor;
++import lombok.Setter;
++
++@Embeddable
++@Getter @Setter
++@NoArgsConstructor @AllArgsConstructor
++@EqualsAndHashCode
++public class IngestedFillId implements Serializable {
++  @Column(name = "order_id", nullable = false)
++  private UUID orderId;
++
++  @Column(name = "trade_id", nullable = false)
++  private UUID tradeId;
++}
+diff --git a/services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedTrade.java b/services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedTrade.java
+deleted file mode 100644
+index 9157f94..0000000
+--- a/services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedTrade.java
++++ /dev/null
+@@ -1,39 +0,0 @@
+-package com.tradestream.orders_service.domain;
+-
+-import java.time.Instant;
+-import java.util.UUID;
+-
+-import jakarta.persistence.Column;
+-import jakarta.persistence.Entity;
+-import jakarta.persistence.Id;
+-import jakarta.persistence.Table;
+-import lombok.Data;
+-
+-@Entity
+-@Data
+-@Table(name = "ingested_trades")
+-public class IngestedTrade {
+-
+-    @Id
+-    @Column(name = "trade_id", nullable = false, updatable = false)
+-    private UUID tradeId;
+-
+-    @Column(name = "order_id", nullable = false)
+-    private UUID orderId;
+-
+-    @Column(name = "ticker", nullable = false, length = 16)
+-    private String ticker;
+-
+-    @Column(name = "ts", nullable = false)
+-    private Instant timestamp;
+-
+-    protected IngestedTrade() {}
+-
+-    public IngestedTrade(UUID tradeId, UUID orderId, String ticker, Instant timestamp) {
+-        this.tradeId = tradeId;
+-        this.orderId = orderId;
+-        this.ticker = ticker;
+-        this.timestamp = timestamp;
+-    }
+-
+-}
+diff --git a/services/orders-service/src/main/java/com/tradestream/orders_service/dto/TradeExecuted.java b/services/orders-service/src/main/java/com/tradestream/orders_service/dto/TradeExecuted.java
+index 0bfa737..fa0f5ff 100644
+--- a/services/orders-service/src/main/java/com/tradestream/orders_service/dto/TradeExecuted.java
++++ b/services/orders-service/src/main/java/com/tradestream/orders_service/dto/TradeExecuted.java
+@@ -1,3 +1,4 @@
++// services/orders-service/src/main/java/com/tradestream/orders_service/dto/TradeExecuted.java
+ package com.tradestream.orders_service.dto;
+ 
+ import java.math.BigDecimal;
+@@ -5,12 +6,11 @@ import java.time.Instant;
+ import java.util.UUID;
+ 
+ public record TradeExecuted(
+-        UUID tradeId,
+-        UUID orderId,
+-        UUID userId,
+-        String ticker,
+-        BigDecimal price,
+-        BigDecimal quantity,
+-        String side,          
+-        Instant timestamp
++    UUID tradeId,
++    UUID buyOrderId,
++    UUID sellOrderId,
++    String ticker,
++    BigDecimal price,
++    BigDecimal quantity,
++    Instant timestamp
+ ) {}
+diff --git a/services/orders-service/src/main/java/com/tradestream/orders_service/kafka/TradeExecutedConsumer.java b/services/orders-service/src/main/java/com/tradestream/orders_service/kafka/TradeExecutedConsumer.java
+index 4810fc1..6236cdd 100644
+--- a/services/orders-service/src/main/java/com/tradestream/orders_service/kafka/TradeExecutedConsumer.java
++++ b/services/orders-service/src/main/java/com/tradestream/orders_service/kafka/TradeExecutedConsumer.java
+@@ -1,6 +1,7 @@
+ package com.tradestream.orders_service.kafka;
+ 
+ import java.math.BigDecimal;
++import java.util.UUID;
+ 
+ import org.slf4j.Logger;
+ import org.slf4j.LoggerFactory;
+@@ -8,10 +9,9 @@ import org.springframework.kafka.annotation.KafkaListener;
+ import org.springframework.stereotype.Component;
+ import org.springframework.transaction.annotation.Transactional;
+ 
+-import com.tradestream.orders_service.domain.Order;
+ import com.tradestream.orders_service.domain.OrderStatus;
+ import com.tradestream.orders_service.dto.TradeExecuted;
+-import com.tradestream.orders_service.repo.IngestedTradeRepository;
++import com.tradestream.orders_service.repo.IngestedFillRepository;
+ import com.tradestream.orders_service.repo.OrderRepository;
+ 
+ import lombok.RequiredArgsConstructor;
+@@ -20,62 +20,54 @@ import lombok.RequiredArgsConstructor;
+ @RequiredArgsConstructor
+ public class TradeExecutedConsumer {
+ 
+-    private static final Logger log = LoggerFactory.getLogger(TradeExecutedConsumer.class);
++  private static final Logger log = LoggerFactory.getLogger(TradeExecutedConsumer.class);
+ 
+-    private final IngestedTradeRepository ingestedRepo;
+-    private final OrderRepository orderRepo;
++  private final IngestedFillRepository ingestedRepo;
++  private final OrderRepository orderRepo;
+ 
+-    @KafkaListener(
+-        topics = "${tradestream.topics.tradeExecuted:trade.executed.v1}",
+-        groupId = "${KAFKA_CONSUMER_GROUP:orders-exec-consumer}",
+-        containerFactory = "kafkaListenerContainerFactory" // your default is fine if configured
+-    )
+-    @Transactional
+-    public void onExecuted(TradeExecuted t) {
+-        // 1) Idempotency guard
+-        int inserted = ingestedRepo.tryInsert(t.tradeId(), t.orderId(), t.ticker(), t.timestamp());
+-        if (inserted == 0) {
+-            // already processed this tradeId
+-            log.debug("Duplicate trade {} ignored", t.tradeId());
+-            return;
+-        }
++  @KafkaListener(
++      topics = "${tradestream.topics.tradeExecuted:trade.executed.v1}",
++      groupId = "${KAFKA_CONSUMER_GROUP:orders-exec-consumer}"
++  )
++  @Transactional
++  public void onExecuted(TradeExecuted t) {
++    boolean touched = false;
+ 
+-        // 2) Lock order row
+-        var opt = orderRepo.findByIdForUpdate(t.orderId());
+-        if (opt.isEmpty()) {
+-            log.warn("Trade {} references unknown order {}", t.tradeId(), t.orderId());
+-            return; // or throw
+-        }
+-        Order order = opt.get();
++    if (t.buyOrderId() != null) {
++      touched |= applyOnce(t.tradeId(), t.buyOrderId(), t.ticker(), t.timestamp(), t.quantity(), t.price());
++    }
++    if (t.sellOrderId() != null) {
++      touched |= applyOnce(t.tradeId(), t.sellOrderId(), t.ticker(), t.timestamp(), t.quantity(), t.price());
++    }
+ 
+-        // 3) Ignore if terminal in a way we don't want to fill (CANCELED or FILLED)
+-        if (order.getStatus() == OrderStatus.CANCELED || order.getStatus() == OrderStatus.FILLED) {
+-            log.warn("Trade {} arrived for terminal order {} with status {}", t.tradeId(), order.getId(), order.getStatus());
+-            return;
+-        }
++    if (!touched) {
++      log.debug("Trade {} already applied for both legs; ignoring", t.tradeId());
++    }
++  }
+ 
+-        BigDecimal execQty = t.quantity();
+-        BigDecimal remaining = order.remainingQuantity();
++  private boolean applyOnce(UUID tradeId, UUID orderId, String ticker,
++                            java.time.Instant ts, BigDecimal qty, BigDecimal price) {
++    int inserted = ingestedRepo.tryInsert(orderId, tradeId, ticker, ts);
++    if (inserted == 0) return false; // already processed this (order,trade)
+ 
+-        if (remaining.signum() <= 0) {
+-            // already fully filled due to a previous message
+-            log.debug("Order {} already fully filled; trade {} ignored", order.getId(), t.tradeId());
+-            return;
+-        }
++    return orderRepo.findByIdForUpdate(orderId).map(order -> {
++      if (order.getStatus() == OrderStatus.CANCELED || order.getStatus() == OrderStatus.FILLED) return true;
+ 
+-        // Cap exec to remaining to avoid accidental overfill from bad events
+-        if (execQty.compareTo(remaining) > 0) {
+-            log.warn("Trade {} quantity {} > remaining {} for order {}, capping", t.tradeId(), execQty, remaining, order.getId());
+-            execQty = remaining;
+-        }
++      BigDecimal remaining = order.remainingQuantity();
++      if (remaining.signum() <= 0) return true;
+ 
+-        // 4) Apply fill
+-        order.applyFill(execQty);
+-        order.setUpdatedAt(java.time.Instant.now());
+-        order.setLastFillPrice(t.price());
++      BigDecimal exec = qty.compareTo(remaining) > 0 ? remaining : qty;
++      order.applyFill(exec);
++      order.setLastFillPrice(price);
++      order.setUpdatedAt(java.time.Instant.now());
++      orderRepo.save(order);
+ 
+-        orderRepo.save(order);
+-        log.info("Applied fill {} to order {} → status={}, filled={}, remaining={}",
+-                execQty, order.getId(), order.getStatus(), order.getFilledQuantity(), order.remainingQuantity());
+-    }
++      log.info("Applied fill {} to order {} → status={}, filled={}, remaining={}",
++          exec, order.getId(), order.getStatus(), order.getFilledQuantity(), order.remainingQuantity());
++      return true;
++    }).orElseGet(() -> {
++      log.warn("Trade {} references unknown order {}", tradeId, orderId);
++      return true; // we inserted the idempotency row; treat as handled
++    });
++  }
+ }
+diff --git a/services/orders-service/src/main/java/com/tradestream/orders_service/repo/IngestedFillRepository.java b/services/orders-service/src/main/java/com/tradestream/orders_service/repo/IngestedFillRepository.java
+new file mode 100644
+index 0000000..374a3d6
+--- /dev/null
++++ b/services/orders-service/src/main/java/com/tradestream/orders_service/repo/IngestedFillRepository.java
+@@ -0,0 +1,28 @@
++package com.tradestream.orders_service.repo;
++
++import java.time.Instant;
++import java.util.UUID;
++
++import org.springframework.data.jpa.repository.JpaRepository;
++import org.springframework.data.jpa.repository.Modifying;
++import org.springframework.data.jpa.repository.Query;
++import org.springframework.data.repository.query.Param;
++import org.springframework.transaction.annotation.Transactional;
++
++import com.tradestream.orders_service.domain.IngestedFill;
++import com.tradestream.orders_service.domain.IngestedFillId;
++
++public interface IngestedFillRepository extends JpaRepository<IngestedFill, IngestedFillId> {
++
++  @Modifying
++  @Transactional
++  @Query(value = """
++    INSERT INTO ingested_fills(order_id, trade_id, ticker, ts)
++    VALUES (:orderId, :tradeId, :ticker, :ts)
++    ON CONFLICT (order_id, trade_id) DO NOTHING
++    """, nativeQuery = true)
++  int tryInsert(@Param("orderId") UUID orderId,
++                @Param("tradeId") UUID tradeId,
++                @Param("ticker") String ticker,
++                @Param("ts") Instant ts);
++}
+diff --git a/services/orders-service/src/main/java/com/tradestream/orders_service/repo/IngestedTradeRepository.java b/services/orders-service/src/main/java/com/tradestream/orders_service/repo/IngestedTradeRepository.java
+deleted file mode 100644
+index ebb6cc8..0000000
+--- a/services/orders-service/src/main/java/com/tradestream/orders_service/repo/IngestedTradeRepository.java
++++ /dev/null
+@@ -1,21 +0,0 @@
+-package com.tradestream.orders_service.repo;
+-
+-import java.time.Instant;
+-import java.util.UUID;
+-
+-import org.springframework.data.jpa.repository.JpaRepository;
+-import org.springframework.data.jpa.repository.Modifying;
+-import org.springframework.data.jpa.repository.Query;
+-
+-import com.tradestream.orders_service.domain.IngestedTrade;
+-
+-public interface IngestedTradeRepository extends JpaRepository<IngestedTrade, UUID> {
+-
+-    @Modifying
+-    @Query(value = """
+-        INSERT INTO ingested_trades (trade_id, order_id, ticker, ts)
+-        VALUES (?1, ?2, ?3, ?4)
+-        ON CONFLICT (trade_id) DO NOTHING
+-        """, nativeQuery = true)
+-    int tryInsert(UUID tradeId, UUID orderId, String ticker, Instant ts);
+-}
+diff --git a/services/orders-service/src/main/resources/db/migration/V4__ingested_fills.sql b/services/orders-service/src/main/resources/db/migration/V4__ingested_fills.sql
+new file mode 100644
+index 0000000..7aba836
+--- /dev/null
++++ b/services/orders-service/src/main/resources/db/migration/V4__ingested_fills.sql
+@@ -0,0 +1,8 @@
++-- One row per (order, trade) we have applied
++CREATE TABLE IF NOT EXISTS ingested_fills (
++  order_id UUID       NOT NULL,
++  trade_id UUID       NOT NULL,
++  ticker   VARCHAR(16) NOT NULL,
++  ts       TIMESTAMPTZ NOT NULL,
++  PRIMARY KEY (order_id, trade_id)
++);
+diff --git a/services/orders-service/src/main/resources/db/migration/V5__drop_ingested_trades.sql b/services/orders-service/src/main/resources/db/migration/V5__drop_ingested_trades.sql
+new file mode 100644
+index 0000000..7cb96dc
+--- /dev/null
++++ b/services/orders-service/src/main/resources/db/migration/V5__drop_ingested_trades.sql
+@@ -0,0 +1,3 @@
++-- Remove legacy idempotency table no longer in use
++DROP TABLE IF EXISTS ingested_trades;
++-- (Dropping the table also drops idx_ingested_trades_order automatically)
