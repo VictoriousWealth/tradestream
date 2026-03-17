@@ -1,0 +1,161 @@
+
+===== COMMIT 79389babbd5bf770ca5c552d0c0345bcd8ad4023 =====
+commit 79389babbd5bf770ca5c552d0c0345bcd8ad4023
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Wed Jul 16 07:23:16 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Wed Jul 16 07:23:16 2025 +0100
+
+    Deploy
+---
+ docker-compose.yml | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 9cb9512..1878cc4 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -24,7 +24,7 @@ services:
+       dockerfile: Dockerfile
+     image: tradestream-auth-service:dev
+     ports:
+-      - "8080:8080"
++      - "8082:8082"
+     depends_on:
+       - postgres
+     environment:
+@@ -40,8 +40,6 @@ services:
+     secrets:
+       - jwt_private.pem
+       - jwt_public.pem
+-  
+-
+   postgres:
+     image: postgres:15-alpine
+     container_name: tradestream_postgres
+@@ -54,9 +52,11 @@ services:
+     volumes:
+       - postgres_data:/var/lib/postgresql/data
+ 
++
+ volumes:
+   postgres_data:
+ 
++
+ secrets:
+   jwt_private.pem:
+     external: true
+
+===== COMMIT 2c737896ea58367a85dc5e349279061a26a72137 =====
+commit 2c737896ea58367a85dc5e349279061a26a72137
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 16 23:32:59 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Wed Jul 16 23:32:59 2025 +0100
+
+    Update README.md
+---
+ README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index e7c401c..3bbda7a 100644
+--- a/README.md
++++ b/README.md
+@@ -129,7 +129,7 @@ TradeStream is a backend portfolio project that demonstrates:
+ <a name="system-architecture"></a>
+ ## 🏗️ System Architecture [↑ Top](#table-of-contents)
+ 
+-> _See [`/docs/high-level-architecture-diagram.png`](docs/architecture-diagram.png) for a full high level system diagram._
++> _See [./docs/high-level-architecture-diagram.png](docs/architecture-diagram.png) for a full high level system diagram._
+ 
+ > _See [`api-gateway/docs/token-authentication-flow.drawio.png`](api-gateway/docs/token-authentication-flow.drawio.png) for a more detailed version focused on API Gateway and the Authentication Service._
+ 
+
+===== COMMIT c350682175d5a4a22a4b79bc62b81ca180bc4471 =====
+commit c350682175d5a4a22a4b79bc62b81ca180bc4471
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 16 23:33:52 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Wed Jul 16 23:33:52 2025 +0100
+
+    Update README.md
+---
+ README.md | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index 3bbda7a..0eeeec2 100644
+--- a/README.md
++++ b/README.md
+@@ -129,9 +129,9 @@ TradeStream is a backend portfolio project that demonstrates:
+ <a name="system-architecture"></a>
+ ## 🏗️ System Architecture [↑ Top](#table-of-contents)
+ 
+-> _See [./docs/high-level-architecture-diagram.png](docs/architecture-diagram.png) for a full high level system diagram._
++> _See [./docs/high-level-architecture-diagram.png](./docs/high-level-architecture-diagram.png) for a full high level system diagram._
+ 
+-> _See [`api-gateway/docs/token-authentication-flow.drawio.png`](api-gateway/docs/token-authentication-flow.drawio.png) for a more detailed version focused on API Gateway and the Authentication Service._
++> _See [`api-gateway/docs/token-authentication-flow.drawio.png`](./api-gateway/docs/token-authentication-flow.drawio.png) for a more detailed version focused on API Gateway and the Authentication Service._
+ 
+ **Core Components:** 
+ 
+
+===== COMMIT e571e6aed2850d4cefeefa5ef8d733251f570abd =====
+commit e571e6aed2850d4cefeefa5ef8d733251f570abd
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 16 23:36:14 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Wed Jul 16 23:36:14 2025 +0100
+
+    Update README.md
+---
+ README.md | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index 0eeeec2..298763d 100644
+--- a/README.md
++++ b/README.md
+@@ -131,7 +131,9 @@ TradeStream is a backend portfolio project that demonstrates:
+ 
+ > _See [./docs/high-level-architecture-diagram.png](./docs/high-level-architecture-diagram.png) for a full high level system diagram._
+ 
+-> _See [`api-gateway/docs/token-authentication-flow.drawio.png`](./api-gateway/docs/token-authentication-flow.drawio.png) for a more detailed version focused on API Gateway and the Authentication Service._
++> _See [`./api-gateway/docs/api-gateway-flow.drawio.png`](./api-gateway/docs/api-gateway-flow.drawio.png) for a more detailed version focused on API Gateway._
++
++> _See [`./authentication-service/docs/authentication-flow.drawio.png`](./api-gateway/docs/api-gateway-flow.drawio.png) for a more detailed version focused on the Authentication Service._
+ 
+ **Core Components:** 
+ 
+
+===== COMMIT f919960b171c87cee7ffbb780fe5f3694efadf17 =====
+commit f919960b171c87cee7ffbb780fe5f3694efadf17
+Author:     Nick Efe Oni <130680722+VictoriousWealth@users.noreply.github.com>
+AuthorDate: Wed Jul 16 23:37:29 2025 +0100
+Commit:     GitHub <noreply@github.com>
+CommitDate: Wed Jul 16 23:37:29 2025 +0100
+
+    Update README.md
+---
+ README.md | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/README.md b/README.md
+index 298763d..f66fc48 100644
+--- a/README.md
++++ b/README.md
+@@ -129,11 +129,11 @@ TradeStream is a backend portfolio project that demonstrates:
+ <a name="system-architecture"></a>
+ ## 🏗️ System Architecture [↑ Top](#table-of-contents)
+ 
+-> _See [./docs/high-level-architecture-diagram.png](./docs/high-level-architecture-diagram.png) for a full high level system diagram._
++> _See [`./docs/high-level-architecture-diagram.png`](./docs/high-level-architecture-diagram.png) for a full high level system diagram._
+ 
+ > _See [`./api-gateway/docs/api-gateway-flow.drawio.png`](./api-gateway/docs/api-gateway-flow.drawio.png) for a more detailed version focused on API Gateway._
+ 
+-> _See [`./authentication-service/docs/authentication-flow.drawio.png`](./api-gateway/docs/api-gateway-flow.drawio.png) for a more detailed version focused on the Authentication Service._
++> _See [`./authentication-service/docs/authentication-flow.drawio.png`](./authentication-service/docs/authentication-flow.drawio.png) for a more detailed version focused on the Authentication Service._
+ 
+ **Core Components:** 
+ 
