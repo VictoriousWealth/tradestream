@@ -1,0 +1,2381 @@
+
+===== COMMIT f9d52e548a129fc3967ff2d4f6382dc396f05be0 =====
+commit f9d52e548a129fc3967ff2d4f6382dc396f05be0
+Author:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+AuthorDate: Mon Jul 14 06:20:29 2025 +0100
+Commit:     Nick Efe Oni <neoni1@sheffield.ac.uk>
+CommitDate: Mon Jul 14 06:20:29 2025 +0100
+
+    deploy
+---
+ .gitignore                                         |   3 +
+ README.md                                          |  33 +--
+ authentication-service/.gitattributes              |   3 +
+ authentication-service/.gitignore                  |  40 ++++
+ authentication-service/Dockerfile                  |  18 ++
+ authentication-service/README.md                   |   1 +
+ authentication-service/build.gradle                |  43 ++++
+ .../gradle/wrapper/gradle-wrapper.jar              | Bin 0 -> 43764 bytes
+ .../gradle/wrapper/gradle-wrapper.properties       |   7 +
+ authentication-service/gradlew                     | 251 +++++++++++++++++++++
+ authentication-service/gradlew.bat                 |  94 ++++++++
+ authentication-service/pom.xml                     |   0
+ authentication-service/settings.gradle             |   1 +
+ .../java/com/tradestream/auth/AuthApplication.java |  13 ++
+ .../tradestream/auth/config/SecurityConfig.java    |  39 ++++
+ .../com/tradestream/auth/config/WebMvcConfig.java  |  26 +++
+ .../auth/controller/UserController.java            |  80 +++++++
+ .../com/tradestream/auth/dto/RefreshRequest.java   |  12 +
+ .../java/com/tradestream/auth/dto/UserDTO.java     |  11 +
+ .../exceptions/InvalidCredentialsException.java    |  11 +
+ .../exceptions/InvalidRefreshTokenException.java   |  11 +
+ .../ScopesClaimInUnknownFormatException.java       |  11 +
+ .../UnableToGenerateRSAKeyPairException.java       |  12 +
+ .../auth/exceptions/UserNotFoundException.java     |  11 +
+ .../auth/handler/GlobalErrorHandler.java           |  48 ++++
+ .../main/java/com/tradestream/auth/model/User.java |  30 +++
+ .../auth/repository/UserRepository.java            |  14 ++
+ .../auth/security/InternalCallerInterceptor.java   |  27 +++
+ .../com/tradestream/auth/service/TokenService.java | 190 ++++++++++++++++
+ .../src/main/resources/application.properties      |  14 ++
+ .../db/migration/V1__create_users_table.sql        |   6 +
+ .../com/tradestream/auth/AuthApplicationTests.java |  13 ++
+ automated_scripts/dev-deploy.sh                    |  31 +++
+ docker-compose.yml                                 |  64 ++++++
+ user-registration-service/.gitattributes           |   3 +
+ user-registration-service/.gitignore               |  37 +++
+ user-registration-service/Dockerfile               |  19 ++
+ user-registration-service/README.md                |  76 +++++++
+ user-registration-service/build.gradle             |  40 ++++
+ .../docs/example-curl-request-to-microservice.png  | Bin 0 -> 580772 bytes
+ .../gradle/wrapper/gradle-wrapper.jar              | Bin 0 -> 43764 bytes
+ .../gradle/wrapper/gradle-wrapper.properties       |   7 +
+ user-registration-service/gradlew                  | 251 +++++++++++++++++++++
+ user-registration-service/gradlew.bat              |  94 ++++++++
+ user-registration-service/settings.gradle          |   1 +
+ .../UserRegistrationServiceApplication.java        |  13 ++
+ .../config/SecurityConfig.java                     |  34 +++
+ .../config/WebMvcConfig.java                       |  27 +++
+ .../controller/UserController.java                 |  41 ++++
+ .../user_registration_service/dto/UserDTO.java     |  11 +
+ .../user_registration_service/model/User.java      |  30 +++
+ .../repository/UserRepository.java                 |  14 ++
+ .../security/InternalCallerInterceptor.java        |  27 +++
+ .../src/main/resources/application.properties      |  14 ++
+ .../db/migration/V1__create_users_table.sql        |   6 +
+ .../UserRegistrationServiceApplicationTests.java   |  13 ++
+ 56 files changed, 1911 insertions(+), 15 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index d992bcb..a12ce4d 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -22,3 +22,6 @@
+ # System specific
+ Thumbs.db
+ 
++# extras
++*key*.pem
++secrets
+diff --git a/README.md b/README.md
+index ab0eadb..e7c401c 100644
+--- a/README.md
++++ b/README.md
+@@ -106,16 +106,16 @@ TradeStream is a backend portfolio project that demonstrates:
+ 
+ 
+ 
+-| Category             | Technology                         |
+-|----------------------|------------------------------------|
+-| Backend Framework    | Java Spring Boot                   |
+-| Stream Processing    | Kafka or RabbitMQ (configurable)   |
+-| Database             | PostgreSQL                         |
+-| Cache Layer          | Redis                              |
+-| Authentication       | JWT (JSON Web Tokens)              |
+-| Containerization     | Docker, Docker Compose             |
+-| CI/CD (MVP)          | GitHub Actions                     |
+-| Deployment           | AWS Lightsail                      |
++| Category             | Technology                              |
++|----------------------|-----------------------------------------|
++| Backend Framework    | Java Spring Boot                        |
++| Stream Processing    | Kafka or RabbitMQ (configurable)        |
++| Database             | PostgreSQL                              |
++| Cache Layer          | Redis                                   |
++| Authentication       | JWS & JWE (JWT Signed & JWT Encrypted)  |
++| Containerization     | Docker, Docker Compose                  |
++| CI/CD (MVP)          | GitHub Actions                          |
++| Deployment           | AWS Lightsail                           |
+ 
+ **Planned Future Enhancements:** 
+ 
+@@ -147,6 +147,7 @@ TradeStream is a backend portfolio project that demonstrates:
+ Each microservice has its own documentation with setup notes, endpoints, and future plans:
+ 
+ - [API Gateway](api-gateway/README.md)
++- [User Registration Service](user-registration-service/README.md)
+ - [Authentication Service](authentication-service/README.md)
+ - [Transaction Processor](transaction-processor/README.md)
+ - [Market Data Consumer](market-data-consumer/README.md)
+@@ -169,12 +170,12 @@ cd tradestream
+ 
+ # Build and run containers
+ docker-compose up --build
+-````
++```
+ 
+ Access:
+ 
+ * API Gateway at `http://localhost:8080`
+-* Login, transaction, and health endpoints per the [API Design](docs/api-design.md)
++* Login, registration, transaction, and health endpoints per the [API Design](docs/api-design.md)
+ 
+ ---
+ 
+@@ -197,6 +198,7 @@ This project simulates real-time transaction processing using microservices and
+ 
+ ✅ MVP Core Features:
+ 
++* [x] User Registration Service
+ * [x] Authentication Service
+ * [x] Transaction Processor
+ * [x] API Gateway
+@@ -220,11 +222,10 @@ This project simulates real-time transaction processing using microservices and
+ 
+ * Secure coding practices applied from Day 1
+ * JWT-based API authentication
+-* Input validation throughout services
++* Special header(s) set by the API gateway that the other services will now check to double confirm origin of the request
+ * Future security roadmap includes:
+ 
+   * Rate limiting
+-  * Role-Based Access Control (RBAC)
+   * Secure HTTP headers
+   * Vulnerability scanning
+ 
+@@ -239,6 +240,8 @@ This project simulates real-time transaction processing using microservices and
+ * [API Design](docs/api-design.md)
+ * [Planned Enhancements](docs/future-enhancements.md)
+ 
++> Note all these documentation misses the user registration service as it is something I decided to add last minute 
++
+ ---
+ 
+ <a name="learning-objectives"></a>
+@@ -286,7 +289,7 @@ See the full license [here](https://creativecommons.org/licenses/by-nc/4.0/) for
+ 
+ ## 🙏 Acknowledgements [↑ Top](#table-of-contents)
+ 
+-* Architectural patterns inspired by real-world fintech systems such as JPMorgan
++* Architectural patterns inspired by real-world fintech systems such as JPMorgan and BNY
+ * Security best practices influenced by **OWASP** guidelines
+ * Deployment and infrastructure ideas from **AWS** resources
+ 
+diff --git a/authentication-service/.gitattributes b/authentication-service/.gitattributes
+new file mode 100644
+index 0000000..8af972c
+--- /dev/null
++++ b/authentication-service/.gitattributes
+@@ -0,0 +1,3 @@
++/gradlew text eol=lf
++*.bat text eol=crlf
++*.jar binary
+diff --git a/authentication-service/.gitignore b/authentication-service/.gitignore
+new file mode 100644
+index 0000000..6c37573
+--- /dev/null
++++ b/authentication-service/.gitignore
+@@ -0,0 +1,40 @@
++HELP.md
++.gradle
++build/
++!gradle/wrapper/gradle-wrapper.jar
++!**/src/main/**/build/
++!**/src/test/**/build/
++
++### STS ###
++.apt_generated
++.classpath
++.factorypath
++.project
++.settings
++.springBeans
++.sts4-cache
++bin/
++!**/src/main/**/bin/
++!**/src/test/**/bin/
++
++### IntelliJ IDEA ###
++.idea
++*.iws
++*.iml
++*.ipr
++out/
++!**/src/main/**/out/
++!**/src/test/**/out/
++
++### NetBeans ###
++/nbproject/private/
++/nbbuild/
++/dist/
++/nbdist/
++/.nb-gradle/
++
++### VS Code ###
++.vscode/
++
++jwt_private.pem
++jwt_public.pem
+diff --git a/authentication-service/Dockerfile b/authentication-service/Dockerfile
+index e69de29..ea8fdfd 100644
+--- a/authentication-service/Dockerfile
++++ b/authentication-service/Dockerfile
+@@ -0,0 +1,18 @@
++# 1. Base image with Java
++FROM eclipse-temurin:17-jdk
++
++# 2. Set working directory
++WORKDIR /app
++
++# 3. Copy everything from the context (auth service files)
++COPY . .
++
++# 4. Grant Gradle permission (good for Alpine-based images)
++# 5. Build app (skip tests for speed)
++RUN chmod +x ./gradlew && ./gradlew clean build -x test
++
++# 6. Expose port used by Spring Boot
++EXPOSE 8082
++
++# 7. Run the application using the compiled JAR
++CMD ["java", "-jar", "build/libs/auth-0.0.1-SNAPSHOT.jar"]
+diff --git a/authentication-service/README.md b/authentication-service/README.md
+index 626291f..c1f863e 100644
+--- a/authentication-service/README.md
++++ b/authentication-service/README.md
+@@ -76,5 +76,6 @@ This microservice handles user authentication and secure token issuance in the *
+ * Add unit and integration tests for token validation logic.
+ * Add metrics for login success/failure tracking.
+ * Rotate keys securely via KMS or secrets manager.
++* Add monitoring system or something alogn the lines of that
+ 
+ ---
+diff --git a/authentication-service/build.gradle b/authentication-service/build.gradle
+new file mode 100644
+index 0000000..1c8e7b2
+--- /dev/null
++++ b/authentication-service/build.gradle
+@@ -0,0 +1,43 @@
++plugins {
++	id 'java'
++	id 'org.springframework.boot' version '3.5.3'
++	id 'io.spring.dependency-management' version '1.1.7'
++}
++
++group = 'com.tradestream'
++version = '0.0.1-SNAPSHOT'
++
++java {
++	toolchain {
++		languageVersion = JavaLanguageVersion.of(17)
++	}
++}
++
++configurations {
++	compileOnly {
++		extendsFrom annotationProcessor
++	}
++}
++
++repositories {
++	mavenCentral()
++}
++
++dependencies {
++	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
++	implementation 'org.springframework.boot:spring-boot-starter-security'
++	implementation 'org.springframework.boot:spring-boot-starter-web'
++	compileOnly 'org.projectlombok:lombok'
++	runtimeOnly 'org.postgresql:postgresql'
++	annotationProcessor 'org.projectlombok:lombok'
++	testImplementation 'org.springframework.boot:spring-boot-starter-test'
++	testImplementation 'org.springframework.security:spring-security-test'
++	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
++	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
++    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
++    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
++}
++
++tasks.named('test') {
++	useJUnitPlatform()
++}
+diff --git a/authentication-service/gradle/wrapper/gradle-wrapper.jar b/authentication-service/gradle/wrapper/gradle-wrapper.jar
+new file mode 100644
+index 0000000..1b33c55
+Binary files /dev/null and b/authentication-service/gradle/wrapper/gradle-wrapper.jar differ
+diff --git a/authentication-service/gradle/wrapper/gradle-wrapper.properties b/authentication-service/gradle/wrapper/gradle-wrapper.properties
+new file mode 100644
+index 0000000..ff23a68
+--- /dev/null
++++ b/authentication-service/gradle/wrapper/gradle-wrapper.properties
+@@ -0,0 +1,7 @@
++distributionBase=GRADLE_USER_HOME
++distributionPath=wrapper/dists
++distributionUrl=https\://services.gradle.org/distributions/gradle-8.14.2-bin.zip
++networkTimeout=10000
++validateDistributionUrl=true
++zipStoreBase=GRADLE_USER_HOME
++zipStorePath=wrapper/dists
+diff --git a/authentication-service/gradlew b/authentication-service/gradlew
+new file mode 100755
+index 0000000..23d15a9
+--- /dev/null
++++ b/authentication-service/gradlew
+@@ -0,0 +1,251 @@
++#!/bin/sh
++
++#
++# Copyright © 2015-2021 the original authors.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      https://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++# SPDX-License-Identifier: Apache-2.0
++#
++
++##############################################################################
++#
++#   Gradle start up script for POSIX generated by Gradle.
++#
++#   Important for running:
++#
++#   (1) You need a POSIX-compliant shell to run this script. If your /bin/sh is
++#       noncompliant, but you have some other compliant shell such as ksh or
++#       bash, then to run this script, type that shell name before the whole
++#       command line, like:
++#
++#           ksh Gradle
++#
++#       Busybox and similar reduced shells will NOT work, because this script
++#       requires all of these POSIX shell features:
++#         * functions;
++#         * expansions «$var», «${var}», «${var:-default}», «${var+SET}»,
++#           «${var#prefix}», «${var%suffix}», and «$( cmd )»;
++#         * compound commands having a testable exit status, especially «case»;
++#         * various built-in commands including «command», «set», and «ulimit».
++#
++#   Important for patching:
++#
++#   (2) This script targets any POSIX shell, so it avoids extensions provided
++#       by Bash, Ksh, etc; in particular arrays are avoided.
++#
++#       The "traditional" practice of packing multiple parameters into a
++#       space-separated string is a well documented source of bugs and security
++#       problems, so this is (mostly) avoided, by progressively accumulating
++#       options in "$@", and eventually passing that to Java.
++#
++#       Where the inherited environment variables (DEFAULT_JVM_OPTS, JAVA_OPTS,
++#       and GRADLE_OPTS) rely on word-splitting, this is performed explicitly;
++#       see the in-line comments for details.
++#
++#       There are tweaks for specific operating systems such as AIX, CygWin,
++#       Darwin, MinGW, and NonStop.
++#
++#   (3) This script is generated from the Groovy template
++#       https://github.com/gradle/gradle/blob/HEAD/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
++#       within the Gradle project.
++#
++#       You can find Gradle at https://github.com/gradle/gradle/.
++#
++##############################################################################
++
++# Attempt to set APP_HOME
++
++# Resolve links: $0 may be a link
++app_path=$0
++
++# Need this for daisy-chained symlinks.
++while
++    APP_HOME=${app_path%"${app_path##*/}"}  # leaves a trailing /; empty if no leading path
++    [ -h "$app_path" ]
++do
++    ls=$( ls -ld "$app_path" )
++    link=${ls#*' -> '}
++    case $link in             #(
++      /*)   app_path=$link ;; #(
++      *)    app_path=$APP_HOME$link ;;
++    esac
++done
++
++# This is normally unused
++# shellcheck disable=SC2034
++APP_BASE_NAME=${0##*/}
++# Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
++APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
++
++# Use the maximum available, or set MAX_FD != -1 to use that value.
++MAX_FD=maximum
++
++warn () {
++    echo "$*"
++} >&2
++
++die () {
++    echo
++    echo "$*"
++    echo
++    exit 1
++} >&2
++
++# OS specific support (must be 'true' or 'false').
++cygwin=false
++msys=false
++darwin=false
++nonstop=false
++case "$( uname )" in                #(
++  CYGWIN* )         cygwin=true  ;; #(
++  Darwin* )         darwin=true  ;; #(
++  MSYS* | MINGW* )  msys=true    ;; #(
++  NONSTOP* )        nonstop=true ;;
++esac
++
++CLASSPATH="\\\"\\\""
++
++
++# Determine the Java command to use to start the JVM.
++if [ -n "$JAVA_HOME" ] ; then
++    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
++        # IBM's JDK on AIX uses strange locations for the executables
++        JAVACMD=$JAVA_HOME/jre/sh/java
++    else
++        JAVACMD=$JAVA_HOME/bin/java
++    fi
++    if [ ! -x "$JAVACMD" ] ; then
++        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++else
++    JAVACMD=java
++    if ! command -v java >/dev/null 2>&1
++    then
++        die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++fi
++
++# Increase the maximum file descriptors if we can.
++if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
++    case $MAX_FD in #(
++      max*)
++        # In POSIX sh, ulimit -H is undefined. That's why the result is checked to see if it worked.
++        # shellcheck disable=SC2039,SC3045
++        MAX_FD=$( ulimit -H -n ) ||
++            warn "Could not query maximum file descriptor limit"
++    esac
++    case $MAX_FD in  #(
++      '' | soft) :;; #(
++      *)
++        # In POSIX sh, ulimit -n is undefined. That's why the result is checked to see if it worked.
++        # shellcheck disable=SC2039,SC3045
++        ulimit -n "$MAX_FD" ||
++            warn "Could not set maximum file descriptor limit to $MAX_FD"
++    esac
++fi
++
++# Collect all arguments for the java command, stacking in reverse order:
++#   * args from the command line
++#   * the main class name
++#   * -classpath
++#   * -D...appname settings
++#   * --module-path (only if needed)
++#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and GRADLE_OPTS environment variables.
++
++# For Cygwin or MSYS, switch paths to Windows format before running java
++if "$cygwin" || "$msys" ; then
++    APP_HOME=$( cygpath --path --mixed "$APP_HOME" )
++    CLASSPATH=$( cygpath --path --mixed "$CLASSPATH" )
++
++    JAVACMD=$( cygpath --unix "$JAVACMD" )
++
++    # Now convert the arguments - kludge to limit ourselves to /bin/sh
++    for arg do
++        if
++            case $arg in                                #(
++              -*)   false ;;                            # don't mess with options #(
++              /?*)  t=${arg#/} t=/${t%%/*}              # looks like a POSIX filepath
++                    [ -e "$t" ] ;;                      #(
++              *)    false ;;
++            esac
++        then
++            arg=$( cygpath --path --ignore --mixed "$arg" )
++        fi
++        # Roll the args list around exactly as many times as the number of
++        # args, so each arg winds up back in the position where it started, but
++        # possibly modified.
++        #
++        # NB: a `for` loop captures its iteration list before it begins, so
++        # changing the positional parameters here affects neither the number of
++        # iterations, nor the values presented in `arg`.
++        shift                   # remove old arg
++        set -- "$@" "$arg"      # push replacement arg
++    done
++fi
++
++
++# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
++
++# Collect all arguments for the java command:
++#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
++#     and any embedded shellness will be escaped.
++#   * For example: A user cannot expect ${Hostname} to be expanded, as it is an environment variable and will be
++#     treated as '${Hostname}' itself on the command line.
++
++set -- \
++        "-Dorg.gradle.appname=$APP_BASE_NAME" \
++        -classpath "$CLASSPATH" \
++        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
++        "$@"
++
++# Stop when "xargs" is not available.
++if ! command -v xargs >/dev/null 2>&1
++then
++    die "xargs is not available"
++fi
++
++# Use "xargs" to parse quoted args.
++#
++# With -n1 it outputs one arg per line, with the quotes and backslashes removed.
++#
++# In Bash we could simply go:
++#
++#   readarray ARGS < <( xargs -n1 <<<"$var" ) &&
++#   set -- "${ARGS[@]}" "$@"
++#
++# but POSIX shell has neither arrays nor command substitution, so instead we
++# post-process each arg (as a line of input to sed) to backslash-escape any
++# character that might be a shell metacharacter, then use eval to reverse
++# that process (while maintaining the separation between arguments), and wrap
++# the whole thing up as a single "set" statement.
++#
++# This will of course break if any of these variables contains a newline or
++# an unmatched quote.
++#
++
++eval "set -- $(
++        printf '%s\n' "$DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS" |
++        xargs -n1 |
++        sed ' s~[^-[:alnum:]+,./:=@_]~\\&~g; ' |
++        tr '\n' ' '
++    )" '"$@"'
++
++exec "$JAVACMD" "$@"
+diff --git a/authentication-service/gradlew.bat b/authentication-service/gradlew.bat
+new file mode 100644
+index 0000000..db3a6ac
+--- /dev/null
++++ b/authentication-service/gradlew.bat
+@@ -0,0 +1,94 @@
++@rem
++@rem Copyright 2015 the original author or authors.
++@rem
++@rem Licensed under the Apache License, Version 2.0 (the "License");
++@rem you may not use this file except in compliance with the License.
++@rem You may obtain a copy of the License at
++@rem
++@rem      https://www.apache.org/licenses/LICENSE-2.0
++@rem
++@rem Unless required by applicable law or agreed to in writing, software
++@rem distributed under the License is distributed on an "AS IS" BASIS,
++@rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++@rem See the License for the specific language governing permissions and
++@rem limitations under the License.
++@rem
++@rem SPDX-License-Identifier: Apache-2.0
++@rem
++
++@if "%DEBUG%"=="" @echo off
++@rem ##########################################################################
++@rem
++@rem  Gradle startup script for Windows
++@rem
++@rem ##########################################################################
++
++@rem Set local scope for the variables with windows NT shell
++if "%OS%"=="Windows_NT" setlocal
++
++set DIRNAME=%~dp0
++if "%DIRNAME%"=="" set DIRNAME=.
++@rem This is normally unused
++set APP_BASE_NAME=%~n0
++set APP_HOME=%DIRNAME%
++
++@rem Resolve any "." and ".." in APP_HOME to make it shorter.
++for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
++
++@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
++
++@rem Find java.exe
++if defined JAVA_HOME goto findJavaFromJavaHome
++
++set JAVA_EXE=java.exe
++%JAVA_EXE% -version >NUL 2>&1
++if %ERRORLEVEL% equ 0 goto execute
++
++echo. 1>&2
++echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH. 1>&2
++echo. 1>&2
++echo Please set the JAVA_HOME variable in your environment to match the 1>&2
++echo location of your Java installation. 1>&2
++
++goto fail
++
++:findJavaFromJavaHome
++set JAVA_HOME=%JAVA_HOME:"=%
++set JAVA_EXE=%JAVA_HOME%/bin/java.exe
++
++if exist "%JAVA_EXE%" goto execute
++
++echo. 1>&2
++echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME% 1>&2
++echo. 1>&2
++echo Please set the JAVA_HOME variable in your environment to match the 1>&2
++echo location of your Java installation. 1>&2
++
++goto fail
++
++:execute
++@rem Setup the command line
++
++set CLASSPATH=
++
++
++@rem Execute Gradle
++"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %*
++
++:end
++@rem End local scope for the variables with windows NT shell
++if %ERRORLEVEL% equ 0 goto mainEnd
++
++:fail
++rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
++rem the _cmd.exe /c_ return code!
++set EXIT_CODE=%ERRORLEVEL%
++if %EXIT_CODE% equ 0 set EXIT_CODE=1
++if not ""=="%GRADLE_EXIT_CONSOLE%" exit %EXIT_CODE%
++exit /b %EXIT_CODE%
++
++:mainEnd
++if "%OS%"=="Windows_NT" endlocal
++
++:omega
+diff --git a/authentication-service/pom.xml b/authentication-service/pom.xml
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/authentication-service/settings.gradle b/authentication-service/settings.gradle
+new file mode 100644
+index 0000000..b5a474a
+--- /dev/null
++++ b/authentication-service/settings.gradle
+@@ -0,0 +1 @@
++rootProject.name = 'auth'
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/AuthApplication.java b/authentication-service/src/main/java/com/tradestream/auth/AuthApplication.java
+new file mode 100644
+index 0000000..7108685
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/AuthApplication.java
+@@ -0,0 +1,13 @@
++package com.tradestream.auth;
++
++import org.springframework.boot.SpringApplication;
++import org.springframework.boot.autoconfigure.SpringBootApplication;
++
++@SpringBootApplication
++public class AuthApplication {
++
++	public static void main(String[] args) {
++		SpringApplication.run(AuthApplication.class, args);
++	}
++
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/config/SecurityConfig.java b/authentication-service/src/main/java/com/tradestream/auth/config/SecurityConfig.java
+new file mode 100644
+index 0000000..7f4746d
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/config/SecurityConfig.java
+@@ -0,0 +1,39 @@
++package com.tradestream.auth.config;
++
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Configuration;
++import org.springframework.http.HttpMethod;
++import org.springframework.security.config.Customizer;
++import org.springframework.security.config.annotation.web.builders.HttpSecurity;
++import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
++import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
++import org.springframework.security.config.http.SessionCreationPolicy;
++import org.springframework.security.web.SecurityFilterChain;
++
++@Configuration
++@EnableWebSecurity
++public class SecurityConfig {
++    @Bean
++    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
++        // 🔹 Disable CSRF (only for APIs; keep it enabled for traditional web apps)
++        http.csrf(AbstractHttpConfigurer::disable);
++
++        // 🔹 CORS configuration (enable if frontend is on a different origin)
++        http.cors(Customizer.withDefaults());
++
++        // 🔹 Session Management (Stateless for JWT, Session-Based for OAuth2)
++        http.sessionManagement(session ->
++                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
++
++        // 🔹 Authorization
++        http.authorizeHttpRequests(auth -> {
++            auth.requestMatchers(HttpMethod.GET, "/", "/error").permitAll();
++            auth.requestMatchers("/login", "/refresh").permitAll();            
++            auth.anyRequest().denyAll(); // Protect all other routes by denying access
++        });
++
++        return http.build();
++    }
++
++
++}
+\ No newline at end of file
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/config/WebMvcConfig.java b/authentication-service/src/main/java/com/tradestream/auth/config/WebMvcConfig.java
+new file mode 100644
+index 0000000..5de184c
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/config/WebMvcConfig.java
+@@ -0,0 +1,26 @@
++// src/main/java/com/tradestream/auth/config/WebMvcConfig.java
++package com.tradestream.auth.config;
++
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.context.annotation.Configuration;
++import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
++import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
++
++import com.tradestream.auth.security.InternalCallerInterceptor;
++
++@Configuration
++public class WebMvcConfig implements WebMvcConfigurer {
++
++    private final InternalCallerInterceptor interceptor;
++
++    @Autowired
++    public WebMvcConfig(InternalCallerInterceptor interceptor) {
++        this.interceptor = interceptor;
++    }
++
++    @Override
++    public void addInterceptors(InterceptorRegistry registry) {
++        registry.addInterceptor(interceptor)
++                .addPathPatterns("/refresh"); // 👈 apply to specific sensitive endpoints
++    }
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/controller/UserController.java b/authentication-service/src/main/java/com/tradestream/auth/controller/UserController.java
+new file mode 100644
+index 0000000..086d520
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/controller/UserController.java
+@@ -0,0 +1,80 @@
++// src/main/java/com/tradestream/auth/controller/UserController.java
++package com.tradestream.auth.controller;
++
++import java.util.Map;
++import java.util.UUID;
++
++import org.springframework.http.ResponseEntity;
++import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestBody;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RestController;
++
++import com.tradestream.auth.dto.RefreshRequest;
++import com.tradestream.auth.dto.UserDTO;
++import com.tradestream.auth.exceptions.InvalidCredentialsException;
++import com.tradestream.auth.exceptions.UserNotFoundException;
++import com.tradestream.auth.model.User;
++import com.tradestream.auth.repository.UserRepository;
++import com.tradestream.auth.service.TokenService;
++
++@RestController
++@RequestMapping("")
++public class UserController {
++
++    private final UserRepository userRepository;
++    private final TokenService tokenService;
++
++    public UserController(UserRepository userRepository, TokenService tokenService) {
++        this.userRepository = userRepository;
++        this.tokenService = tokenService;
++    }
++
++    @PostMapping("/login")
++    public ResponseEntity<Map<String, String>> login(@RequestBody UserDTO userDTO) {
++        // we have the credentials, now we need to treat them to have no spaces
++        String username = userDTO.getUsername().replace(" ", "");
++        String password = userDTO.getPassword().replace(" ", "");
++
++        // validate the credentials
++        User user = userRepository.findByUsername(username)
++            .orElseThrow(() -> new UserNotFoundException("User not found with username: " + username));
++        BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
++        
++        if (!passwordEncoder.matches(password, user.getPassword())) {
++            throw new InvalidCredentialsException("Invalid credentials provided for user: " + username);
++        }
++
++        // if credentials are valid then we start making a jws tokens as said by the system diagram
++        String accessToken = tokenService.generateAccessToken(username, user.getId(), "read:*", "write:transaction");
++        String refreshToken = tokenService.generateRefreshToken(username, user.getId(), "read:*", "write:transaction");
++
++        return ResponseEntity.ok(Map.of(
++            "access_token", accessToken,
++            "refresh_token", refreshToken,
++            "token_type", "Bearer",
++            "user_id", user.getId().toString()
++        ));
++
++    }
++
++    @PostMapping("/refresh")
++    public ResponseEntity<Map<String, String>> refresh(@RequestBody RefreshRequest req) {
++        String refreshToken = req.getRefreshToken();
++
++        String username = tokenService.extractUsernameFromRefreshToken(refreshToken);
++        UUID userId = tokenService.extractUserIdFromRefreshToken(refreshToken);
++        String[] scopes = tokenService.extractScopesFromRefreshToken(refreshToken);
++
++        String accessToken = tokenService.generateAccessToken(username, userId, scopes);
++
++        return ResponseEntity.ok(Map.of(
++            "access_token", accessToken,
++            "refresh_token", refreshToken,
++            "token_type", "Bearer",
++            "user_id", userId.toString()
++        ));
++    }
++    
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/dto/RefreshRequest.java b/authentication-service/src/main/java/com/tradestream/auth/dto/RefreshRequest.java
+new file mode 100644
+index 0000000..48d6443
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/dto/RefreshRequest.java
+@@ -0,0 +1,12 @@
++package com.tradestream.auth.dto;
++
++import lombok.Getter;
++import lombok.Setter;
++
++@Getter
++@Setter
++public class RefreshRequest {
++
++    private String refreshToken;
++
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/dto/UserDTO.java b/authentication-service/src/main/java/com/tradestream/auth/dto/UserDTO.java
+new file mode 100644
+index 0000000..94bfe86
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/dto/UserDTO.java
+@@ -0,0 +1,11 @@
++package com.tradestream.auth.dto;
++
++import lombok.Data;
++
++@Data
++public class UserDTO {
++
++    private String username;
++    private String password;
++
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/exceptions/InvalidCredentialsException.java b/authentication-service/src/main/java/com/tradestream/auth/exceptions/InvalidCredentialsException.java
+new file mode 100644
+index 0000000..1e667a4
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/exceptions/InvalidCredentialsException.java
+@@ -0,0 +1,11 @@
++package com.tradestream.auth.exceptions;
++
++public class InvalidCredentialsException extends RuntimeException {
++    public InvalidCredentialsException(String message) {
++        super("Invalid Credentials Exception: "+message);
++    }
++
++    public InvalidCredentialsException(String message, Throwable cause) {
++        super("Invalid Credentials Exception: "+message, cause);
++    }
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/exceptions/InvalidRefreshTokenException.java b/authentication-service/src/main/java/com/tradestream/auth/exceptions/InvalidRefreshTokenException.java
+new file mode 100644
+index 0000000..d2f3807
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/exceptions/InvalidRefreshTokenException.java
+@@ -0,0 +1,11 @@
++package com.tradestream.auth.exceptions;
++
++public class InvalidRefreshTokenException extends RuntimeException {
++    public InvalidRefreshTokenException(String message) {
++        super("Invalid Refresh Token Exception: "+message);
++    }
++
++    public InvalidRefreshTokenException(String message, Throwable cause) {
++        super("Invalid Refresh Token Exception: "+message, cause);
++    }
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/exceptions/ScopesClaimInUnknownFormatException.java b/authentication-service/src/main/java/com/tradestream/auth/exceptions/ScopesClaimInUnknownFormatException.java
+new file mode 100644
+index 0000000..215b948
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/exceptions/ScopesClaimInUnknownFormatException.java
+@@ -0,0 +1,11 @@
++package com.tradestream.auth.exceptions;
++
++public class ScopesClaimInUnknownFormatException extends RuntimeException {
++    public ScopesClaimInUnknownFormatException(String message) {
++        super("Scopes Claim Is In An Unknown Format Exception: "+message);
++    }
++
++    public ScopesClaimInUnknownFormatException(String message, Throwable cause) {
++        super("Scopes Claim Is In An Unknown Format Exception: "+message, cause);
++    }
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/exceptions/UnableToGenerateRSAKeyPairException.java b/authentication-service/src/main/java/com/tradestream/auth/exceptions/UnableToGenerateRSAKeyPairException.java
+new file mode 100644
+index 0000000..10114bb
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/exceptions/UnableToGenerateRSAKeyPairException.java
+@@ -0,0 +1,12 @@
++package com.tradestream.auth.exceptions;
++
++public class UnableToGenerateRSAKeyPairException extends RuntimeException {
++    public UnableToGenerateRSAKeyPairException(String message) {
++        super("Unable To Generate RSA Key Pair Exception: "+message);
++    }
++
++    public UnableToGenerateRSAKeyPairException(String message, Throwable cause) {
++        super("Unable To Generate RSA Key Pair Exception: "+message, cause);
++    }
++    
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/exceptions/UserNotFoundException.java b/authentication-service/src/main/java/com/tradestream/auth/exceptions/UserNotFoundException.java
+new file mode 100644
+index 0000000..46a815a
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/exceptions/UserNotFoundException.java
+@@ -0,0 +1,11 @@
++package com.tradestream.auth.exceptions;
++
++public class UserNotFoundException extends RuntimeException {
++    public UserNotFoundException(String message) {
++        super("User Not Found Exception"+message);
++    }
++
++    public UserNotFoundException(String message, Throwable cause) {
++        super("User Not Found Exception"+message, cause);
++    }
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/handler/GlobalErrorHandler.java b/authentication-service/src/main/java/com/tradestream/auth/handler/GlobalErrorHandler.java
+new file mode 100644
+index 0000000..ea0c8b7
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/handler/GlobalErrorHandler.java
+@@ -0,0 +1,48 @@
++package com.tradestream.auth.handler;
++
++import org.springframework.http.HttpStatus;
++import org.springframework.http.ResponseEntity;
++import org.springframework.web.bind.annotation.ControllerAdvice;
++import org.springframework.web.bind.annotation.ExceptionHandler;
++
++import com.tradestream.auth.exceptions.InvalidCredentialsException;
++import com.tradestream.auth.exceptions.InvalidRefreshTokenException;
++import com.tradestream.auth.exceptions.ScopesClaimInUnknownFormatException;
++import com.tradestream.auth.exceptions.UnableToGenerateRSAKeyPairException;
++import com.tradestream.auth.exceptions.UserNotFoundException;
++
++@ControllerAdvice
++public class GlobalErrorHandler {
++
++    @ExceptionHandler(InvalidCredentialsException.class)
++    public ResponseEntity<String> handleInvalidCredentials(InvalidCredentialsException ex) {
++        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage());
++    }
++
++    @ExceptionHandler(InvalidRefreshTokenException.class)
++    public ResponseEntity<String> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
++        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ex.getMessage()); // here it could have 
++                        // been a bad request but i feel like its better as unathorized as refresh token have a life span
++    }
++
++    @ExceptionHandler(ScopesClaimInUnknownFormatException.class)
++    public ResponseEntity<String> handleInvalidRefreshToken(ScopesClaimInUnknownFormatException ex) {
++        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
++    }
++
++    @ExceptionHandler(UnableToGenerateRSAKeyPairException.class)
++    public ResponseEntity<String> handleUnableToGenerateRSAKeyPair(UnableToGenerateRSAKeyPairException ex) {
++        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ex.getMessage());
++    }
++    
++    @ExceptionHandler(UserNotFoundException.class)
++    public ResponseEntity<String> handleUserNotFound(UserNotFoundException ex) {
++        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
++    }
++
++    @ExceptionHandler(Exception.class)
++    public ResponseEntity<String> handleGenericException(Exception ex) {
++        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred: " + ex.getMessage());
++    }  
++
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/model/User.java b/authentication-service/src/main/java/com/tradestream/auth/model/User.java
+new file mode 100644
+index 0000000..5509e0f
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/model/User.java
+@@ -0,0 +1,30 @@
++// src/main/java/com/tradestream/auth/model/User.java
++package com.tradestream.auth.model;
++
++import java.util.UUID;
++
++import jakarta.persistence.Column;
++import jakarta.persistence.Entity;
++import jakarta.persistence.GeneratedValue;
++import jakarta.persistence.Id;
++import jakarta.persistence.Table;
++import lombok.Getter;
++import lombok.Setter;
++
++@Entity
++@Table(name = "users")
++@Getter
++@Setter
++public class User {
++
++    @Id
++    @GeneratedValue
++    private UUID id;
++
++    @Column(nullable = false, unique = true)
++    private String username;
++
++    @Column(nullable = false)
++    private String password;
++
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/repository/UserRepository.java b/authentication-service/src/main/java/com/tradestream/auth/repository/UserRepository.java
+new file mode 100644
+index 0000000..13747ce
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/repository/UserRepository.java
+@@ -0,0 +1,14 @@
++// src/main/java/com/tradestream/auth/repository/UserRepository.java
++package com.tradestream.auth.repository;
++
++import java.util.Optional;
++import java.util.UUID;
++
++import org.springframework.data.jpa.repository.JpaRepository;
++
++import com.tradestream.auth.model.User;
++
++public interface UserRepository extends JpaRepository<User, UUID> {
++    Optional<User> findByUsername(String username);
++    
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/security/InternalCallerInterceptor.java b/authentication-service/src/main/java/com/tradestream/auth/security/InternalCallerInterceptor.java
+new file mode 100644
+index 0000000..972592a
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/security/InternalCallerInterceptor.java
+@@ -0,0 +1,27 @@
++// src/main/java/com/tradestream/auth/security/InternalCallerInterceptor.java
++package com.tradestream.auth.security;
++
++import org.springframework.stereotype.Component;
++import org.springframework.web.servlet.HandlerInterceptor;
++
++import jakarta.servlet.http.HttpServletRequest;
++import jakarta.servlet.http.HttpServletResponse;
++
++@Component
++public class InternalCallerInterceptor implements HandlerInterceptor {
++
++    private static final String INTERNAL_HEADER = "X-Internal-Caller";
++    private static final String EXPECTED_VALUE = "api-gateway";
++
++    @Override
++    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
++        String header = request.getHeader(INTERNAL_HEADER);
++        if (EXPECTED_VALUE.equals(header)) {
++            return true; // allow request
++        }
++
++        response.setStatus(HttpServletResponse.SC_FORBIDDEN); // 403
++        response.getWriter().write("Forbidden: Invalid internal caller header.");
++        return false; // block request
++    }
++}
+diff --git a/authentication-service/src/main/java/com/tradestream/auth/service/TokenService.java b/authentication-service/src/main/java/com/tradestream/auth/service/TokenService.java
+new file mode 100644
+index 0000000..928dee4
+--- /dev/null
++++ b/authentication-service/src/main/java/com/tradestream/auth/service/TokenService.java
+@@ -0,0 +1,190 @@
++// src/main/java/com/tradestream/auth/service/TokenService.java
++package com.tradestream.auth.service;
++
++import java.io.IOException;
++import java.nio.file.Files;
++import java.nio.file.Path;
++import java.security.KeyFactory;
++import java.security.PrivateKey;
++import java.security.PublicKey;
++import java.security.spec.InvalidKeySpecException;
++import java.security.spec.PKCS8EncodedKeySpec;
++import java.security.spec.X509EncodedKeySpec;
++import java.sql.Date;
++import java.time.Instant;
++import java.util.Base64;
++import java.util.List;
++import java.util.UUID;
++
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.stereotype.Service;
++
++import com.tradestream.auth.exceptions.InvalidRefreshTokenException;
++import com.tradestream.auth.exceptions.ScopesClaimInUnknownFormatException;
++
++import io.jsonwebtoken.Claims;
++import io.jsonwebtoken.JwtException;
++import io.jsonwebtoken.Jwts;
++import io.jsonwebtoken.SignatureAlgorithm;
++
++@Service
++public class TokenService {
++
++    private final PrivateKey privateKey;
++    private final PublicKey publicKey;
++
++    public TokenService(
++        @Value("${JWT_PRIVATE_KEY_PATH}") String privateKeyPath,
++        @Value("${JWT_PUBLIC_KEY_PATH}") String publicKeyPath
++    ) throws InvalidKeySpecException {
++        String privateKeyPem;
++        String publicKeyPem;
++        try {
++            privateKeyPem = Files.readString(Path.of(privateKeyPath));
++            publicKeyPem = Files.readString(Path.of(publicKeyPath));
++        } catch (IOException e) {
++            throw new InvalidKeySpecException("Failed to read key from path", e);
++        }
++        this.privateKey = loadPrivateKeyFromPem(privateKeyPem);
++        this.publicKey = loadPublicKeyFromPem(publicKeyPem);
++    }
++
++    private PrivateKey loadPrivateKeyFromPem(String pem) throws InvalidKeySpecException {
++        String privateKeyPEM = pem
++            .replace("-----BEGIN PRIVATE KEY-----", "")
++            .replace("-----END PRIVATE KEY-----", "")
++            .replaceAll("\\s+", "");
++
++        byte[] keyBytes = Base64.getDecoder().decode(privateKeyPEM);
++        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
++        try {
++            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
++            return keyFactory.generatePrivate(keySpec);
++        } catch (Exception e) {
++            throw new InvalidKeySpecException("Failed to load private key from PEM", e);
++        }
++    }
++
++    private PublicKey loadPublicKeyFromPem(String pem) throws InvalidKeySpecException {
++        String publicKeyPEM = pem
++            .replace("-----BEGIN PUBLIC KEY-----", "")
++            .replace("-----END PUBLIC KEY-----", "")
++            .replaceAll("\\s+", "");
++
++        byte[] keyBytes = Base64.getDecoder().decode(publicKeyPEM);
++        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
++        try {
++            KeyFactory keyFactory = KeyFactory.getInstance("RSA");
++            return keyFactory.generatePublic(keySpec);
++        } catch (Exception e) {
++            throw new InvalidKeySpecException("Failed to load public key from PEM", e);
++        }
++    }
++
++
++    // Add method to generate JWT here using `privateKey`
++    public String generateAccessToken(String username, UUID userId, String... scopes) {
++        Instant now = Instant.now();
++        Instant expiry = now.plusSeconds(15 * 60); // 15 minutes
++
++        return Jwts.builder()
++                .setId(UUID.randomUUID().toString())
++                .setSubject(userId.toString())
++                .setHeaderParam("typ", "JWT")
++                .setHeaderParam("alg", "PS256")
++                .setIssuedAt(Date.from(now))
++                .setExpiration(Date.from(expiry))
++                .setIssuer("authentication-service")
++                .setAudience("api-gateway")
++                .claim("username", username)
++                .claim("token_type", "access")
++                .claim("scopes", scopes)
++                .signWith(privateKey, SignatureAlgorithm.PS256)
++                .compact();
++    }
++
++    public String generateRefreshToken(String username, UUID userId, String... scopes) {
++        Instant now = Instant.now();
++        Instant expiry = now.plusSeconds(30 * 24 * 60 * 60); // 30 days
++
++        return Jwts.builder()
++                .setId(UUID.randomUUID().toString())
++                .setSubject(userId.toString())
++                .setHeaderParam("typ", "JWT")
++                .setHeaderParam("alg", "PS256")
++                .setIssuedAt(Date.from(now))
++                .setExpiration(Date.from(expiry))
++                .setIssuer("authentication-service")
++                .setAudience("api-gateway")
++                .claim("username", username)
++                .claim("token_type", "refresh") 
++                .claim("scopes", scopes)
++                .signWith(privateKey, SignatureAlgorithm.PS256)
++                .compact();
++    }
++
++    public String extractUsernameFromRefreshToken(String refreshToken) {        
++        try {
++            Claims claims = parseToken(refreshToken);
++            if (isNotRefreshToken(refreshToken)) {
++                throw new InvalidRefreshTokenException("Token is not a refresh token");
++            }
++            return claims.get("username", String.class);
++        } catch (JwtException e) {
++            throw new InvalidRefreshTokenException("Invalid refresh token: unexpected format or tampering", e);
++        }
++    }
++
++    public UUID extractUserIdFromRefreshToken(String refreshToken) {
++        try {
++            Claims claims = parseToken(refreshToken);
++            if (isNotRefreshToken(refreshToken)) {
++                throw new InvalidRefreshTokenException("Token is not a refresh token");
++            }
++            return UUID.fromString(claims.getSubject());
++        } catch (JwtException e) {
++            throw new InvalidRefreshTokenException("Invalid refresh token: unexpected format or tampering", e);
++        }
++    }
++
++    public String[] extractScopesFromRefreshToken(String refreshToken) {
++        try {
++            Claims claims = parseToken(refreshToken);
++            if (isNotRefreshToken(refreshToken)) {
++                throw new InvalidRefreshTokenException("Token is not a refresh token");
++            }
++            Object rawScopes = claims.get("scopes");
++
++            if (rawScopes == null) {
++                throw new InvalidRefreshTokenException("Invalid refresh token: unexpected format or tampering");   
++            }
++
++            if (rawScopes instanceof List<?>) {
++                List<?> list = (List<?>) rawScopes;
++                return list.stream().map(Object::toString).toArray(String[]::new);
++            } else if (rawScopes instanceof String[]) {
++                return (String[]) rawScopes;
++            } else {
++                throw new ScopesClaimInUnknownFormatException("Scopes claim is in an unknown format");
++            }
++
++        } catch (JwtException e) {
++            throw new InvalidRefreshTokenException("Invalid refresh token", e);
++        }
++    }
++
++    private Claims parseToken(String token) {
++        return Jwts.parserBuilder()
++                .setSigningKey(publicKey) // Required for parsing signed JWTs even though validation is done at the api-gateway
++                .build()
++                .parseClaimsJws(token)
++                .getBody();
++    }
++
++    public boolean isNotRefreshToken(String token) {
++        return !"refresh".equals(parseToken(token).get("token_type", String.class));
++    }
++
++
++}
++
+diff --git a/authentication-service/src/main/resources/application.properties b/authentication-service/src/main/resources/application.properties
+new file mode 100644
+index 0000000..19f053a
+--- /dev/null
++++ b/authentication-service/src/main/resources/application.properties
+@@ -0,0 +1,14 @@
++spring.application.name=auth
++server.port=${SERVER_PORT}
++
++# --- PostgreSQL connection ---
++spring.datasource.url=${SPRING_DATASOURCE_URL}
++spring.datasource.username=${SPRING_DATASOURCE_USERNAME}
++spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
++spring.jpa.hibernate.ddl-auto=${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
++
++# --- Flyway config ---
++spring.flyway.enabled=${SPRING_FLYWAY_ENABLED:true}
++spring.flyway.locations=${SPRING_FLYWAY_LOCATIONS:classpath:db/migration}
++spring.flyway.baseline-on-migrate=true
++logging.level.org.flywaydb=DEBUG
+diff --git a/authentication-service/src/main/resources/db/migration/V1__create_users_table.sql b/authentication-service/src/main/resources/db/migration/V1__create_users_table.sql
+new file mode 100644
+index 0000000..f5ec958
+--- /dev/null
++++ b/authentication-service/src/main/resources/db/migration/V1__create_users_table.sql
+@@ -0,0 +1,6 @@
++CREATE TABLE users (
++    id UUID PRIMARY KEY,
++    email VARCHAR(255) UNIQUE NOT NULL,
++    password VARCHAR(255) NOT NULL,
++    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++);
+diff --git a/authentication-service/src/test/java/com/tradestream/auth/AuthApplicationTests.java b/authentication-service/src/test/java/com/tradestream/auth/AuthApplicationTests.java
+new file mode 100644
+index 0000000..ecd68bf
+--- /dev/null
++++ b/authentication-service/src/test/java/com/tradestream/auth/AuthApplicationTests.java
+@@ -0,0 +1,13 @@
++package com.tradestream.auth;
++
++import org.junit.jupiter.api.Test;
++import org.springframework.boot.test.context.SpringBootTest;
++
++@SpringBootTest
++class AuthApplicationTests {
++
++	@Test
++	void contextLoads() {
++	}
++
++}
+diff --git a/automated_scripts/dev-deploy.sh b/automated_scripts/dev-deploy.sh
+new file mode 100755
+index 0000000..d8d3831
+--- /dev/null
++++ b/automated_scripts/dev-deploy.sh
+@@ -0,0 +1,31 @@
++#!/bin/bash
++
++set -e
++
++STACK_NAME="tradestream"
++TIMESTAMP=$(date +%s)
++
++SERVICE_KEYS=("auth-service" "user-registration-service")
++SERVICE_DIRS=("authentication-service" "user-registration-service")
++
++echo "🔁 Starting multi-service build & deploy..."
++for i in "${!SERVICE_KEYS[@]}"; do
++  SERVICE_NAME="${SERVICE_KEYS[$i]}"
++  CONTEXT_DIR="${SERVICE_DIRS[$i]}"
++  IMAGE_NAME="tradestream-$SERVICE_NAME:$TIMESTAMP"
++
++  echo ""
++  echo "🔨 Building $SERVICE_NAME from $CONTEXT_DIR → $IMAGE_NAME"
++  docker build -t $IMAGE_NAME ./$CONTEXT_DIR
++
++  echo "🚢 Updating $SERVICE_NAME in stack '$STACK_NAME'"
++  docker service update \
++    --image $IMAGE_NAME \
++    --force \
++    ${STACK_NAME}_${SERVICE_NAME}
++
++  echo "✅ $SERVICE_NAME updated"
++done
++
++echo ""
++echo "🎉 All selected services updated successfully with tag $TIMESTAMP"
+diff --git a/docker-compose.yml b/docker-compose.yml
+index e69de29..9cb9512 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -0,0 +1,64 @@
++version: '3.8'
++
++services:
++  user-registration-service:
++    build:
++      context: ./user-registration-service
++      dockerfile: Dockerfile
++    image: tradestream-user-registration-service:dev
++    ports:
++      - "8081:8081" 
++    depends_on:
++      - postgres
++    environment:
++      SERVER_PORT: 8081
++      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/authdb
++      SPRING_DATASOURCE_USERNAME: authuser
++      SPRING_DATASOURCE_PASSWORD: authpass
++      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
++      SPRING_FLYWAY_ENABLED: "true"
++      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
++  auth-service:
++    build:
++      context: ./authentication-service
++      dockerfile: Dockerfile
++    image: tradestream-auth-service:dev
++    ports:
++      - "8080:8080"
++    depends_on:
++      - postgres
++    environment:
++      SERVER_PORT: 8082
++      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/authdb
++      SPRING_DATASOURCE_USERNAME: authuser
++      SPRING_DATASOURCE_PASSWORD: authpass
++      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
++      SPRING_FLYWAY_ENABLED: "true"
++      SPRING_FLYWAY_LOCATIONS: classpath:db/migration
++      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private.pem
++      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public.pem
++    secrets:
++      - jwt_private.pem
++      - jwt_public.pem
++  
++
++  postgres:
++    image: postgres:15-alpine
++    container_name: tradestream_postgres
++    ports:
++      - "5432:5432"
++    environment:
++      POSTGRES_DB: authdb
++      POSTGRES_USER: authuser
++      POSTGRES_PASSWORD: authpass
++    volumes:
++      - postgres_data:/var/lib/postgresql/data
++
++volumes:
++  postgres_data:
++
++secrets:
++  jwt_private.pem:
++    external: true
++  jwt_public.pem:
++    external: true
+diff --git a/user-registration-service/.gitattributes b/user-registration-service/.gitattributes
+new file mode 100644
+index 0000000..8af972c
+--- /dev/null
++++ b/user-registration-service/.gitattributes
+@@ -0,0 +1,3 @@
++/gradlew text eol=lf
++*.bat text eol=crlf
++*.jar binary
+diff --git a/user-registration-service/.gitignore b/user-registration-service/.gitignore
+new file mode 100644
+index 0000000..c2065bc
+--- /dev/null
++++ b/user-registration-service/.gitignore
+@@ -0,0 +1,37 @@
++HELP.md
++.gradle
++build/
++!gradle/wrapper/gradle-wrapper.jar
++!**/src/main/**/build/
++!**/src/test/**/build/
++
++### STS ###
++.apt_generated
++.classpath
++.factorypath
++.project
++.settings
++.springBeans
++.sts4-cache
++bin/
++!**/src/main/**/bin/
++!**/src/test/**/bin/
++
++### IntelliJ IDEA ###
++.idea
++*.iws
++*.iml
++*.ipr
++out/
++!**/src/main/**/out/
++!**/src/test/**/out/
++
++### NetBeans ###
++/nbproject/private/
++/nbbuild/
++/dist/
++/nbdist/
++/.nb-gradle/
++
++### VS Code ###
++.vscode/
+diff --git a/user-registration-service/Dockerfile b/user-registration-service/Dockerfile
+new file mode 100644
+index 0000000..296bb3e
+--- /dev/null
++++ b/user-registration-service/Dockerfile
+@@ -0,0 +1,19 @@
++# 1. Base image with Java
++FROM eclipse-temurin:17-jdk
++
++# 2. Set working directory
++WORKDIR /app
++
++# 3. Copy everything from the context (user-registration service files)
++COPY . .
++
++# 4. Grant Gradle permission (good for Alpine-based images)
++# 5. Build app (skip tests for speed)
++RUN chmod +x ./gradlew && ./gradlew clean build -x test
++
++# 6. Expose port used by Spring Boot
++EXPOSE 8081
++
++# 7. Run the application using the compiled JAR
++CMD ["java", "-jar", "build/libs/user-registration-service-0.0.1-SNAPSHOT.jar"]
++
+diff --git a/user-registration-service/README.md b/user-registration-service/README.md
+new file mode 100644
+index 0000000..8a335a5
+--- /dev/null
++++ b/user-registration-service/README.md
+@@ -0,0 +1,76 @@
++# 🚀 User Registration Service
++
++* A simple user registration microservice
++
++---
++
++## 📘 Overview
++
++
++* It allows the registration of new users using a provided username and password
++* I built it because I want to learn how to build microservices after reading so much about them - this will be used in tradestream 
++* I used Java SpringBoot, Flyway, Docker, and Gradle
++* Any unique twist or feature? 
++  It has an internal caller interceptor that only forwards requests from my api gateway by checking the header of each request  
++
++
++## 📸 Screenshots
++
++```bash
++![./docs/example-curl-request-to-microservice.png]
++```
++
++---
++
++## 🧠 What I Learned
++
++* How to build a simple microservice 
++* How to integrate Flyway to Spring Boot projects
++* How to integrate interceptors into Spring Boot projects
++* How to integrate Docker-compose.yml environment variables into Spring Boot projects
++
++---
++
++## 📦 Getting Started
++
++Instructions to run it locally:
++
++```bash
++# Clone the repository
++git clone https://github.com/VictoriousWealth/tradestream.git
++
++# Navigate to the project directory
++cd ./tradestream/user-registration-service
++
++# Run the application
++./gradlew clean build -x test 
++```
++
++Access:
++
++* User Registration Service at `http://localhost:8081`
++
++---
++
++## 📄 License
++
++This project is licensed under the **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)** license.
++
++You are free to:
++
++* Share and adapt the project
++* Use it for educational, personal, or research purposes
++
++**Commercial use is not permitted.**
++
++See the full license [here](https://creativecommons.org/licenses/by-nc/4.0/) for details.
++
++---
++
++## 📬 Contact [↑ Top](#table-of-contents)
++
++**Nick Efe Oni**
++[LinkedIn](https://www.linkedin.com/in/nick-efe-oni)
++[GitHub](https://github.com/VictoriousWealth)
++
++---
+diff --git a/user-registration-service/build.gradle b/user-registration-service/build.gradle
+new file mode 100644
+index 0000000..f37768a
+--- /dev/null
++++ b/user-registration-service/build.gradle
+@@ -0,0 +1,40 @@
++plugins {
++	id 'java'
++	id 'org.springframework.boot' version '3.5.3'
++	id 'io.spring.dependency-management' version '1.1.7'
++}
++
++group = 'com.tradestream'
++version = '0.0.1-SNAPSHOT'
++
++java {
++	toolchain {
++		languageVersion = JavaLanguageVersion.of(17)
++	}
++}
++
++configurations {
++	compileOnly {
++		extendsFrom annotationProcessor
++	}
++}
++
++repositories {
++	mavenCentral()
++}
++
++dependencies {
++	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
++	implementation 'org.springframework.boot:spring-boot-starter-security'
++	implementation 'org.springframework.boot:spring-boot-starter-web'
++	compileOnly 'org.projectlombok:lombok'
++	runtimeOnly 'org.postgresql:postgresql'
++	annotationProcessor 'org.projectlombok:lombok'
++	testImplementation 'org.springframework.boot:spring-boot-starter-test'
++	testImplementation 'org.springframework.security:spring-security-test'
++	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
++}
++
++tasks.named('test') {
++	useJUnitPlatform()
++}
+diff --git a/user-registration-service/docs/example-curl-request-to-microservice.png b/user-registration-service/docs/example-curl-request-to-microservice.png
+new file mode 100644
+index 0000000..37aa724
+Binary files /dev/null and b/user-registration-service/docs/example-curl-request-to-microservice.png differ
+diff --git a/user-registration-service/gradle/wrapper/gradle-wrapper.jar b/user-registration-service/gradle/wrapper/gradle-wrapper.jar
+new file mode 100644
+index 0000000..1b33c55
+Binary files /dev/null and b/user-registration-service/gradle/wrapper/gradle-wrapper.jar differ
+diff --git a/user-registration-service/gradle/wrapper/gradle-wrapper.properties b/user-registration-service/gradle/wrapper/gradle-wrapper.properties
+new file mode 100644
+index 0000000..d4081da
+--- /dev/null
++++ b/user-registration-service/gradle/wrapper/gradle-wrapper.properties
+@@ -0,0 +1,7 @@
++distributionBase=GRADLE_USER_HOME
++distributionPath=wrapper/dists
++distributionUrl=https\://services.gradle.org/distributions/gradle-8.14.3-bin.zip
++networkTimeout=10000
++validateDistributionUrl=true
++zipStoreBase=GRADLE_USER_HOME
++zipStorePath=wrapper/dists
+diff --git a/user-registration-service/gradlew b/user-registration-service/gradlew
+new file mode 100755
+index 0000000..23d15a9
+--- /dev/null
++++ b/user-registration-service/gradlew
+@@ -0,0 +1,251 @@
++#!/bin/sh
++
++#
++# Copyright © 2015-2021 the original authors.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#      https://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++# SPDX-License-Identifier: Apache-2.0
++#
++
++##############################################################################
++#
++#   Gradle start up script for POSIX generated by Gradle.
++#
++#   Important for running:
++#
++#   (1) You need a POSIX-compliant shell to run this script. If your /bin/sh is
++#       noncompliant, but you have some other compliant shell such as ksh or
++#       bash, then to run this script, type that shell name before the whole
++#       command line, like:
++#
++#           ksh Gradle
++#
++#       Busybox and similar reduced shells will NOT work, because this script
++#       requires all of these POSIX shell features:
++#         * functions;
++#         * expansions «$var», «${var}», «${var:-default}», «${var+SET}»,
++#           «${var#prefix}», «${var%suffix}», and «$( cmd )»;
++#         * compound commands having a testable exit status, especially «case»;
++#         * various built-in commands including «command», «set», and «ulimit».
++#
++#   Important for patching:
++#
++#   (2) This script targets any POSIX shell, so it avoids extensions provided
++#       by Bash, Ksh, etc; in particular arrays are avoided.
++#
++#       The "traditional" practice of packing multiple parameters into a
++#       space-separated string is a well documented source of bugs and security
++#       problems, so this is (mostly) avoided, by progressively accumulating
++#       options in "$@", and eventually passing that to Java.
++#
++#       Where the inherited environment variables (DEFAULT_JVM_OPTS, JAVA_OPTS,
++#       and GRADLE_OPTS) rely on word-splitting, this is performed explicitly;
++#       see the in-line comments for details.
++#
++#       There are tweaks for specific operating systems such as AIX, CygWin,
++#       Darwin, MinGW, and NonStop.
++#
++#   (3) This script is generated from the Groovy template
++#       https://github.com/gradle/gradle/blob/HEAD/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
++#       within the Gradle project.
++#
++#       You can find Gradle at https://github.com/gradle/gradle/.
++#
++##############################################################################
++
++# Attempt to set APP_HOME
++
++# Resolve links: $0 may be a link
++app_path=$0
++
++# Need this for daisy-chained symlinks.
++while
++    APP_HOME=${app_path%"${app_path##*/}"}  # leaves a trailing /; empty if no leading path
++    [ -h "$app_path" ]
++do
++    ls=$( ls -ld "$app_path" )
++    link=${ls#*' -> '}
++    case $link in             #(
++      /*)   app_path=$link ;; #(
++      *)    app_path=$APP_HOME$link ;;
++    esac
++done
++
++# This is normally unused
++# shellcheck disable=SC2034
++APP_BASE_NAME=${0##*/}
++# Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
++APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
++
++# Use the maximum available, or set MAX_FD != -1 to use that value.
++MAX_FD=maximum
++
++warn () {
++    echo "$*"
++} >&2
++
++die () {
++    echo
++    echo "$*"
++    echo
++    exit 1
++} >&2
++
++# OS specific support (must be 'true' or 'false').
++cygwin=false
++msys=false
++darwin=false
++nonstop=false
++case "$( uname )" in                #(
++  CYGWIN* )         cygwin=true  ;; #(
++  Darwin* )         darwin=true  ;; #(
++  MSYS* | MINGW* )  msys=true    ;; #(
++  NONSTOP* )        nonstop=true ;;
++esac
++
++CLASSPATH="\\\"\\\""
++
++
++# Determine the Java command to use to start the JVM.
++if [ -n "$JAVA_HOME" ] ; then
++    if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
++        # IBM's JDK on AIX uses strange locations for the executables
++        JAVACMD=$JAVA_HOME/jre/sh/java
++    else
++        JAVACMD=$JAVA_HOME/bin/java
++    fi
++    if [ ! -x "$JAVACMD" ] ; then
++        die "ERROR: JAVA_HOME is set to an invalid directory: $JAVA_HOME
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++else
++    JAVACMD=java
++    if ! command -v java >/dev/null 2>&1
++    then
++        die "ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH.
++
++Please set the JAVA_HOME variable in your environment to match the
++location of your Java installation."
++    fi
++fi
++
++# Increase the maximum file descriptors if we can.
++if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
++    case $MAX_FD in #(
++      max*)
++        # In POSIX sh, ulimit -H is undefined. That's why the result is checked to see if it worked.
++        # shellcheck disable=SC2039,SC3045
++        MAX_FD=$( ulimit -H -n ) ||
++            warn "Could not query maximum file descriptor limit"
++    esac
++    case $MAX_FD in  #(
++      '' | soft) :;; #(
++      *)
++        # In POSIX sh, ulimit -n is undefined. That's why the result is checked to see if it worked.
++        # shellcheck disable=SC2039,SC3045
++        ulimit -n "$MAX_FD" ||
++            warn "Could not set maximum file descriptor limit to $MAX_FD"
++    esac
++fi
++
++# Collect all arguments for the java command, stacking in reverse order:
++#   * args from the command line
++#   * the main class name
++#   * -classpath
++#   * -D...appname settings
++#   * --module-path (only if needed)
++#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and GRADLE_OPTS environment variables.
++
++# For Cygwin or MSYS, switch paths to Windows format before running java
++if "$cygwin" || "$msys" ; then
++    APP_HOME=$( cygpath --path --mixed "$APP_HOME" )
++    CLASSPATH=$( cygpath --path --mixed "$CLASSPATH" )
++
++    JAVACMD=$( cygpath --unix "$JAVACMD" )
++
++    # Now convert the arguments - kludge to limit ourselves to /bin/sh
++    for arg do
++        if
++            case $arg in                                #(
++              -*)   false ;;                            # don't mess with options #(
++              /?*)  t=${arg#/} t=/${t%%/*}              # looks like a POSIX filepath
++                    [ -e "$t" ] ;;                      #(
++              *)    false ;;
++            esac
++        then
++            arg=$( cygpath --path --ignore --mixed "$arg" )
++        fi
++        # Roll the args list around exactly as many times as the number of
++        # args, so each arg winds up back in the position where it started, but
++        # possibly modified.
++        #
++        # NB: a `for` loop captures its iteration list before it begins, so
++        # changing the positional parameters here affects neither the number of
++        # iterations, nor the values presented in `arg`.
++        shift                   # remove old arg
++        set -- "$@" "$arg"      # push replacement arg
++    done
++fi
++
++
++# Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
++
++# Collect all arguments for the java command:
++#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
++#     and any embedded shellness will be escaped.
++#   * For example: A user cannot expect ${Hostname} to be expanded, as it is an environment variable and will be
++#     treated as '${Hostname}' itself on the command line.
++
++set -- \
++        "-Dorg.gradle.appname=$APP_BASE_NAME" \
++        -classpath "$CLASSPATH" \
++        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
++        "$@"
++
++# Stop when "xargs" is not available.
++if ! command -v xargs >/dev/null 2>&1
++then
++    die "xargs is not available"
++fi
++
++# Use "xargs" to parse quoted args.
++#
++# With -n1 it outputs one arg per line, with the quotes and backslashes removed.
++#
++# In Bash we could simply go:
++#
++#   readarray ARGS < <( xargs -n1 <<<"$var" ) &&
++#   set -- "${ARGS[@]}" "$@"
++#
++# but POSIX shell has neither arrays nor command substitution, so instead we
++# post-process each arg (as a line of input to sed) to backslash-escape any
++# character that might be a shell metacharacter, then use eval to reverse
++# that process (while maintaining the separation between arguments), and wrap
++# the whole thing up as a single "set" statement.
++#
++# This will of course break if any of these variables contains a newline or
++# an unmatched quote.
++#
++
++eval "set -- $(
++        printf '%s\n' "$DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS" |
++        xargs -n1 |
++        sed ' s~[^-[:alnum:]+,./:=@_]~\\&~g; ' |
++        tr '\n' ' '
++    )" '"$@"'
++
++exec "$JAVACMD" "$@"
+diff --git a/user-registration-service/gradlew.bat b/user-registration-service/gradlew.bat
+new file mode 100644
+index 0000000..db3a6ac
+--- /dev/null
++++ b/user-registration-service/gradlew.bat
+@@ -0,0 +1,94 @@
++@rem
++@rem Copyright 2015 the original author or authors.
++@rem
++@rem Licensed under the Apache License, Version 2.0 (the "License");
++@rem you may not use this file except in compliance with the License.
++@rem You may obtain a copy of the License at
++@rem
++@rem      https://www.apache.org/licenses/LICENSE-2.0
++@rem
++@rem Unless required by applicable law or agreed to in writing, software
++@rem distributed under the License is distributed on an "AS IS" BASIS,
++@rem WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++@rem See the License for the specific language governing permissions and
++@rem limitations under the License.
++@rem
++@rem SPDX-License-Identifier: Apache-2.0
++@rem
++
++@if "%DEBUG%"=="" @echo off
++@rem ##########################################################################
++@rem
++@rem  Gradle startup script for Windows
++@rem
++@rem ##########################################################################
++
++@rem Set local scope for the variables with windows NT shell
++if "%OS%"=="Windows_NT" setlocal
++
++set DIRNAME=%~dp0
++if "%DIRNAME%"=="" set DIRNAME=.
++@rem This is normally unused
++set APP_BASE_NAME=%~n0
++set APP_HOME=%DIRNAME%
++
++@rem Resolve any "." and ".." in APP_HOME to make it shorter.
++for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
++
++@rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
++set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
++
++@rem Find java.exe
++if defined JAVA_HOME goto findJavaFromJavaHome
++
++set JAVA_EXE=java.exe
++%JAVA_EXE% -version >NUL 2>&1
++if %ERRORLEVEL% equ 0 goto execute
++
++echo. 1>&2
++echo ERROR: JAVA_HOME is not set and no 'java' command could be found in your PATH. 1>&2
++echo. 1>&2
++echo Please set the JAVA_HOME variable in your environment to match the 1>&2
++echo location of your Java installation. 1>&2
++
++goto fail
++
++:findJavaFromJavaHome
++set JAVA_HOME=%JAVA_HOME:"=%
++set JAVA_EXE=%JAVA_HOME%/bin/java.exe
++
++if exist "%JAVA_EXE%" goto execute
++
++echo. 1>&2
++echo ERROR: JAVA_HOME is set to an invalid directory: %JAVA_HOME% 1>&2
++echo. 1>&2
++echo Please set the JAVA_HOME variable in your environment to match the 1>&2
++echo location of your Java installation. 1>&2
++
++goto fail
++
++:execute
++@rem Setup the command line
++
++set CLASSPATH=
++
++
++@rem Execute Gradle
++"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %*
++
++:end
++@rem End local scope for the variables with windows NT shell
++if %ERRORLEVEL% equ 0 goto mainEnd
++
++:fail
++rem Set variable GRADLE_EXIT_CONSOLE if you need the _script_ return code instead of
++rem the _cmd.exe /c_ return code!
++set EXIT_CODE=%ERRORLEVEL%
++if %EXIT_CODE% equ 0 set EXIT_CODE=1
++if not ""=="%GRADLE_EXIT_CONSOLE%" exit %EXIT_CODE%
++exit /b %EXIT_CODE%
++
++:mainEnd
++if "%OS%"=="Windows_NT" endlocal
++
++:omega
+diff --git a/user-registration-service/settings.gradle b/user-registration-service/settings.gradle
+new file mode 100644
+index 0000000..e0396e4
+--- /dev/null
++++ b/user-registration-service/settings.gradle
+@@ -0,0 +1 @@
++rootProject.name = 'user-registration-service'
+diff --git a/user-registration-service/src/main/java/com/tradestream/user_registration_service/UserRegistrationServiceApplication.java b/user-registration-service/src/main/java/com/tradestream/user_registration_service/UserRegistrationServiceApplication.java
+new file mode 100644
+index 0000000..f613093
+--- /dev/null
++++ b/user-registration-service/src/main/java/com/tradestream/user_registration_service/UserRegistrationServiceApplication.java
+@@ -0,0 +1,13 @@
++package com.tradestream.user_registration_service;
++
++import org.springframework.boot.SpringApplication;
++import org.springframework.boot.autoconfigure.SpringBootApplication;
++
++@SpringBootApplication
++public class UserRegistrationServiceApplication {
++
++	public static void main(String[] args) {
++		SpringApplication.run(UserRegistrationServiceApplication.class, args);
++	}
++
++}
+diff --git a/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/SecurityConfig.java b/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/SecurityConfig.java
+new file mode 100644
+index 0000000..f56246c
+--- /dev/null
++++ b/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/SecurityConfig.java
+@@ -0,0 +1,34 @@
++package com.tradestream.user_registration_service.config;
++
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Configuration;
++import org.springframework.http.HttpMethod;
++import org.springframework.security.config.Customizer;
++import org.springframework.security.config.annotation.web.builders.HttpSecurity;
++import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
++import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
++import org.springframework.security.web.SecurityFilterChain;
++
++@Configuration
++@EnableWebSecurity
++public class SecurityConfig {
++    @Bean
++    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
++        // 🔹 Disable CSRF (only for APIs; keep it enabled for traditional web apps)
++        http.csrf(AbstractHttpConfigurer::disable);
++
++        // 🔹 CORS configuration (enable if frontend is on a different origin)
++        http.cors(Customizer.withDefaults());
++
++        // 🔹 Authorization
++        http.authorizeHttpRequests(auth -> {
++            auth.requestMatchers(HttpMethod.GET, "/", "/error").permitAll();
++            auth.requestMatchers("/register").permitAll();            
++            auth.anyRequest().denyAll(); // Protect all other routes by denying access
++        });
++
++        return http.build();
++    }
++
++
++}
+\ No newline at end of file
+diff --git a/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/WebMvcConfig.java b/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/WebMvcConfig.java
+new file mode 100644
+index 0000000..53d9b99
+--- /dev/null
++++ b/user-registration-service/src/main/java/com/tradestream/user_registration_service/config/WebMvcConfig.java
+@@ -0,0 +1,27 @@
++// src/main/java/com/tradestream/user_registration_service/config/WebMvcConfig.java
++package com.tradestream.user_registration_service.config;
++
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.context.annotation.Configuration;
++import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
++import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
++
++import com.tradestream.user_registration_service.security.InternalCallerInterceptor;
++
++
++@Configuration
++public class WebMvcConfig implements WebMvcConfigurer {
++
++    private final InternalCallerInterceptor interceptor;
++
++    @Autowired
++    public WebMvcConfig(InternalCallerInterceptor interceptor) {
++        this.interceptor = interceptor;
++    }
++
++    @Override
++    public void addInterceptors(InterceptorRegistry registry) {
++        registry.addInterceptor(interceptor)
++                .addPathPatterns("/register"); // 👈 apply to specific sensitive endpoints
++    }
++}
+diff --git a/user-registration-service/src/main/java/com/tradestream/user_registration_service/controller/UserController.java b/user-registration-service/src/main/java/com/tradestream/user_registration_service/controller/UserController.java
+new file mode 100644
+index 0000000..4c2ac74
+--- /dev/null
++++ b/user-registration-service/src/main/java/com/tradestream/user_registration_service/controller/UserController.java
+@@ -0,0 +1,41 @@
++// src/main/java/com/tradestream/user_registration_service/controller/UserController.java
++package com.tradestream.user_registration_service.controller;
++
++
++import org.springframework.http.ResponseEntity;
++import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.bind.annotation.RequestBody;
++import org.springframework.web.bind.annotation.RequestMapping;
++import org.springframework.web.bind.annotation.RestController;
++
++import com.tradestream.user_registration_service.dto.UserDTO;
++import com.tradestream.user_registration_service.model.User;
++import com.tradestream.user_registration_service.repository.UserRepository;
++
++@RestController
++@RequestMapping("")
++public class UserController {
++
++    private final UserRepository userRepository;
++
++    public UserController(UserRepository userRepository) {
++        this.userRepository = userRepository;
++    }
++
++    @PostMapping("/register")
++    public ResponseEntity<String> register(@RequestBody UserDTO userDTO) {
++        
++        String encodedPassword = new BCryptPasswordEncoder().encode(userDTO.getPassword());
++        User user = new User();
++        user.setUsername(userDTO.getUsername());
++        user.setPassword(encodedPassword);
++        userRepository.save(user);
++
++        return ResponseEntity.ok("All good.");
++    }
++
++
++    
++    
++}
+diff --git a/user-registration-service/src/main/java/com/tradestream/user_registration_service/dto/UserDTO.java b/user-registration-service/src/main/java/com/tradestream/user_registration_service/dto/UserDTO.java
+new file mode 100644
+index 0000000..a251fa1
+--- /dev/null
++++ b/user-registration-service/src/main/java/com/tradestream/user_registration_service/dto/UserDTO.java
+@@ -0,0 +1,11 @@
++package com.tradestream.user_registration_service.dto;
++
++import lombok.Data;
++
++@Data
++public class UserDTO {
++
++    private String username;
++    private String password;
++
++}
+diff --git a/user-registration-service/src/main/java/com/tradestream/user_registration_service/model/User.java b/user-registration-service/src/main/java/com/tradestream/user_registration_service/model/User.java
+new file mode 100644
+index 0000000..8691303
+--- /dev/null
++++ b/user-registration-service/src/main/java/com/tradestream/user_registration_service/model/User.java
+@@ -0,0 +1,30 @@
++// src/main/java/com/tradestream/user_registration_service/model/User.java
++package com.tradestream.user_registration_service.model;
++
++import java.util.UUID;
++
++import jakarta.persistence.Column;
++import jakarta.persistence.Entity;
++import jakarta.persistence.GeneratedValue;
++import jakarta.persistence.Id;
++import jakarta.persistence.Table;
++import lombok.Getter;
++import lombok.Setter;
++
++@Entity
++@Table(name = "users")
++@Getter
++@Setter
++public class User {
++
++    @Id
++    @GeneratedValue
++    private UUID id;
++
++    @Column(nullable = false, unique = true)
++    private String username;
++
++    @Column(nullable = false)
++    private String password;
++
++}
+diff --git a/user-registration-service/src/main/java/com/tradestream/user_registration_service/repository/UserRepository.java b/user-registration-service/src/main/java/com/tradestream/user_registration_service/repository/UserRepository.java
+new file mode 100644
+index 0000000..30d061b
+--- /dev/null
++++ b/user-registration-service/src/main/java/com/tradestream/user_registration_service/repository/UserRepository.java
+@@ -0,0 +1,14 @@
++// src/main/java/com/tradestream/user_registration_service/repository/UserRepository.java
++package com.tradestream.user_registration_service.repository;
++
++import java.util.Optional;
++import java.util.UUID;
++
++import org.springframework.data.jpa.repository.JpaRepository;
++
++import com.tradestream.user_registration_service.model.User;
++
++public interface UserRepository extends JpaRepository<User, UUID> {
++    Optional<User> findByUsername(String username);
++    
++}
+diff --git a/user-registration-service/src/main/java/com/tradestream/user_registration_service/security/InternalCallerInterceptor.java b/user-registration-service/src/main/java/com/tradestream/user_registration_service/security/InternalCallerInterceptor.java
+new file mode 100644
+index 0000000..53409d8
+--- /dev/null
++++ b/user-registration-service/src/main/java/com/tradestream/user_registration_service/security/InternalCallerInterceptor.java
+@@ -0,0 +1,27 @@
++// src/main/java/com/tradestream/user_registration_service/security/InternalCallerInterceptor.java
++package com.tradestream.user_registration_service.security;
++
++import org.springframework.stereotype.Component;
++import org.springframework.web.servlet.HandlerInterceptor;
++
++import jakarta.servlet.http.HttpServletRequest;
++import jakarta.servlet.http.HttpServletResponse;
++
++@Component
++public class InternalCallerInterceptor implements HandlerInterceptor {
++
++    private static final String INTERNAL_HEADER = "X-Internal-Caller";
++    private static final String EXPECTED_VALUE = "api-gateway";
++
++    @Override
++    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
++        String header = request.getHeader(INTERNAL_HEADER);
++        if (EXPECTED_VALUE.equals(header)) {
++            return true; // allow request
++        }
++
++        response.setStatus(HttpServletResponse.SC_FORBIDDEN); // 403
++        response.getWriter().write("Forbidden: Invalid internal caller header.");
++        return false; // block request
++    }
++}
+diff --git a/user-registration-service/src/main/resources/application.properties b/user-registration-service/src/main/resources/application.properties
+new file mode 100644
+index 0000000..a71b7c1
+--- /dev/null
++++ b/user-registration-service/src/main/resources/application.properties
+@@ -0,0 +1,14 @@
++spring.application.name=user-registration-service
++server.port=${SERVER_PORT}
++
++# --- PostgreSQL connection ---
++spring.datasource.url=${SPRING_DATASOURCE_URL}
++spring.datasource.username=${SPRING_DATASOURCE_USERNAME}
++spring.datasource.password=${SPRING_DATASOURCE_PASSWORD}
++spring.jpa.hibernate.ddl-auto=${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
++
++# --- Flyway config ---
++spring.flyway.enabled=${SPRING_FLYWAY_ENABLED:true}
++spring.flyway.locations=${SPRING_FLYWAY_LOCATIONS:classpath:db/migration}
++spring.flyway.baseline-on-migrate=true
++logging.level.org.flywaydb=DEBUG
+diff --git a/user-registration-service/src/main/resources/db/migration/V1__create_users_table.sql b/user-registration-service/src/main/resources/db/migration/V1__create_users_table.sql
+new file mode 100644
+index 0000000..f5ec958
+--- /dev/null
++++ b/user-registration-service/src/main/resources/db/migration/V1__create_users_table.sql
+@@ -0,0 +1,6 @@
++CREATE TABLE users (
++    id UUID PRIMARY KEY,
++    email VARCHAR(255) UNIQUE NOT NULL,
++    password VARCHAR(255) NOT NULL,
++    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
++);
+diff --git a/user-registration-service/src/test/java/com/tradestream/user_registration_service/UserRegistrationServiceApplicationTests.java b/user-registration-service/src/test/java/com/tradestream/user_registration_service/UserRegistrationServiceApplicationTests.java
+new file mode 100644
+index 0000000..7431ce6
+--- /dev/null
++++ b/user-registration-service/src/test/java/com/tradestream/user_registration_service/UserRegistrationServiceApplicationTests.java
+@@ -0,0 +1,13 @@
++package com.tradestream.user_registration_service;
++
++import org.junit.jupiter.api.Test;
++import org.springframework.boot.test.context.SpringBootTest;
++
++@SpringBootTest
++class UserRegistrationServiceApplicationTests {
++
++	@Test
++	void contextLoads() {
++	}
++
++}
