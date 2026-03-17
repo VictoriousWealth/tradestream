@@ -1,0 +1,2 @@
+docs/observability-stack-guide.md
+README.md
