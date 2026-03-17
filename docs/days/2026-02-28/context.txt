@@ -1,0 +1,300 @@
+Date: 2026-02-28
+Commit count: 296
+
+Commits:
+56a60e8 2025-07-05 04:22:46 +0100 Nick Efe Oni chore(gitignore): exclude build artifacts and editor files
+1a1eca3 2025-07-05 04:27:55 +0100 Nick Efe Oni style(readme): correct minor typo in main documentation
+31a2635 2025-07-06 05:28:25 +0100 Nick Efe Oni docs(readme): enhance readme for clarity and professional presentation
+9447769 2025-07-06 05:31:22 +0100 Nick Efe Oni chore(readme): update README for deployment clarity
+4d51109 2025-07-06 05:34:05 +0100 Nick Efe Oni chore(readme): update header formatting and improve alignment
+b15b5c7 2025-07-06 05:34:49 +0100 Nick Efe Oni docs(readme): add project overview section to documentation
+06c6bf9 2025-07-06 05:58:08 +0100 Nick Efe Oni chore(docs): update README with new sections and anchors for navigation
+63d6f37 2025-07-06 06:01:54 +0100 Nick Efe Oni chore(license): add Creative Commons Attribution-NonCommercial 4.0 license
+8d1be9f 2025-07-06 06:02:46 +0100 Nick Efe Oni docs(readme): update license information and clarify usage rights
+3c7dc23 2025-07-06 06:04:33 +0100 Nick Efe Oni chore(docs): update README with badges and correct clone URL
+9fbd7e6 2025-07-06 06:08:40 +0100 Nick Efe Oni chore(readme): update technology stack section with new icons
+20967cd 2025-07-06 06:09:19 +0100 Nick Efe Oni style(readme): reduce icon sizes for better layout consistency
+018380f 2025-07-06 06:13:23 +0100 Nick Efe Oni chore(docs): add project requirements document for TradeStream system
+4bf8418 2025-07-06 06:13:48 +0100 Nick Efe Oni chore(docs): update tradestream-prd.md for deployment readiness
+a6f1726 2025-07-06 06:14:44 +0100 Nick Efe Oni chore(docs): remove outdated tradestream production PDF file
+cc785e4 2025-07-06 07:39:34 +0100 Nick Efe Oni chore(docs): deploy updated architecture diagram image
+8024a82 2025-07-06 07:43:23 +0100 Nick Efe Oni chore(docs): update architecture diagram for deployment
+2c24772 2025-07-06 07:47:20 +0100 Nick Efe Oni docs(tradestream): add high-level system diagram to documentation
+da91dbe 2025-07-07 10:15:47 +0100 Nick Efe Oni docs(tradestream): update architecture diagrams and enhance document structure
+27ab533 2025-07-07 23:55:33 +0100 Nick Efe Oni docs(readme): add "go back to table of contents" links in sections
+5908b78 2025-07-07 23:56:09 +0100 Nick Efe Oni docs(readme): add anchor for table of contents section
+25629b1 2025-07-08 00:00:07 +0100 Nick Efe Oni chore(docs): update architecture diagram for deployment
+975935a 2025-07-08 00:04:37 +0100 Nick Efe Oni chore(docs): update architecture diagram for deployment
+3bcaf99 2025-07-08 00:16:39 +0100 Nick Efe Oni docs(readme): update architecture diagram references for clarity
+c92d718 2025-07-08 00:30:13 +0100 Nick Efe Oni docs(readme): add service-specific documentation and authentication flow details
+41d1664 2025-07-08 01:13:22 +0100 Nick Efe Oni docs(api-gateway): update architecture diagram path in README files
+b599b85 2025-07-08 01:14:45 +0100 Nick Efe Oni docs(readme): update link to token authentication flow diagram
+c382cb1 2025-07-08 01:15:47 +0100 Nick Efe Oni docs(readme): update link to token authentication flow diagram
+a855c68 2025-07-08 01:16:22 +0100 Nick Efe Oni docs(readme): update link to token authentication flow diagram
+ad2b2f1 2025-07-08 01:18:07 +0100 Nick Efe Oni docs(readme): update linkedin profile link for accuracy
+e89f2af 2025-07-09 03:46:19 +0100 Nick Efe Oni Deploy
+aad0964 2025-07-09 03:48:14 +0100 Nick Efe Oni docs(api-gateway): update token authentication flow diagram reference
+513f64e 2025-07-09 04:29:41 +0100 Nick Efe Oni chore(auth): add api gateway flow diagram to documentation
+5a05860 2025-07-09 04:31:57 +0100 Nick Efe Oni chore(auth): update authentication flow diagram for deployment
+41a8762 2025-07-09 04:33:12 +0100 Nick Efe Oni chore(auth): update authentication flow diagram for deployment
+f8945c2 2025-07-09 04:34:01 +0100 Nick Efe Oni chore(auth): remove unused api gateway flow diagram image
+e8d24e1 2025-07-09 04:35:18 +0100 Nick Efe Oni chore(auth): deploy updated authentication flow diagram
+37e108c 2025-07-09 04:41:14 +0100 Nick Efe Oni chore(authentication-service): remove unused authentication flow diagram image
+abc8ed1 2025-07-09 04:41:50 +0100 Nick Efe Oni feat(auth): add authentication flow diagram image
+7b53a1a 2025-07-09 04:43:11 +0100 Nick Efe Oni chore(auth): move authentication flow diagram to docs directory
+25f1bd5 2025-07-09 04:59:08 +0100 Nick Efe Oni chore(auth): add README for authentication service deployment details
+c8031b6 2025-07-09 05:02:33 +0100 Nick Efe Oni docs(authentication): add authentication flow diagram to README.md
+9b4bc14 2025-07-09 05:27:08 +0100 Nick Efe Oni docs(authentication-service): update architecture diagram section in README
+154530b 2025-07-09 05:41:55 +0100 Nick Efe Oni docs(authentication-service): enhance README with badges and clarity
+41c524c 2025-07-09 05:44:37 +0100 Nick Efe Oni chore(api-gateway): update api-gateway flow diagram image
+f69f231 2025-07-09 07:04:01 +0100 Nick Efe Oni chore(auth): update documentation and diagrams for authentication service
+52e25e1 2025-07-09 07:32:03 +0100 Nick Efe Oni docs(api-gateway): enhance README with detailed API gateway overview
+7c284b8 2025-07-14 06:20:29 +0100 Nick Efe Oni chore(deploy): update deployment scripts and service configurations
+864a7ea 2025-07-16 07:23:16 +0100 Nick Efe Oni chore(docker): update auth service port to 8082 in docker-compose.yml
+0a95295 2025-07-16 23:32:59 +0100 Nick Efe Oni docs(readme): update link to high level system diagram location
+4be23a2 2025-07-16 23:33:52 +0100 Nick Efe Oni docs(readme): fix links to architecture diagrams for clarity
+204ae6c 2025-07-16 23:36:14 +0100 Nick Efe Oni docs(readme): update flow diagrams for api gateway and authentication service
+5333ab4 2025-07-16 23:37:29 +0100 Nick Efe Oni docs(readme): update links to architecture diagrams for clarity
+aade8bf 2025-07-17 09:32:15 +0100 Nick Efe Oni docs(tradestream): remove completed tasks and update references section
+ac09d50 2025-07-17 09:33:10 +0100 Nick Efe Oni docs(tradestream): remove unnecessary content from timeline section
+3418231 2025-08-02 07:50:49 +0100 Nick Efe Oni chore(docker): add market data consumer and postgres services to compose
+10c25ab 2025-08-04 23:21:50 +0100 Nick Efe Oni feat(market-data-consumer): add market data consumer service with API and DB integration
+6e73214 2025-08-04 23:27:44 +0100 Nick Efe Oni docs(market-data-consumer): update formatting and headings in README.md
+c47e8e6 2025-08-04 23:29:39 +0100 Nick Efe Oni docs(readme): update screenshot formatting in README.md
+ab30f6f 2025-08-04 23:33:00 +0100 Nick Efe Oni docs(market-data-consumer): fix formatting in API specification section
+e71d982 2025-08-08 08:38:13 +0100 Nick Efe Oni chore(deploy): add transaction-processor service to deployment scripts
+8ceb69b 2025-08-08 11:12:42 +0100 Nick Efe Oni chore(docs): update deployment documentation for new architecture and features
+6e51853 2025-08-08 20:12:12 +0100 Nick Efe Oni chore(docker): update docker-compose for new service architecture and healthchecks
+09fdaab 2025-08-08 20:18:49 +0100 Nick Efe Oni chore(transaction-processor): remove obsolete gradle cache file
+b82b29e 2025-08-10 21:22:18 +0100 Nick Efe Oni build(orders): initialize orders service with Kafka integration and database setup
+1348bdf 2025-08-10 21:24:08 +0100 Nick Efe Oni chore(orders): add developer handbook for Orders Service
+88acdab 2025-08-11 15:34:21 +0100 Nick Efe Oni chore(docker): update docker-compose for matching engine deployment
+9f344c0 2025-08-12 05:08:09 +0100 Nick Efe Oni chore(deploy): update docker-compose and add e2e test scripts
+f6a789c 2025-08-18 04:45:40 +0100 Nick Efe Oni Deploy
+dcfca04 2025-08-18 14:52:03 +0100 Nick Efe Oni chore(deploy): add comprehensive source of truth document for project
+7e7b30b 2025-08-21 04:30:57 +0100 Nick Efe Oni chore(deploy): add deployment script for end-to-end testing of services
+a1349b6 2025-09-04 09:28:56 +0100 Nick Efe Oni chore(api-gateway): add Dockerfile and initial application setup for deployment
+3ce7b5d 2025-09-05 05:43:55 +0100 Nick Efe Oni chore(api): update README with detailed API Gateway documentation
+70b83ea 2025-09-05 18:55:16 +0100 Nick Efe Oni chore(docs): add comprehensive README for TradeStream project overview
+9cd944e 2026-01-04 16:24:09 +0000 Nick Efe Oni feat(ci): add CI workflow for end-to-end testing with Docker support
+116ee4f 2026-01-04 16:24:09 +0000 Nick Efe Oni fix(manual_cancel_test): ensure ticker uniqueness with shortened format
+7fbf0a8 2026-01-04 16:24:09 +0000 Nick Efe Oni chore(matching-engine): add .gitignore to exclude unnecessary files
+784d451 2026-01-04 16:24:09 +0000 Nick Efe Oni chore(orders-service): add .gitignore to exclude build and IDE files
+3ef99b9 2026-01-04 16:27:59 +0000 Nick Efe Oni feat(ci): add build and start steps for docker compose in workflow
+9ac4658 2026-01-04 16:30:00 +0000 Nick Efe Oni ci(api): add step to build API Gateway jar in CI workflow
+fe04d7d 2026-01-04 16:31:26 +0000 Nick Efe Oni feat(ci): add JDK 21 setup to CI workflow
+b53274d 2026-01-04 16:39:40 +0000 Nick Efe Oni chore(ci): add JWT test key generation step to workflow
+247563e 2026-01-04 16:48:43 +0000 Nick Efe Oni feat(ci): wait for core services before running E2E tests
+db43e05 2026-01-05 10:48:00 +0000 Nick Efe Oni fix(market-data-consumer): update .gitignore to include gradle and bin dirs
+14fb6e0 2026-01-05 10:48:00 +0000 Nick Efe Oni fix(matching-engine): update .gitignore to include gradle and build dirs
+57454cd 2026-01-05 11:08:07 +0000 Nick Efe Oni refactor(build): removed build files from the index
+0c8a5dd 2026-01-05 11:14:17 +0000 Nick Efe Oni chore(matching-engine): update .gitignore to fix gradle entry format
+4af189b 2026-01-24 17:07:33 +0000 Nick Efe Oni fix: update CVREADME for clarity on README purpose
+f76a411 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(docs): correct CVREADME reference and add GitHub Actions details
+f319466 2026-01-24 17:07:33 +0000 Nick Efe Oni feat(docs): add comprehensive API design documentation for services
+08bf665 2026-01-24 17:07:33 +0000 Nick Efe Oni docs(future-enhancements): outline planned features and enhancements
+c4d4467 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(docs): update event bus references in sequence diagram
+c887b69 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(docs): clarify trade execution diagram and update event bus details
+4a64fc3 2026-01-24 17:07:33 +0000 Nick Efe Oni chore(docs): update project overview and refine technology details
+13dbbd3 2026-01-24 19:20:27 +0000 Nick Efe Oni docs(future-enhancements): add detailed descriptions and product overview
+00e24e4 2026-02-11 09:23:05 +0000 Nick Efe Oni docs(readme): add CI status badge to display build status
+b5ffb06 2026-02-11 09:23:05 +0000 Nick Efe Oni docs: add observability stack guide documentation
+12d333c 2026-02-28 01:59:25 +0000 Nick Efe Oni Merge branch 'test/ai-reword-feature-full-scale' of github.com:VictoriousWealth/tradestream
+a6838db 2026-02-28 02:02:05 +0000 Nick Efe Oni docs(repo): add codebase review document
+4ea1929 2025-07-05 04:22:46 +0100 Nick Efe Oni chore(gitignore): update patterns to exclude build artifacts and editor files
+9e18d70 2025-07-05 04:27:55 +0100 Nick Efe Oni style(readme): correct minor typo in documentation
+e259ca8 2025-07-06 05:28:25 +0100 Nick Efe Oni docs(readme): enhance readme for clarity and professional presentation
+4a396bd 2025-07-06 05:31:22 +0100 Nick Efe Oni chore(readme): enhance README for clearer deployment instructions
+007de73 2025-07-06 05:34:05 +0100 Nick Efe Oni chore(readme): enhance header formatting and alignment consistency
+d9fe612 2025-07-06 05:34:49 +0100 Nick Efe Oni docs(readme): add project overview section to documentation
+141e421 2025-07-06 05:58:08 +0100 Nick Efe Oni chore(docs): enhance README with new sections and navigation anchors
+fbc3a3a 2025-07-06 06:01:54 +0100 Nick Efe Oni chore(license): add Creative Commons Attribution-NonCommercial 4.0 license
+183a46c 2025-07-06 06:02:46 +0100 Nick Efe Oni docs(readme): update license details and clarify usage rights
+6d1a6dd 2025-07-06 06:04:33 +0100 Nick Efe Oni chore(docs): enhance README with badges and correct repository URL
+b292b61 2025-07-06 06:08:40 +0100 Nick Efe Oni chore(readme): enhance technology stack section with new icons
+53f9667 2025-07-06 06:09:19 +0100 Nick Efe Oni style(readme): adjust icon sizes for improved layout consistency
+18b00d4 2025-07-06 06:13:23 +0100 Nick Efe Oni chore(docs): add project requirements document for tradestream system
+43cb05c 2025-07-06 06:13:48 +0100 Nick Efe Oni chore(docs): revise tradestream-prd.md for clarity and readiness
+7eae60e 2025-07-06 06:14:44 +0100 Nick Efe Oni chore(docs): remove outdated tradestream production PDF file
+703a308 2025-07-06 07:39:34 +0100 Nick Efe Oni chore(docs): update architecture diagram image for clarity
+d5faff8 2025-07-06 07:43:23 +0100 Nick Efe Oni chore(docs): refresh architecture diagram for deployment clarity
+5729852 2025-07-06 07:47:20 +0100 Nick Efe Oni docs(tradestream): add high-level system diagram to project documentation
+680ab4d 2025-07-07 10:15:47 +0100 Nick Efe Oni docs(tradestream): update architecture diagrams and restructure documentation
+e0c27e8 2025-07-07 23:55:33 +0100 Nick Efe Oni docs(readme): add "go back to table of contents" links for navigation
+a41eda2 2025-07-07 23:56:09 +0100 Nick Efe Oni docs(readme): add anchor for table of contents section
+dbe97c4 2025-07-08 00:00:07 +0100 Nick Efe Oni chore(docs): refresh architecture diagram for deployment clarity
+5bf1924 2025-07-08 00:04:37 +0100 Nick Efe Oni chore(docs): refresh architecture diagram for deployment clarity
+738bcc3 2025-07-08 00:16:39 +0100 Nick Efe Oni docs(readme): clarify architecture diagram references for better understanding
+3c6a7a4 2025-07-08 00:30:13 +0100 Nick Efe Oni docs(readme): enhance service documentation and detail authentication flow
+31c8909 2025-07-08 01:13:22 +0100 Nick Efe Oni docs(api-gateway): update path for architecture diagram in README files
+38f99f8 2025-07-08 01:14:45 +0100 Nick Efe Oni docs(readme): update link to token authentication flow diagram
+e8d60ee 2025-07-08 01:15:47 +0100 Nick Efe Oni docs(readme): update link to token authentication flow diagram
+041f00d 2025-07-08 01:16:22 +0100 Nick Efe Oni docs(readme): update link to token authentication flow diagram
+11776e8 2025-07-08 01:18:07 +0100 Nick Efe Oni docs(readme): correct linkedin profile link for accuracy
+ef0f2d3 2025-07-09 03:46:19 +0100 Nick Efe Oni chore(api-gateway): rename token authentication flow diagram
+ffc3c70 2025-07-09 03:48:14 +0100 Nick Efe Oni docs(api-gateway): update token authentication flow diagram reference
+b6d38b0 2025-07-09 04:29:41 +0100 Nick Efe Oni chore(docs): add api gateway flow diagram to authentication documentation
+06ebbe5 2025-07-09 04:31:57 +0100 Nick Efe Oni chore(docs): update authentication flow diagram for clarity
+8f71183 2025-07-09 04:33:12 +0100 Nick Efe Oni chore(auth): update authentication flow diagram for clarity
+e33cf05 2025-07-09 04:34:01 +0100 Nick Efe Oni chore(auth): remove obsolete API Gateway flow diagram image
+2de4d33 2025-07-09 04:35:18 +0100 Nick Efe Oni chore(auth): update authentication flow diagram for clarity
+a155c2b 2025-07-09 04:41:14 +0100 Nick Efe Oni chore(authentication-service): remove obsolete authentication flow diagram
+982820a 2025-07-09 04:41:50 +0100 Nick Efe Oni feat(auth): add authentication flow diagram to documentation
+6e9a478 2025-07-09 04:43:11 +0100 Nick Efe Oni chore(docs): relocate authentication flow diagram to documentation directory
+69c6a4a 2025-07-09 04:59:08 +0100 Nick Efe Oni chore(auth): document authentication service deployment and functionality
+96570a9 2025-07-09 05:02:33 +0100 Nick Efe Oni docs(authentication): add authentication flow diagram to README
+d11f554 2025-07-09 05:27:08 +0100 Nick Efe Oni docs(authentication-service): update architecture diagram section in README
+30ccd5f 2025-07-09 05:41:55 +0100 Nick Efe Oni docs(authentication-service): enhance README with badges and clarity
+243c2c2 2025-07-09 05:44:37 +0100 Nick Efe Oni chore(api-gateway): replace flow diagram image for clarity
+4d3f285 2025-07-09 07:04:01 +0100 Nick Efe Oni chore(auth): enhance documentation and update architecture diagrams
+c27c642 2025-07-09 07:32:03 +0100 Nick Efe Oni docs(api-gateway): update README with comprehensive API gateway details
+d53178d 2025-07-14 06:20:29 +0100 Nick Efe Oni chore(deploy): update deployment scripts and service configurations
+7a38d23 2025-07-16 07:23:16 +0100 Nick Efe Oni chore(docker): update auth service port to 8082 in docker-compose.yml
+22724ca 2025-07-16 23:32:59 +0100 Nick Efe Oni docs(readme): update link to high-level system diagram location
+50615ef 2025-07-16 23:33:52 +0100 Nick Efe Oni docs(readme): update links to architecture diagrams for improved clarity
+dd94b70 2025-07-16 23:36:14 +0100 Nick Efe Oni docs(readme): update flow diagrams for api gateway and authentication service
+251fcdc 2025-07-16 23:37:29 +0100 Nick Efe Oni docs(readme): improve clarity of links to architecture diagrams
+a6ba89a 2025-07-17 09:32:15 +0100 Nick Efe Oni docs(tradestream): remove completed tasks and update references section
+71cd2b9 2025-07-17 09:33:10 +0100 Nick Efe Oni docs(tradestream): streamline timeline section by removing redundant content
+9ebbb93 2025-08-02 07:50:49 +0100 Nick Efe Oni chore(docker): add market data consumer and postgres services to compose
+9985184 2025-08-04 23:21:50 +0100 Nick Efe Oni feat(market-data-consumer): implement market data consumer service with API
+924965c 2025-08-04 23:27:44 +0100 Nick Efe Oni docs(market-data-consumer): enhance formatting and headings in README.md
+3553486 2025-08-04 23:29:39 +0100 Nick Efe Oni docs(readme): improve screenshot formatting in README.md
+293ef0b 2025-08-04 23:33:00 +0100 Nick Efe Oni docs(market-data-consumer): correct formatting in API specification header
+eb4393c 2025-08-08 08:38:13 +0100 Nick Efe Oni chore(deploy): include transaction-processor service in deployment scripts
+cc43aa4 2025-08-08 11:12:42 +0100 Nick Efe Oni chore(docs): update deployment documentation for matching engine integration
+1d141da 2025-08-08 20:12:12 +0100 Nick Efe Oni chore(docker): update docker-compose for service architecture and healthchecks
+b37b9e0 2025-08-08 20:18:49 +0100 Nick Efe Oni chore(transaction-processor): remove obsolete gradle cache file
+fef20fb 2025-08-10 21:22:18 +0100 Nick Efe Oni build(orders): initialize orders service with Kafka integration and database setup
+529fb94 2025-08-10 21:24:08 +0100 Nick Efe Oni chore(orders): add developer handbook for orders service
+20a7a41 2025-08-11 15:34:21 +0100 Nick Efe Oni chore(docker): update docker-compose for matching engine deployment
+fd56652 2025-08-12 05:08:09 +0100 Nick Efe Oni chore(deploy): update docker-compose and add end-to-end test scripts
+314467b 2025-08-18 04:45:40 +0100 Nick Efe Oni Deploy
+eac025c 2025-08-18 14:52:03 +0100 Nick Efe Oni chore(docs): add comprehensive source of truth document for project
+f93ca51 2025-08-21 04:30:57 +0100 Nick Efe Oni chore(deploy): add deployment script for end-to-end testing of services
+0d2cd18 2025-09-04 09:28:56 +0100 Nick Efe Oni chore(api-gateway): add Dockerfile and initial application setup for deployment
+1cec736 2025-09-05 05:43:55 +0100 Nick Efe Oni chore(api): update README with detailed API Gateway documentation
+7126fec 2025-09-05 18:55:16 +0100 Nick Efe Oni chore(docs): add comprehensive README for TradeStream project overview
+4a2488a 2026-01-04 16:24:09 +0000 Nick Efe Oni feat(ci): implement CI workflow for end-to-end testing with Docker
+fa054d2 2026-01-04 16:24:09 +0000 Nick Efe Oni fix(manual_cancel_test): ensure ticker uniqueness with shortened format
+5298ac9 2026-01-04 16:24:09 +0000 Nick Efe Oni chore(matching-engine): add .gitignore to manage ignored files
+e12c1f0 2026-01-04 16:24:09 +0000 Nick Efe Oni chore(orders-service): add .gitignore to exclude unnecessary files
+c37b788 2026-01-04 16:27:59 +0000 Nick Efe Oni feat(ci): add docker compose build and start steps to workflow
+09319a6 2026-01-04 16:30:00 +0000 Nick Efe Oni ci(api): add step to build API Gateway jar in CI workflow
+e703b87 2026-01-04 16:31:26 +0000 Nick Efe Oni feat(ci): add JDK 21 setup to continuous integration workflow
+aa2b675 2026-01-04 16:39:40 +0000 Nick Efe Oni chore(ci): add step for generating JWT test keys in workflow
+b373a88 2026-01-04 16:48:43 +0000 Nick Efe Oni feat(ci): add wait for core services before executing E2E tests
+a268a6a 2026-01-05 10:48:00 +0000 Nick Efe Oni fix(market-data-consumer): enhance .gitignore to exclude gradle and bin directories
+a0bb064 2026-01-05 10:48:00 +0000 Nick Efe Oni fix(matching-engine): enhance .gitignore to cover gradle and build directories
+8b2891b 2026-01-05 11:08:07 +0000 Nick Efe Oni refactor(build): removed build files from the index
+44aaf9a 2026-01-05 11:14:17 +0000 Nick Efe Oni chore(matching-engine): update .gitignore for gradle entry consistency
+e85e575 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(cvreadme): clarify purpose of recruiter-facing README
+5c586ea 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(docs): update CVREADME reference and include GitHub Actions details
+9461e62 2026-01-24 17:07:33 +0000 Nick Efe Oni feat(docs): add detailed API design documentation for services
+d30449b 2026-01-24 17:07:33 +0000 Nick Efe Oni docs(future-enhancements): outline planned features and enhancements
+26ac276 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(docs): update event bus references in order placement diagram
+0185824 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(docs): update trade execution diagram and refine event bus terminology
+f599c5b 2026-01-24 17:07:33 +0000 Nick Efe Oni chore(docs): refine project overview and update technology specifications
+46271c4 2026-01-24 19:20:27 +0000 Nick Efe Oni docs(future-enhancements): enhance product overview and detailed descriptions
+86fff56 2026-02-11 09:23:05 +0000 Nick Efe Oni docs(readme): add CI status badge to indicate build health
+23f4558 2026-02-11 09:23:05 +0000 Nick Efe Oni docs(observability): add comprehensive observability stack guide
+a677492 2025-07-05 04:22:46 +0100 Nick Efe Oni fix(gitignore): update to exclude build artifacts and editor files
+e18077f 2025-07-05 04:27:55 +0100 Nick Efe Oni fix(docs): correct minor typo in README
+5c5c96f 2025-07-06 05:28:25 +0100 Nick Efe Oni feat(docs): update readme to reflect new project structure and details
+7c74fa7 2025-07-06 05:31:22 +0100 Nick Efe Oni chore(readme): update README.md for project clarity
+7d7a5da 2025-07-06 05:34:05 +0100 Nick Efe Oni chore(docs): update README formatting for consistency
+e91f015 2025-07-06 05:34:49 +0100 Nick Efe Oni chore(docs): add project overview section to README
+f03ba6c 2025-07-06 05:58:08 +0100 Nick Efe Oni chore(docs): update README with additional sections and anchors
+5ca034f 2025-07-06 06:01:54 +0100 Nick Efe Oni chore(license): add Creative Commons license file
+919bddb 2025-07-06 06:02:46 +0100 Nick Efe Oni docs(readme): update license information and clarify usage terms
+9e9450f 2025-07-06 06:04:33 +0100 Nick Efe Oni docs(readme): enhance README with badges and correct repository link
+32d7f05 2025-07-06 06:08:40 +0100 Nick Efe Oni chore(docs): update README with technology stack and badge improvements
+54c12ae 2025-07-06 06:09:19 +0100 Nick Efe Oni chore(readme): update icon sizes for consistency across technologies
+006eb98 2025-07-06 06:13:23 +0100 Nick Efe Oni feat(docs): add project requirements document for TradeStream
+1db19ca 2025-07-06 06:13:48 +0100 Nick Efe Oni chore(docs): remove unnecessary comments from tradestream-prd.md
+ab8ce64 2025-07-06 06:14:44 +0100 Nick Efe Oni chore(docs): remove outdated tradestream production documentation
+7df2011 2025-07-06 07:39:34 +0100 Nick Efe Oni chore(docs): update architecture diagram for clarity
+d123f6a 2025-07-06 07:43:23 +0100 Nick Efe Oni chore(docs): update architecture diagram for clarity
+0054ce5 2025-07-06 07:47:20 +0100 Nick Efe Oni docs(tradestream-prd): add high-level system diagram to documentation
+5ab7359 2025-07-07 10:15:47 +0100 Nick Efe Oni feat(docs): update architecture diagrams and enhance documentation structure
+dfc6ef6 2025-07-07 23:55:33 +0100 Nick Efe Oni feat(docs): add back to table of contents links in README
+370e7da 2025-07-07 23:56:09 +0100 Nick Efe Oni docs(readme): add table of contents section to improve navigation
+fd2b026 2025-07-08 00:00:07 +0100 Nick Efe Oni chore(docs): update architecture diagram for clarity
+2531f84 2025-07-08 00:04:37 +0100 Nick Efe Oni chore(docs): update architecture diagram for clarity
+2d5b185 2025-07-08 00:16:39 +0100 Nick Efe Oni docs(readme): update architecture diagram references for clarity
+957f65d 2025-07-08 00:30:13 +0100 Nick Efe Oni docs(readme): add service-specific documentation and authentication flow
+6d15df7 2025-07-08 01:13:22 +0100 Nick Efe Oni chore(docs): update architecture diagram paths in documentation
+32363f4 2025-07-08 01:14:45 +0100 Nick Efe Oni docs(readme): update architecture diagram reference for clarity
+df80e96 2025-07-08 01:15:47 +0100 Nick Efe Oni docs(readme): update link to token authentication flow diagram
+18524bd 2025-07-08 01:16:22 +0100 Nick Efe Oni fix(docs): correct link to token authentication flow diagram
+434f6ac 2025-07-08 01:18:07 +0100 Nick Efe Oni docs(readme): update LinkedIn profile link for accuracy
+8530fff 2025-07-09 03:46:19 +0100 Nick Efe Oni chore(api-gateway): rename token authentication flow diagram
+51c1af8 2025-07-09 03:48:14 +0100 Nick Efe Oni docs(api-gateway): update token authentication flow diagram reference
+64e68e5 2025-07-09 04:29:41 +0100 Nick Efe Oni feat(authentication-service): add API gateway flow diagram
+95d39da 2025-07-09 04:31:57 +0100 Nick Efe Oni chore(docs): update authentication flow diagram
+bafa8ee 2025-07-09 04:33:12 +0100 Nick Efe Oni chore(docs): update authentication flow diagram
+235b586 2025-07-09 04:34:01 +0100 Nick Efe Oni chore(docs): remove outdated API gateway flow diagram
+0418196 2025-07-09 04:35:18 +0100 Nick Efe Oni chore(docs): update authentication flow diagram
+f9427f8 2025-07-09 04:41:14 +0100 Nick Efe Oni chore(docs): remove outdated authentication flow diagram
+fb2dcef 2025-07-09 04:41:50 +0100 Nick Efe Oni feat(authentication-service): add authentication flow diagram
+739ebac 2025-07-09 04:43:11 +0100 Nick Efe Oni chore(docs): move authentication flow diagram to docs directory
+8ad7449 2025-07-09 04:59:08 +0100 Nick Efe Oni feat(authentication-service): add README for authentication service documentation
+72f7986 2025-07-09 05:02:33 +0100 Nick Efe Oni docs(authentication-service): update README with authentication flow diagram
+34737c0 2025-07-09 05:27:08 +0100 Nick Efe Oni docs(authentication-service): update README with architecture diagram details
+ae41626 2025-07-09 05:41:55 +0100 Nick Efe Oni feat(authentication-service): enhance README with security badges and clarity
+20e267a 2025-07-09 05:44:37 +0100 Nick Efe Oni chore(docs): update api gateway flow diagram
+0600406 2025-07-09 07:04:01 +0100 Nick Efe Oni feat(authentication-service): update documentation and flow diagrams
+48af5df 2025-07-09 07:32:03 +0100 Nick Efe Oni feat(api-gateway): enhance README with detailed security and architecture info
+3f63ad4 2025-07-14 06:20:29 +0100 Nick Efe Oni feat(authentication-service): add user registration microservice
+d5a66ba 2025-07-16 07:23:16 +0100 Nick Efe Oni chore(docker): update auth service port mapping in docker-compose
+7c80129 2025-07-16 23:32:59 +0100 Nick Efe Oni docs(readme): update link path for architecture diagram
+db641fc 2025-07-16 23:33:52 +0100 Nick Efe Oni docs(readme): correct file path references for architecture diagrams
+40c9427 2025-07-16 23:36:14 +0100 Nick Efe Oni docs(readme): update flow diagrams for API Gateway and Authentication Service
+e21a0f4 2025-07-16 23:37:29 +0100 Nick Efe Oni docs(readme): update links for architecture diagrams
+8f8cac4 2025-07-17 09:32:15 +0100 Nick Efe Oni docs(tradestream-prd): update references and resources section
+d3239e4 2025-07-17 09:33:10 +0100 Nick Efe Oni docs(tradestream-prd): remove outdated risks and mitigation section
+5a40701 2025-08-02 07:50:49 +0100 Nick Efe Oni feat(docker): add market data consumer and postgres service
+197b4ad 2025-08-04 23:21:50 +0100 Nick Efe Oni feat(market-data-consumer): add market data consumer service
+b0c8b58 2025-08-04 23:27:44 +0100 Nick Efe Oni feat(docs): update README for clarity and consistency
+a1cf88e 2025-08-04 23:29:39 +0100 Nick Efe Oni docs(readme): update screenshot formatting for clarity
+fead609 2025-08-04 23:33:00 +0100 Nick Efe Oni docs(market-data-consumer): correct formatting in API specification section
+df5e6c1 2025-08-08 08:38:13 +0100 Nick Efe Oni feat(deploy): add transaction processor service and update deployment scripts
+8ec0434 2025-08-08 11:12:42 +0100 Nick Efe Oni feat(docs): update product requirements document with matching engine details
+cd2691d 2025-08-08 20:12:12 +0100 Nick Efe Oni chore(docker-compose): restructure services and remove unused files
+5102d30 2025-08-08 20:18:49 +0100 Nick Efe Oni chore(transaction-processor): remove obsolete gradle cache file
+cdd7c67 2025-08-10 21:22:18 +0100 Nick Efe Oni feat(orders-service): implement orders service with Kafka integration
+d1a63d7 2025-08-10 21:24:08 +0100 Nick Efe Oni feat(orders-service): add developer handbook for Orders Service
+3fe030d 2025-08-11 15:34:21 +0100 Nick Efe Oni feat(matching-engine): implement matching engine with Kafka integration
+0f25706 2025-08-12 05:08:09 +0100 Nick Efe Oni feat(deploy): add end-to-end testing and configuration updates
+e9325bc 2025-08-18 04:45:40 +0100 Nick Efe Oni Deploy
+00076a8 2025-08-18 14:52:03 +0100 Nick Efe Oni feat(documentation): add comprehensive source of truth document
+12c8b8f 2025-08-21 04:30:57 +0100 Nick Efe Oni feat(deploy): add end-to-end testing script for portfolio service
+4b06088 2025-09-04 09:28:56 +0100 Nick Efe Oni feat(api-gateway): implement initial setup for API gateway service
+70fd446 2025-09-05 05:43:55 +0100 Nick Efe Oni feat(api-gateway): enhance documentation and configuration for JWT security
+a787763 2025-09-05 18:55:16 +0100 Nick Efe Oni feat(docs): add comprehensive README for TradeStream platform
+8a35645 2026-01-04 16:24:09 +0000 Nick Efe Oni feat(ci): implement CI workflow for comprehensive end-to-end testing
+bbd3e60 2026-01-04 16:24:09 +0000 Nick Efe Oni fix(manual_cancel_test): update ticker generation for uniqueness
+3499028 2026-01-04 16:24:09 +0000 Nick Efe Oni chore(matching-engine): add .gitignore file for build artifacts
+53e0335 2026-01-04 16:24:09 +0000 Nick Efe Oni chore(orders-service): add .gitignore file to exclude unnecessary files
+e534fdc 2026-01-04 16:27:59 +0000 Nick Efe Oni feat(ci): add build and start steps for Docker stack in CI workflow
+85237b2 2026-01-04 16:30:00 +0000 Nick Efe Oni ci(workflows): add step to build API Gateway jar in CI process
+2e200c9 2026-01-04 16:31:26 +0000 Nick Efe Oni feat(ci): add JDK 21 setup to continuous integration workflow
+39415ea 2026-01-04 16:39:40 +0000 Nick Efe Oni chore(ci): add JWT test key generation to CI workflow
+f187470 2026-01-04 16:48:43 +0000 Nick Efe Oni feat(ci): implement wait for core services before E2E tests
+17e1f03 2026-01-05 10:48:00 +0000 Nick Efe Oni fix(market-data-consumer): update .gitignore to include gradle and bin directories
+30c7358 2026-01-05 10:48:00 +0000 Nick Efe Oni fix(matching-engine): update .gitignore to include gradle and build directories
+8fced9a 2026-01-05 11:08:07 +0000 Nick Efe Oni refactor(build): removed build files from the index
+8352465 2026-01-05 11:14:17 +0000 Nick Efe Oni chore(matching-engine): update .gitignore for gradle directory
+dcfc990 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(cvreadme): clarify purpose of recruiter-facing README
+ada837f 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(readme): update CVREADME reference and include GitHub Actions CI
+fa4554e 2026-01-24 17:07:33 +0000 Nick Efe Oni feat(docs): add comprehensive API design documentation
+82cd07c 2026-01-24 17:07:33 +0000 Nick Efe Oni docs(future-enhancements): outline planned features and enhancements
+0b452f2 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(docs): update event bus references in sequence diagram
+2442507 2026-01-24 17:07:33 +0000 Nick Efe Oni fix(docs): update trade execution diagram and clarify event bus roles
+22ebad5 2026-01-24 17:07:33 +0000 Nick Efe Oni chore(docs): update project overview and refine technology details
+eb87b62 2026-01-24 19:20:27 +0000 Nick Efe Oni docs(future-enhancements): enhance documentation with detailed product overview
+ee913c9 2026-02-11 09:23:05 +0000 Nick Efe Oni docs(readme): add CI status badge to enhance visibility
+200018d 2026-02-11 09:23:05 +0000 Nick Efe Oni docs(observability): add comprehensive observability stack guide
+db1f1e3 2026-02-28 01:59:25 +0000 Nick Efe Oni Merge branch 'test/ai-reword-feature-full-scale' of github.com:VictoriousWealth/tradestream
+9f8f17d 2026-02-28 02:02:05 +0000 Nick Efe Oni docs(codebase): add comprehensive codebase review document
+8495c32 2026-02-28 02:27:37 +0000 Nick Efe Oni Merge branch 'test/ai-reword-feature-full-scale-augmented' of github.com:VictoriousWealth/tradestream
