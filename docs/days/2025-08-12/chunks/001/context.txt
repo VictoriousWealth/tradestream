@@ -1,0 +1,39 @@
+Date: 2025-08-12
+Chunk: 001
+Chunk commit count: 1
+Chunk unique filtered files: 29
+Chunk patch bytes: 68199
+
+Commits:
+d227e77 2025-08-12 05:08:09 +0100 Nick Efe Oni Deploy
+
+Changed files:
+docker-compose.yml
+e2e_scenarios.sh
+e2e_trade_pipeline_test.sh
+manual_cancel_test.sh
+services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/service/AggregationService.java
+services/matching-engine/bin/main/application.yml
+services/matching-engine/bin/main/db/migration/V2__processed_messages_topic_msgid.sql
+services/matching-engine/src/main/java/com/tradestream/matching_engine/config/BytesListenerFactoryConfig.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/domain/ProcessedMessage.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderCancelledEvent.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/dto/OrderPlacedEvent.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/matching/MatchingService.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/persistence/ProcessedMessageRepository.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/DltLoggingConsumer.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderCancelledConsumer.java
+services/matching-engine/src/main/java/com/tradestream/matching_engine/stream/OrderPlacedConsumer.java
+services/matching-engine/src/main/resources/application.yml
+services/matching-engine/src/main/resources/db/migration/V2__processed_messages_topic_msgid.sql
+services/orders-service/bin/main/db/migration/V4__ingested_fills.sql
+services/orders-service/bin/main/db/migration/V5__drop_ingested_trades.sql
+services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedFill.java
+services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedFillId.java
+services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedTrade.java
+services/orders-service/src/main/java/com/tradestream/orders_service/dto/TradeExecuted.java
+services/orders-service/src/main/java/com/tradestream/orders_service/kafka/TradeExecutedConsumer.java
+services/orders-service/src/main/java/com/tradestream/orders_service/repo/IngestedFillRepository.java
+services/orders-service/src/main/java/com/tradestream/orders_service/repo/IngestedTradeRepository.java
+services/orders-service/src/main/resources/db/migration/V4__ingested_fills.sql
+services/orders-service/src/main/resources/db/migration/V5__drop_ingested_trades.sql
