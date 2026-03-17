@@ -1,0 +1,65 @@
+Date: 2025-08-10
+Chunk: 001
+Chunk commit count: 1
+Chunk unique filtered files: 55
+Chunk patch bytes: 234557
+
+Commits:
+a4162e7 2025-08-10 21:22:18 +0100 Nick Efe Oni Deploy
+
+Changed files:
+docker-compose.yml
+services/market-data-consumer/src/main/java/com/tradestream/market_data_consumer/dto/TradeExecuted.java
+services/orders-service/.gradle/8.14.3/checksums/checksums.lock
+services/orders-service/.gradle/8.14.3/checksums/md5-checksums.bin
+services/orders-service/.gradle/8.14.3/checksums/sha1-checksums.bin
+services/orders-service/.gradle/8.14.3/executionHistory/executionHistory.lock
+services/orders-service/.gradle/8.14.3/fileChanges/last-build.bin
+services/orders-service/.gradle/8.14.3/fileHashes/fileHashes.bin
+services/orders-service/.gradle/8.14.3/fileHashes/fileHashes.lock
+services/orders-service/.gradle/8.14.3/gc.properties
+services/orders-service/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+services/orders-service/.gradle/buildOutputCleanup/cache.properties
+services/orders-service/.gradle/nb-cache/orders-service-1934592945/project-info.ser
+services/orders-service/.gradle/nb-cache/subprojects.ser
+services/orders-service/.gradle/nb-cache/trust/36A82BDF5741E85E56075060AAFF0EC8F80C360986235897765B1823E842F9DF
+services/orders-service/.gradle/vcs-1/gc.properties
+services/orders-service/bin/main/application.yml
+services/orders-service/bin/main/db/migration/V1__init_orders.sql
+services/orders-service/bin/main/db/migration/V2__order_fill_tracking.sql
+services/orders-service/bin/main/db/migration/V3__ingested_trades.sql
+services/orders-service/build.gradle
+services/orders-service/build/reports/problems/problems-report.html
+services/orders-service/build/tmp/bootJar/MANIFEST.MF
+services/orders-service/build/tmp/jar/MANIFEST.MF
+services/orders-service/Dockerfile
+services/orders-service/gradle/wrapper/gradle-wrapper.jar
+services/orders-service/gradle/wrapper/gradle-wrapper.properties
+services/orders-service/gradlew
+services/orders-service/gradlew.bat
+services/orders-service/HELP.md
+services/orders-service/settings.gradle
+services/orders-service/src/main/java/com/tradestream/orders_service/domain/IngestedTrade.java
+services/orders-service/src/main/java/com/tradestream/orders_service/domain/Order.java
+services/orders-service/src/main/java/com/tradestream/orders_service/domain/OrderStatus.java
+services/orders-service/src/main/java/com/tradestream/orders_service/domain/OrderType.java
+services/orders-service/src/main/java/com/tradestream/orders_service/domain/Side.java
+services/orders-service/src/main/java/com/tradestream/orders_service/domain/TimeInForce.java
+services/orders-service/src/main/java/com/tradestream/orders_service/dto/OrderResponse.java
+services/orders-service/src/main/java/com/tradestream/orders_service/dto/PlaceOrderRequest.java
+services/orders-service/src/main/java/com/tradestream/orders_service/dto/TradeExecuted.java
+services/orders-service/src/main/java/com/tradestream/orders_service/events/OrderCancelledEvent.java
+services/orders-service/src/main/java/com/tradestream/orders_service/events/OrderPlaced.java
+services/orders-service/src/main/java/com/tradestream/orders_service/kafka/OrderProducer.java
+services/orders-service/src/main/java/com/tradestream/orders_service/kafka/TradeExecutedConsumer.java
+services/orders-service/src/main/java/com/tradestream/orders_service/OrdersServiceApplication.java
+services/orders-service/src/main/java/com/tradestream/orders_service/repo/IngestedTradeRepository.java
+services/orders-service/src/main/java/com/tradestream/orders_service/repo/OrderRepository.java
+services/orders-service/src/main/java/com/tradestream/orders_service/service/OrderService.java
+services/orders-service/src/main/java/com/tradestream/orders_service/web/OrdersController.java
+services/orders-service/src/main/java/com/tradestream/orders_service/web/RestExceptionHandler.java
+services/orders-service/src/main/resources/application.yml
+services/orders-service/src/main/resources/db/migration/V1__init_orders.sql
+services/orders-service/src/main/resources/db/migration/V2__order_fill_tracking.sql
+services/orders-service/src/main/resources/db/migration/V3__ingested_trades.sql
+services/orders-service/src/test/java/com/tradestream/orders_service/OrdersServiceApplicationTests.java
