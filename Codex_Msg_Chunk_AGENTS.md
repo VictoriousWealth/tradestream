@@ -1,9 +1,9 @@
 Follow AGENTS.md.
 
 Task:
-Write VictoriousWealth/tradestream/docs/days/2025-07-06/chunks/001/devlog.md.
+Write VictoriousWealth/tradestream/docs/days/2026-02-28/chunks/003/devlog.md.
 
-Within the directory `VictoriousWealth/tradestream/docs/days/2025-07-06/chunks/001/`, use only these evidence files:
+Within the directory `VictoriousWealth/tradestream/docs/days/2026-02-28/chunks/003/`, use only these evidence files:
 - context.txt
 - commits.txt
 - commit-hashes.txt
