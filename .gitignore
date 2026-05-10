@@ -5,6 +5,7 @@
 # Maven/Gradle specific
 **/*.iml
 **/.idea/
+.venv/
 
 # Docker
 *.env
