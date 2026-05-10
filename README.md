@@ -154,13 +154,15 @@ curl -s http://localhost:8080/actuator/health
 ### Register → Login
 
 ```bash
+export DEMO_PASSWORD='<set-a-local-dev-password>'
+
 curl -sS -X POST http://localhost:8080/api/users/register \
   -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"S3cureP@ss!"}'
+  -d "{\"username\":\"alice\",\"password\":\"$DEMO_PASSWORD\"}"
 
 ACCESS=$(curl -sS -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"S3cureP@ss!"}' | jq -r .access_token)
+  -d "{\"username\":\"alice\",\"password\":\"$DEMO_PASSWORD\"}" | jq -r .access_token)
 echo "ACCESS=$ACCESS"
 ```
 
@@ -238,9 +240,11 @@ This keeps the README honest about what exists today while making the intended d
 | Transactions | `GET /api/transactions/**`                       |  Yes | (no rewrite) → transaction-processor (8084)  |
 | Portfolio    | `GET /api/portfolio/{userId}/positions[...]`     |  Yes | `/portfolio/...` → portfolio-service (8087)  |
 | Market Data  | `GET /api/market-data/candles/{ticker}[/latest]` |  Yes | `/candles/...` → market-data-consumer (8083) |
-| Ops          | `/actuator/*`                                    |  No  | Gateway itself                               |
+| Ops          | `GET /actuator/health`, `GET /actuator/info`     |  No  | Gateway itself                               |
+| Ops          | `GET /actuator/gateway/**`, `GET /actuator/metrics` | Yes | Gateway itself                            |
 
 * **Login is IP rate-limited via Redis** (token-bucket).
+* **Only `/actuator/health` and `/actuator/info` are public**; other actuator routes still require JWT.
 * **Circuit breakers** return predictable JSON fallbacks.
 * **`X-Request-Id`** injected if missing; cookies stripped.
 
