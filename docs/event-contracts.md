@@ -1,6 +1,6 @@
 # Event Contracts (Current Implementation)
 
-Last reviewed against code/config on 2026-03-17.
+Last reviewed against code/config on 2026-05-10.
 
 This document describes the actual Kafka/Redpanda contracts currently used by TradeStream. It is not a future-state schema registry spec. Where the implementation is inconsistent, that inconsistency is called out explicitly.
 
