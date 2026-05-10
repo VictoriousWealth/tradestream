@@ -36,6 +36,17 @@
 
 ---
 
+## Case Study
+
+TradeStream is my strongest Java/Spring Boot backend and fintech systems project. I built it to model how order, trade, transaction and portfolio flows can move through separate services without becoming a single CRUD app.
+
+- Problem: build a finance-style backend where service boundaries, state ownership and event flow are visible.
+- Build: Spring Cloud Gateway handles edge concerns; auth and user services manage access; orders publish events to Redpanda/Kafka; the matching engine emits trade events; transaction and portfolio services project downstream state into PostgreSQL-backed models.
+- Evidence: the repo includes Docker Compose orchestration, GitHub Actions CI, end-to-end scripts, architecture docs, event contracts, security notes and operational runbooks.
+- Main lesson: event-driven systems need clear ownership of durable state, idempotency, retries, observability and honest boundaries between what is working locally and what would be needed for production.
+
+---
+
 ## What’s the current status?
 
 | Component                   | Path                                  | Status | Notes                                                                                    |
