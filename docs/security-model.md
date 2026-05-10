@@ -1,6 +1,6 @@
 # Security Model (Current Implementation)
 
-Last reviewed against code/config on 2026-03-17.
+Last reviewed against code/config on 2026-05-10.
 
 This document describes the current security model as implemented, not the ideal future model.
 
