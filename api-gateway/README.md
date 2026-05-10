@@ -25,7 +25,7 @@ A secure, resilient, reactive API Gateway that centralizes routing, enforces PS2
 * 🔐 **Secures downstream services** via PS256 JWT token validation (OAuth2 Resource Server).
 * 🔀 **Routes requests dynamically** using path predicates and filters (`RewritePath`, `StripPrefix`).
 * 🛡 **Protects the system** with Resilience4j circuit breakers, global fallback, and fast-fail behavior.
-* 🚦 **Applies IP-based rate limiting** (Redis token bucket) for login/refresh endpoints.
+* 🚦 **Applies IP-based rate limiting** (Redis token bucket) on the login route.
 * 🔧 **Injects `X-Request-Id` headers** for distributed tracing.
 * 🌐 **Manages CORS globally** with consistent policy across environments.
 * 📊 **Exposes operational telemetry** via Actuator endpoints (`/health`, `/metrics`, `/gateway`).
@@ -52,7 +52,7 @@ A secure, resilient, reactive API Gateway that centralizes routing, enforces PS2
 * **Declarative routing in YAML** → Easy to evolve without redeploying.
 * **Circuit breakers per domain** → Isolates failures of orders, transactions, portfolio, and market data services.
 * **X-Request-Id injection** → Traceability across distributed logs.
-* **Rate limiting on auth endpoints** → Protects login service from brute-force or abuse.
+* **Rate limiting on login** → Protects the authentication edge from brute-force or abuse.
 
 ---
 
@@ -85,7 +85,7 @@ A secure, resilient, reactive API Gateway that centralizes routing, enforces PS2
 * All routes must pass JWT validation unless explicitly whitelisted (`/api/auth/login`, `/api/auth/refresh`, `/api/users/register`, `/actuator/health`).
 * JWTs must be PS256-signed.
 * `X-Request-Id` is always present (injected if missing).
-* Login endpoints are rate-limited per IP.
+* Login is rate-limited per IP.
 * Circuit breakers always return fast-fail degraded JSON, never client timeouts.
 * Cookie headers are stripped from all inbound requests.
 
@@ -127,8 +127,10 @@ docker run -p 8080:8080 --env-file .env api-gateway
 
 ```bash
 curl http://localhost:8080/actuator/health
-curl http://localhost:8080/actuator/gateway/routes
-curl http://localhost:8080/actuator/metrics
+curl http://localhost:8080/actuator/info
+# /actuator/gateway/** and /actuator/metrics require a valid access token
+curl -H "Authorization: Bearer $ACCESS" http://localhost:8080/actuator/gateway/routes
+curl -H "Authorization: Bearer $ACCESS" http://localhost:8080/actuator/metrics
 ```
 
 **Troubleshooting**
@@ -206,9 +208,11 @@ Java 21, Spring Boot 3, Spring Cloud Gateway, Spring Security (OAuth2, JWT), Pro
 **Login & grab access token**
 
 ```bash
+export DEMO_PASSWORD='<set-a-local-dev-password>'
+
 ACCESS=$(curl -sS -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"S3cureP@ss!"}' | jq -r .access_token)
+  -d "{\"username\":\"alice\",\"password\":\"$DEMO_PASSWORD\"}" | jq -r .access_token)
 ```
 
 **Place order with JWT**
@@ -268,10 +272,11 @@ curl http://localhost:8080/actuator/metrics
 | Market Data  | `/api/market-data/candles/{ticker}/latest`   |       GET | **Yes** | `/candles/{ticker}/latest`               | `market-data-consumer`             |
 | Ops          | `/actuator/health`                           |       GET |    No   | –                                        | gateway itself                     |
 | Ops          | `/actuator/info`                             |       GET |    No   | –                                        | gateway itself                     |
-| Ops          | `/actuator/gateway`                          |       GET |    No   | –                                        | gateway itself                     |
-| Ops          | `/actuator/metrics`                          |       GET |    No   | –                                        | gateway itself                     |
+| Ops          | `/actuator/gateway/**`                       |       GET | **Yes** | –                                        | gateway itself                     |
+| Ops          | `/actuator/metrics`                          |       GET | **Yes** | –                                        | gateway itself                     |
 
 \* The refresh endpoint expects a valid refresh token in the body; it does not use the bearer token.
+\* Only `/api/auth/login` is rate-limited in the current route config; `/api/auth/refresh` is public at the gateway but header-gated downstream.
 
 ---
 
@@ -290,7 +295,7 @@ Gateway is configured as a **JWT resource server** using your PS256 public key.
 ```json
 {
   "username": "alice",
-  "password": "S3cureP@ss!"
+  "password": "<your-password>"
 }
 ```
 
@@ -339,7 +344,7 @@ Gateway is configured as a **JWT resource server** using your PS256 public key.
 ```json
 {
   "username": "alice",
-  "password": "S3cureP@ss!"
+  "password": "<your-password>"
 }
 ```
 
@@ -556,15 +561,17 @@ Gateway → `market-data-consumer`
 ### Curl Quick Start
 
 ```bash
+export DEMO_PASSWORD='<set-a-local-dev-password>'
+
 # 1) register
 curl -sS -X POST http://localhost:8080/api/users/register \
   -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"S3cureP@ss!"}'
+  -d "{\"username\":\"alice\",\"password\":\"$DEMO_PASSWORD\"}"
 
 # 2) login
 ACCESS=$(curl -sS -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"S3cureP@ss!"}' | jq -r .access_token)
+  -d "{\"username\":\"alice\",\"password\":\"$DEMO_PASSWORD\"}" | jq -r .access_token)
 
 # 3) place an order
 curl -sS -X POST http://localhost:8080/api/orders \
