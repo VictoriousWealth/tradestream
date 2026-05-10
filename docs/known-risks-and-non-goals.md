@@ -1,6 +1,6 @@
 # Known Risks and Non-Goals (Current Codebase)
 
-Last reviewed against code/config on 2026-03-17.
+Last reviewed against code/config on 2026-05-10.
 
 This document is intentionally narrow: it only lists risks and non-goals that are directly visible in the current implementation. If something is not confirmed in code, it is omitted rather than guessed.
 
