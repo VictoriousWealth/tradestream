@@ -1,5 +1,7 @@
 # API Design (Current Implementation)
 
+Last reviewed against code/config on 2026-05-10.
+
 This document mirrors the live service routes and gateway behavior as implemented.
 
 ---
@@ -21,6 +23,7 @@ This document mirrors the live service routes and gateway behavior as implemente
 Notes:
 * **Login** is IP rate-limited via Redis (10 r/s, burst 20).
 * **`/api/auth/refresh`** and **`/api/users/register`** are **internal-only** at the downstream services via `X-Internal-Caller: api-gateway`.
+* Only `GET /actuator/health` and `GET /actuator/info` are public at the gateway; other actuator endpoints still require JWT.
 
 ---
 
