@@ -157,7 +157,7 @@ Rationale:
 ## Extensibility (how to evolve fast)
 
 * **Add interval (15m)**: add to `Interval`, update `Bucketizer`, include in `AggregationService.SUPPORTED` (no schema change).
-* **Expose externally**: route via API Gateway (e.g., `/mdc/**`), enforce JWT, rate-limit.
+* **Expose externally**: route via API Gateway (currently `/api/market-data/candles/**`), enforce JWT, rate-limit.
 * **Backfill**: publish historical `TradeExecuted` with original timestamps; service will fill historical buckets correctly.
 
 ---
