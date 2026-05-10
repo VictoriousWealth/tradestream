@@ -1,6 +1,6 @@
 # Operational Runbook (Current Local Runtime)
 
-Last reviewed against code/config on 2026-03-17.
+Last reviewed against code/config on 2026-05-10.
 
 This runbook is written for the repo’s current operating model: local Docker Compose with Redpanda, Postgres, Redis, and the seven application services.
 
