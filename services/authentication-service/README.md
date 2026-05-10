@@ -23,7 +23,7 @@ Stateless authentication microservice that verifies credentials, issues RSA-sign
 * **Issue JWTs** (access: 15m, refresh: 30d) using **RSA private key**; embed `username`, `sub=userId`, `jti`, `aud`, `iss`, `token_type`, and `scopes`.
 * **Refresh access tokens** from valid refresh tokens; **no rotation** of refresh token (access-only rotation).
 * **Expose health/info** for runtime checks (`/actuator/health`, `/actuator/info`).
-* **Enforce strict ingress policy**: only `GET /`, `GET /actuator/*`, `POST /login`, `POST /refresh` allowed; everything else denied.
+* **Enforce strict ingress policy**: only `GET /`, `GET /actuator/health`, `GET /actuator/info`, `POST /login`, and `POST /refresh` are allowed; everything else is denied.
 * **Gate internal workflows**: `/refresh` requires header `X-Internal-Caller: api-gateway`.
 
 ---
@@ -134,7 +134,7 @@ docker run -p 8082:8082 \
   -e SPRING_DATASOURCE_PASSWORD=authpass \
   -e JWT_PRIVATE_KEY_PATH=/run/secrets/jwt_private.pem \
   -e JWT_PUBLIC_KEY_PATH=/run/secrets/jwt_public.pem \
-  -v $PWD/secrets:/run/secrets \
+  -v "$(git rev-parse --show-toplevel)/secrets:/run/secrets:ro" \
   tradestream-auth-service
 ```
 
@@ -156,7 +156,7 @@ curl -s  http://localhost:8082/actuator/info
 **Seed a user (for local testing)**
 
 ```sql
--- bcrypt hash for password 'changeme' (example; generate your own)
+-- example BCrypt hash; replace it with one generated for your own local-dev password
 INSERT INTO users (username, password) VALUES ('alice', '$2a$10$K8b2m6v2y8z3wQqE4m7wUuXnWb9C5g3qJ3u6y4zM8gZ0S4yq6cVbG');
 ```
 
@@ -168,7 +168,7 @@ INSERT INTO users (username, password) VALUES ('alice', '$2a$10$K8b2m6v2y8z3wQqE
 | `401 Unauthorized` on `/refresh`     | Token invalid/expired or not a refresh token | Ensure `token_type=refresh`; check expiry; re-login           |
 | `403 Forbidden` on `/refresh`        | Missing/incorrect header                     | Set `X-Internal-Caller: api-gateway` at Gateway               |
 | `500` during startup (key load)      | Wrong key paths or non-PKCS#8 private key    | Mount secrets; regenerate keys with commands above            |
-| Build succeeds but `/users` etc. 404 | Deny-by-default, only specific routes exist  | Use only `/login`, `/refresh`, `/actuator/*`                  |
+| Build succeeds but `/users` etc. 404 | Deny-by-default, only specific routes exist  | Use only `/login`, `/refresh`, `/actuator/health`, `/actuator/info` |
 | Flyway mismatch                      | DB not migrated                              | Ensure `SPRING_FLYWAY_ENABLED=true`; check `V1`, `V2` applied |
 
 ---
@@ -241,7 +241,7 @@ curl -s    http://localhost:8082/actuator/info  | jq .
 ```bash
 curl -sS -X POST http://localhost:8082/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"alice","password":"changeme"}'
+  -d '{"username":"alice","password":"<your-seeded-password>"}'
 # → {"access_token":"...","refresh_token":"...","token_type":"Bearer","user_id":"<uuid>"}
 ```
 
@@ -316,4 +316,3 @@ docker run -p 8082:8082 --env-file .env -v $PWD/secrets:/run/secrets tradestream
 ```
 
 ---
-
