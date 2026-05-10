@@ -1,6 +1,6 @@
 # Architecture Decisions (Current State)
 
-Last reviewed against code/config on 2026-03-17.
+Last reviewed against code/config on 2026-05-10.
 
 This is not a generic ADR collection. These entries capture the concrete architectural choices visible in the current repo and the trade-offs they impose.
 
