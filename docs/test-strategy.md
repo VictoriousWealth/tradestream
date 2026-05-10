@@ -1,6 +1,6 @@
 # Test Strategy (Current Repo)
 
-Last reviewed against scripts/config on 2026-03-17.
+Last reviewed against scripts/config on 2026-05-10.
 
 This document describes what the repo actually tests today, how those tests are intended to be run, and where the current gaps or script drifts are.
 
@@ -11,18 +11,25 @@ This document describes what the repo actually tests today, how those tests are 
 ### Unit / application-start tests
 
 Visible in the repo:
+- `AuthApplicationTests`
 - `OrdersServiceApplicationTests`
+- `MatchingEngineApplicationTests`
+- `TransactionProcessorApplicationTests`
 - `MarketDataConsumerApplicationTests`
 - `UserRegistrationServiceApplicationTests`
 - `PortfolioServiceApplicationTests`
+- `OrdersControllerTest`
+- `OrderServiceTest`
 
-What these likely prove:
+What these currently prove:
 - Basic Spring context startup for each service.
+- Targeted controller and service behavior coverage in `orders-service`.
 
 What they do not prove:
 - End-to-end event correctness.
 - Cross-service contracts.
 - Failure recovery behavior.
+- Equivalent focused unit coverage across most of the other services.
 
 ### End-to-end shell scripts
 
@@ -142,11 +149,14 @@ Conclusion:
 
 ## 3) What CI currently validates
 
-From the repo’s workflow/docs and current script set, CI is positioned around:
-- Compose bring-up
-- core health waiting
-- auth key generation for tests
-- end-to-end scenario execution
+From the current GitHub Actions workflow, CI does all of the following:
+- Generates temporary JWT key material under `secrets/`.
+- Builds the API Gateway jar and then `docker compose build`s the stack.
+- Starts the Compose runtime and waits explicitly on `orders-service` and `portfolio-service`.
+- Runs `e2e_portfolio_service.sh`.
+- Runs `e2e_trade_pipeline_test.sh`.
+- Runs `manual_cancel_test.sh`.
+- Runs `e2e_scenarios.sh`.
 
 The key practical benefit of the CI setup is that it validates integration timing and container orchestration issues, not just code compilation.
 
