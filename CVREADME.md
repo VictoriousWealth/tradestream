@@ -110,9 +110,11 @@ AUTH     USER-REG   ORDERS (8085)          TRANSACTION PROC    MARKET DATA
 | Transactions | `GET /api/transactions/**`                       |  Yes | (no rewrite) → transaction-processor (8084)  |
 | Portfolio    | `GET /api/portfolio/{userId}/positions[...]`     |  Yes | `/portfolio/...` → portfolio-service (8087)  |
 | Market Data  | `GET /api/market-data/candles/{ticker}[/latest]` |  Yes | `/candles/...` → market-data-consumer (8083) |
-| Ops          | `/actuator/*`                                    |  No  | Gateway self                                 |
+| Ops          | `GET /actuator/health`, `GET /actuator/info`     |  No  | Gateway self                                 |
+| Ops          | `GET /actuator/gateway/**`, `GET /actuator/metrics` | Yes | Gateway self                              |
 
 * **Login is rate-limited per IP** (Redis).
+* **Only `/actuator/health` and `/actuator/info` are public**; other actuator routes require JWT.
 * **Circuit breakers** return JSON fallbacks (no client timeouts).
 * **`X-Request-Id`** is injected for traceability.
 
@@ -171,13 +173,15 @@ curl http://localhost:8080/actuator/health
 1. **Register → Login**
 
 ```bash
+export DEMO_PASSWORD='<set-a-local-dev-password>'
+
 curl -sS -X POST http://localhost:8080/api/users/register \
   -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"S3cureP@ss!"}'
+  -d "{\"username\":\"alice\",\"password\":\"$DEMO_PASSWORD\"}"
 
 ACCESS=$(curl -sS -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"alice","password":"S3cureP@ss!"}' | jq -r .access_token)
+  -d "{\"username\":\"alice\",\"password\":\"$DEMO_PASSWORD\"}" | jq -r .access_token)
 echo "ACCESS=$ACCESS"
 ```
 
