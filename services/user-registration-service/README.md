@@ -202,10 +202,12 @@ Java 17, Spring Boot 3, Spring Security 6, Spring Data JPA (Hibernate), PostgreS
 **Register user (simulate gateway):**
 
 ```bash
+DEMO_PASSWORD='<set-a-local-dev-password>'
+
 curl -X POST http://localhost:8081/register \
   -H "Content-Type: application/json" \
   -H "X-Internal-Caller: api-gateway" \
-  -d '{"username":"alice","password":"S3cureP@ss!"}'
+  -d "{\"username\":\"alice\",\"password\":\"$DEMO_PASSWORD\"}"
 # -> 200 OK  ("All good.")
 ```
 
@@ -259,4 +261,3 @@ SPRING_FLYWAY_LOCATIONS=classpath:db/migration
 **Useful cURL header reminder:** `-H "X-Internal-Caller: api-gateway"` (required)&#x20;
 
 ---
-
